@@ -1,3 +1,4 @@
+import { hexToHsl } from "./palette";
 import type { Dye, Garment, SeasonTag, Zone } from "./types";
 
 /**
@@ -24,6 +25,40 @@ export const DYES = {
   verdigris: { name: "Verdigris", hex: "#2E6B5E" },
   lac: { name: "Lac Rose", hex: "#B5607E" },
 } as const satisfies Record<string, Dye>;
+
+/**
+ * Names an arbitrary colour as one of the house dyes.
+ *
+ * A garment digitised off a shop page arrives with a measured average colour,
+ * not a dye name. Rather than storing `#7B3F2A` and printing a hex on the
+ * card — which would break the language of the catalog — we snap it to the
+ * nearest dye on the card. Distance is weighted toward hue: an off-black and a
+ * navy differ far more meaningfully than two navies of different lightness.
+ */
+export function nearestDye(hex: string): Dye {
+  const target = hexToHsl(hex);
+  let best: Dye = DYES.iron;
+  let bestScore = Infinity;
+
+  for (const dye of Object.values(DYES) as Dye[]) {
+    const d = hexToHsl(dye.hex);
+    // Hue is circular; a 350° and a 10° red are 20° apart, not 340°.
+    const hueGap = Math.min(Math.abs(d.h - target.h), 360 - Math.abs(d.h - target.h));
+    // Hue barely matters on greys, so fade its weight out with saturation.
+    const chroma = Math.min(d.s, target.s);
+    const score =
+      (hueGap / 180) * 1.6 * chroma +
+      Math.abs(d.s - target.s) * 0.7 +
+      Math.abs(d.l - target.l) * 1.1;
+
+    if (score < bestScore) {
+      bestScore = score;
+      best = dye;
+    }
+  }
+
+  return best;
+}
 
 interface SeedItem {
   name: string;

@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Rangrez extension harness</title>
+
+    <!--
+      Open this file directly (file:// is fine) to exercise the content-script
+      surface without installing anything:
+
+        · detection runs against product markup shaped like a real Amazon PDP
+        · every panel state can be rendered on demand and eyeballed
+
+      chrome.* is stubbed below; nothing here ships with the extension.
+    -->
+
+    <!-- ══ FIXTURE: markup shaped like a real Amazon product page ══════ -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "Product",
+        "name": "Levi's Men's Relaxed Fit Denim Trucker Jacket",
+        "brand": { "@type": "Brand", "name": "Levi's" },
+        "category": "Clothing & Accessories › Men › Jackets",
+        "image": [
+          "https://m.media-amazon.com/images/I/71QKQ9mwV7L._AC_UY327_FMwebp_QL65_.jpg"
+        ]
+      }
+    </script>
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "BreadcrumbList",
+        "itemListElement": [
+          { "@type": "ListItem", "name": "Clothing & Accessories" },
+          { "@type": "ListItem", "name": "Men" },
+          { "@type": "ListItem", "name": "Jackets" }
+        ]
+      }
+    </script>
+    <meta property="og:title" content="Levi's Men's Relaxed Fit Denim Trucker Jacket" />
+    <meta property="og:image" content="https://m.media-amazon.com/images/I/81abcOTHER._AC_UL1500_.jpg" />
+
+    <style>
+      body {
+        margin: 0; padding: 26px 30px 120px;
+        background: #ede7da; color: #14120e;
+        font: 13px/1.55 ui-sans-serif, system-ui, sans-serif;
+        background-image:
+          repeating-linear-gradient(90deg, rgba(20,18,14,.035) 0 1px, transparent 1px 3px),
+          repeating-linear-gradient(0deg, rgba(20,18,14,.035) 0 1px, transparent 1px 3px);
+      }
+      h1 { font-family: Georgia, serif; font-weight: 400; font-size: 30px; letter-spacing: -.03em; margin: 0 0 4px; }
+      .spec { font-family: ui-monospace, monospace; font-size: 9.5px; letter-spacing: .2em; text-transform: uppercase; color: #6d6555; }
+      .bar { display: flex; flex-wrap: wrap; gap: 5px; margin: 18px 0; }
+      button {
+        font: inherit; font-family: ui-monospace, monospace; font-size: 10px;
+        letter-spacing: .12em; text-transform: uppercase; cursor: pointer;
+        padding: 8px 10px; background: transparent; color: #14120e;
+        border: 1px solid rgba(20,18,14,.3);
+      }
+      button:hover { background: #14120e; color: #ede7da; }
+      pre {
+        background: #fff8; border: 1px solid rgba(20,18,14,.18); padding: 12px;
+        font-size: 11px; line-height: 1.6; overflow: auto; max-height: 340px;
+        font-family: ui-monospace, monospace; white-space: pre-wrap; word-break: break-all;
+      }
+      /* Stands in for the product gallery the adapters read. */
+      #altImages, #imgTagWrapperId { display: none; }
+    </style>
+  </head>
+  <body>
+    <h1>Extension harness</h1>
+    <p class="spec">Detection + every panel state, without installing anything</p>
+
+    <div id="altImages">
+      <img src="https://m.media-amazon.com/images/I/71QKQ9mwV7L._AC_UY327_FMwebp_QL65_.jpg" />
+      <img src="https://m.media-amazon.com/images/I/61ZZZsecond._AC_US40_.jpg" />
+      <img src="https://m.media-amazon.com/images/I/71YYYthird._AC_US40_.jpg" />
+      <img src="https://m.media-amazon.com/images/I/sprite-do-not-pick._AC_.png" />
+    </div>
+    <div id="imgTagWrapperId">
+      <img id="landingImage" src="https://m.media-amazon.com/images/I/71QKQ9mwV7L._AC_SX679_.jpg" />
+    </div>
+
+    <div class="bar">
+      <button data-run="detect">Run detect()</button>
+      <button data-state="isolating">State · isolating</button>
+      <button data-state="rendering">State · rendering</button>
+      <button data-state="result">State · result</button>
+      <button data-state="unsupported">State · unsupported</button>
+      <button data-state="needs">State · not paired</button>
+      <button data-state="error">State · error</button>
+      <button data-state="trigger">Show trigger only</button>
+    </div>
+
+    <pre id="out">Ready.</pre>
+
+    <!-- ══ chrome.* stub — harness only ═══════════════════════════════ -->
+    <script>
+      window.chrome = {
+        runtime: {
+          getURL: (p) => "../" + p,
+          sendMessage: async () => ({}),
+        },
+      };
+      // The adapters key off the real hostname; force the Amazon one here.
+      window.__forceSite = "amazon";
+    </script>
+
+    <script src="../src/lib/taxonomy.js"></script>
+    <script src="../src/lib/sites.js"></script>
+    <script src="../src/content/detect.js"></script>
+    <script src="../src/content/panel.js"></script>
+
+    <script>
+      // Pin the adapter so the fixture exercises Amazon's selectors and URL
+      // rewrites even though we're on file://.
+      RZ.sites.current = () => ({
+        ...RZ.sites.byId(window.__forceSite),
+        isProduct: () => true,
+      });
+
+      const out = document.getElementById("out");
+      const log = (label, value) =>
+        (out.textContent = `${label}\n\n${typeof value === "string" ? value : JSON.stringify(value, null, 2)}`);
+
+      let surface = null;
+      const ensure = () => {
+        if (!surface) {
+          surface = new RZ.Surface();
+          surface.onTrigger = () => log("trigger", "clicked");
+          surface.onDismiss = () => surface.showTrigger(false);
+        }
+        return surface;
+      };
+
+      const SHOTS = [
+        { url: "https://picsum.photos/seed/rz-flat/600/800", thumb: "https://picsum.photos/seed/rz-flat/300/400" },
+        { url: "https://picsum.photos/seed/rz-model/600/800", thumb: "https://picsum.photos/seed/rz-model/300/400" },
+        { url: "https://picsum.photos/seed/rz-detail/600/800", thumb: "https://picsum.photos/seed/rz-detail/300/400" },
+        { url: "https://picsum.photos/seed/rz-back/600/800", thumb: "https://picsum.photos/seed/rz-back/300/400" },
+      ];
+
+      document.querySelector('[data-run="detect"]').addEventListener("click", () => {
+        const found = RZ.detect();
+        log("RZ.detect()", found || "null — no garment recognised on this page");
+      });
+
+      document.querySelectorAll("[data-state]").forEach((btn) =>
+        btn.addEventListener("click", async () => {
+          const s = ensure();
+          const state = btn.dataset.state;
+
+          if (state === "trigger") {
+            s.close();
+            s.showTrigger(true);
+            return log("state", "trigger only");
+          }
+
+          s.open("AMAZON");
+
+          if (state === "isolating") {
+            const strip = s.renderIsolating(SHOTS);
+            setTimeout(
+              () =>
+                s.applyScores(
+                  strip,
+                  [
+                    { url: SHOTS[0].url, score: 0.86 },
+                    { url: SHOTS[1].url, score: 0.41 },
+                    { url: SHOTS[2].url, score: 0.55 },
+                    { url: SHOTS[3].url, score: 0.62 },
+                  ],
+                  SHOTS[0].url,
+                ),
+              700,
+            );
+          }
+
+          if (state === "rendering") {
+            const steps = s.renderRendering(
+              "https://picsum.photos/seed/rz-avatar/600/800",
+              ["Sending the garment", "Apparel VTO · task queued", "Dressing your avatar"],
+            );
+            steps[0].dataset.on = "1";
+            setTimeout(() => {
+              steps[0].dataset.done = "1";
+              steps[1].dataset.on = "1";
+            }, 1400);
+          }
+
+          if (state === "result") {
+            s.renderResult({
+              renderUrl: "https://picsum.photos/seed/rz-render/600/800",
+              name: "Levi's Men's Relaxed Fit Denim Trucker Jacket",
+              specLine: "Outerwear · Amazon",
+              dye: "#2f3d72",
+              mocked: true,
+            });
+          }
+
+          if (state === "unsupported") {
+            s.renderUnsupported("Accessory", RZ.taxonomy.unsupportedReason("Accessory"));
+          }
+
+          if (state === "needs") {
+            s.renderNeeds({
+              line: "Not <em>paired</em> yet.",
+              note: "Open Rangrez once while signed in and the extension picks up its key on its own.",
+              cta: "Open Rangrez",
+              href: "http://localhost:3000/connect",
+            });
+          }
+
+          if (state === "error") {
+            s.renderError("Couldn't read any of the product photographs.");
+          }
+
+          log("state", state);
+        }),
+      );
+    </script>
+  </body>
+</html>

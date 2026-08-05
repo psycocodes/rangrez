@@ -99,7 +99,7 @@ instead of a folder of screenshots.
 | --- | --- | --- |
 | Frontend | React + Vite, Tailwind | **Next.js 15 (App Router) + Tailwind v4** — same React/Tailwind DX, but server routes let us keep the YouCam key server-side instead of standing up a separate Express process. One deploy target for the hackathon. |
 | Swipe/gesture | Framer Motion | **Framer Motion (`motion`)** — as specced |
-| Chrome extension | Manifest V3, content script + popup | not started yet |
+| Chrome extension | Manifest V3, content script + popup | **Built — `apps/extension`.** MV3, no build step (the folder is the extension). Shadow-DOM surface, service worker for network + pixel analysis. See its README. |
 | Backend | Node + Express / FastAPI | **Next.js route handlers + server actions** — the REST proxy layer for YouCam, polling, auth |
 | Garment segmentation | SAM / cloth segmentation, server-side | not started yet |
 | Database | Postgres / Firebase | **JSON file store at `.data/`** behind a `lib/db.ts` seam — swap to Postgres without touching callers |
@@ -110,6 +110,28 @@ instead of a folder of screenshots.
 ---
 
 ## 7 · YouCam API usage map
+
+**Verified contract (probed against the live API, 2026-08-05).** Note the version split — files are
+v1.0 and key off `result`; tasks are v2.0 and key off `data`. The v2.0 task body is flat, *not* the
+nested `payload.file_sets.actions` envelope the older docs describe. Polling is a path segment; GET on
+the bare task path returns 405.
+
+```
+POST /s2s/v1.0/client/auth            → result.access_token          (RSA id_token)
+POST /s2s/v1.0/file/cloth             → result.files[0].{file_id, requests[0]}
+PUT  <pre-signed S3 target>           → the image bytes
+POST /s2s/v2.0/task/cloth             → data.task_id
+     { src_file_id, ref_file_id, garment_category }
+GET  /s2s/v2.0/task/cloth/{task_id}   → data.{task_status, error, error_message, results}
+```
+
+`garment_category` is `upper_body` | `lower_body` | `full_body`. A live render takes ~19s. Engine
+failures come back with genuinely useful text (`error_pose` → "ensure the chest and shoulders are
+clearly visible"), so it's surfaced verbatim rather than flattened.
+
+Sibling surfaces exist and answer: `/s2s/v2.0/task/shoes`, `/s2s/v2.0/task/bag`,
+`/s2s/v2.0/task/2d-vto/earring`. So the extension's "not yet" on shoes and jewellery is a scope line,
+not an API limit. `yce-api-01.perfectcorp.com` and `yce-api-01.makeupar.com` both serve all of it.
 
 | Feature | YouCam API | Call pattern |
 | --- | --- | --- |
@@ -196,13 +218,31 @@ minimal SaaS dashboard.
 - Avatar studio (`/atelier`) — photo upload, capture guidance, YouCam call, colour-season result
 - Profile — avatar retake, colour season override, stage/backdrop customization, preferences
 - `lib/youcam.ts` — S2S auth + task-poll client with a **mock mode** so the app runs before the key lands
+- **Chrome extension (`apps/extension`)** — PRD §4.3 / Flow D. Detects garments on Amazon, Myntra,
+  Flipkart, Ajio, Zara and H&M (plus a JSON-LD/OpenGraph fallback for everything else), classifies the
+  piece, scores every gallery photograph to pick the one that isolates the garment best, renders it onto
+  the saved avatar, and saves the result into the same catalog.
+- **Extension API** — `/api/extension/{session,tryon,save}`, bearer-token auth (`lib/ext-token.ts`),
+  CORS confined to those routes, SSRF-guarded remote image fetch (`lib/fetch-image.ts`)
+- **`/connect`** — pairing page. The extension lifts its token off the page; nothing to copy.
 
 **Next**
 - Real garment segmentation on upload (currently manual category assign)
 - Swipe-to-Style customizer ("Sims mode")
-- Chrome extension (MV3)
-- Swap dummy auth → Sign in with Google (see `lib/auth/` — one provider object)
+- Extension: shoes and jewellery (needs YouCam surfaces beyond Apparel VTO — currently detected and
+  honestly refused)
+- Swap dummy auth → Sign in with Google (see `lib/auth.ts` — one function)
 - Swap JSON store → Postgres (see `lib/db.ts`)
+
+**Live-verified 2026-08-05:** detection fires correctly on a real Amazon India product page, and a full
+try-on has been rendered end to end against the real YouCam API (`mocked: false`, ~19s, garment
+transferred onto the user's own avatar with pose and background preserved).
+
+**Known gaps:**
+- The skin-analysis feature slug is the one part of the contract still unconfirmed. It's behind
+  `YOUCAM_SKIN_FEATURE` and falls back to a deterministic local derivation, so onboarding never breaks.
+- Myntra, Flipkart, Ajio, Zara and H&M selectors in `apps/extension/src/lib/sites.js` are unit-tested
+  for their URL rewrites but haven't met a live page yet. Amazon has.
 
 **Env** — see `.env.example`. `YOUCAM_API_KEY` / `YOUCAM_SECRET_KEY` go in `.env.local`; until then the app
 runs in `YOUCAM_MOCK=1` mode and fabricates plausible task responses so every flow stays clickable.

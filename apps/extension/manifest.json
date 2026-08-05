@@ -1,0 +1,76 @@
+{
+  "manifest_version": 3,
+  "name": "Rangrez — try it on yourself",
+  "version": "0.1.0",
+  "description": "Finds the clothes on a shop page, works out what the piece is, and hangs it on your own avatar without leaving the tab.",
+
+  "icons": {
+    "16": "assets/icon16.png",
+    "48": "assets/icon48.png",
+    "128": "assets/icon128.png"
+  },
+
+  "action": {
+    "default_title": "Rangrez",
+    "default_popup": "src/popup.html",
+    "default_icon": {
+      "16": "assets/icon16.png",
+      "48": "assets/icon48.png",
+      "128": "assets/icon128.png"
+    }
+  },
+
+  "background": {
+    "service_worker": "src/background.js",
+    "type": "module"
+  },
+
+  "permissions": ["storage"],
+
+  "host_permissions": [
+    "http://localhost/*",
+    "http://127.0.0.1/*",
+    "https://*/*"
+  ],
+
+  "content_scripts": [
+    {
+      "matches": [
+        "*://*.amazon.com/*",
+        "*://*.amazon.in/*",
+        "*://*.amazon.co.uk/*",
+        "*://*.myntra.com/*",
+        "*://*.flipkart.com/*",
+        "*://*.ajio.com/*",
+        "*://*.zara.com/*",
+        "*://*.hm.com/*",
+        "*://*.nykaafashion.com/*",
+        "*://*.tatacliq.com/*",
+        "*://*.asos.com/*",
+        "*://*.uniqlo.com/*"
+      ],
+      "js": [
+        "src/lib/taxonomy.js",
+        "src/lib/sites.js",
+        "src/content/detect.js",
+        "src/content/panel.js",
+        "src/content/main.js"
+      ],
+      "run_at": "document_idle",
+      "all_frames": false
+    },
+    {
+      "matches": ["http://localhost/*", "http://127.0.0.1/*"],
+      "js": ["src/pair.js"],
+      "run_at": "document_idle",
+      "all_frames": false
+    }
+  ],
+
+  "web_accessible_resources": [
+    {
+      "resources": ["assets/fonts/*.woff2", "assets/icon128.png"],
+      "matches": ["<all_urls>"]
+    }
+  ]
+}

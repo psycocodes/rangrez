@@ -10,6 +10,7 @@ const NAV = [
   { href: "/wardrobe", label: "Wardrobe", index: "01" },
   { href: "/atelier", label: "Studio", index: "02" },
   { href: "/profile", label: "Profile", index: "03" },
+  { href: "/connect", label: "Extension", index: "04" },
 ] as const;
 
 export function TopBar({

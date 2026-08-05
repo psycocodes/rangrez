@@ -35,3 +35,9 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# local data store + uploads (contains password hashes and avatar photos)
+.data/
+apps/*/.data/
+public/uploads/
+apps/*/public/uploads/
