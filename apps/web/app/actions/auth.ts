@@ -1,15 +1,9 @@
 "use server";
 
 import { redirect } from "next/navigation";
-
-import {
-  endSession,
-  hashPassword,
-  startSession,
-  verifyPassword,
-} from "@/lib/auth";
-import { findUserByEmail, insertUser, newId } from "@/lib/db";
-import type { User } from "@/lib/types";
+import { revalidatePath } from "next/cache";
+import { createClient } from "@/lib/supabase/server";
+import { findUserByEmail } from "@/lib/db";
 
 export interface AuthState {
   error?: string;
@@ -35,24 +29,31 @@ export async function signUp(
   if (!EMAIL_RE.test(email)) return { error: "That email doesn't look right." };
   if (password.length < 8) return { error: "Eight characters minimum." };
 
-  if (await findUserByEmail(email)) {
-    return { error: "That email is already on the ledger. Sign in instead." };
+  const supabase = await createClient();
+  
+  // Create user in Supabase Auth (the Postgres trigger `on_auth_user_created` creates public.users row)
+  const { data: authData, error: signUpError } = await supabase.auth.signUp({
+    email,
+    password,
+    options: {
+      data: {
+        name,
+      },
+    },
+  });
+
+  if (signUpError) {
+    if (signUpError.message.includes("already registered")) {
+       return { error: "That email is already on the ledger. Sign in instead." };
+    }
+    return { error: signUpError.message };
+  }
+  
+  if (!authData.user) {
+    return { error: "Something went wrong during sign up." };
   }
 
-  const user: User = {
-    id: newId(),
-    email,
-    name,
-    passwordHash: hashPassword(password),
-    createdAt: new Date().toISOString(),
-    preferences: { fitPreference: "regular", paletteFirst: true },
-  };
-
-  await insertUser(user);
-  await startSession(user);
-
-  // New users go straight to the avatar studio — nothing in the product works
-  // until there is a body to render onto (PRD Flow A).
+  revalidatePath("/", "layout");
   redirect("/atelier");
 }
 
@@ -64,17 +65,28 @@ export async function signIn(
 
   if (!EMAIL_RE.test(email)) return { error: "That email doesn't look right." };
 
-  const user = await findUserByEmail(email);
-  // Same message either way — don't leak which emails exist.
-  if (!user || !verifyPassword(password, user.passwordHash)) {
+  const supabase = await createClient();
+  const { error } = await supabase.auth.signInWithPassword({
+    email,
+    password,
+  });
+
+  if (error) {
+    if (error.message.includes("Email not confirmed")) {
+      return { error: "Please confirm your email or disable 'Confirm Email' in Supabase Auth settings." };
+    }
     return { error: "That pair doesn't match anything we have." };
   }
 
-  await startSession(user);
-  redirect(user.avatar ? "/wardrobe" : "/atelier");
+  const user = await findUserByEmail(email);
+
+  revalidatePath("/", "layout");
+  redirect(user?.avatar ? "/wardrobe" : "/atelier");
 }
 
 export async function signOut(): Promise<void> {
-  await endSession();
+  const supabase = await createClient();
+  await supabase.auth.signOut();
+  revalidatePath("/", "layout");
   redirect("/enter");
 }

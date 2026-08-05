@@ -1,114 +1,37 @@
 import "server-only";
 
-import { createHmac, randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
-import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-
-import { findUserById } from "./db";
-import type { Session, User } from "./types";
-
-/**
- * ─────────────────────────────────────────────────────────────────────────────
- *  DUMMY AUTH  ·  deliberately thin, deliberately replaceable
- * ─────────────────────────────────────────────────────────────────────────────
- *  Email + password, scrypt-hashed, with an HMAC-signed httpOnly session
- *  cookie. Good enough to demo per-user private catalogs (PRD §4.5) and no
- *  more.
- *
- *  MIGRATING TO "SIGN IN WITH GOOGLE":
- *  The rest of the app only ever touches `getCurrentUser()` / `requireUser()`
- *  / `endSession()`. Nothing imports the password functions except the two
- *  server actions in app/actions/auth.ts. So the swap is:
- *    1. add next-auth (or Auth.js) with the Google provider
- *    2. reimplement `getCurrentUser()` on top of its session
- *    3. delete `hashPassword` / `verifyPassword` and the two actions
- *    4. drop `passwordHash` from the User type
- *  No page, layout or component changes.
- * ─────────────────────────────────────────────────────────────────────────────
- */
-
-const COOKIE = "rangrez_session";
-const MAX_AGE = 60 * 60 * 24 * 30; // 30 days
-
-function secret(): string {
-  return process.env.SESSION_SECRET || "rangrez-insecure-dev-secret";
-}
-
-/* ── passwords ──────────────────────────────────────────────────────────── */
-
-export function hashPassword(password: string): string {
-  const salt = randomBytes(16).toString("hex");
-  const hash = scryptSync(password, salt, 64).toString("hex");
-  return `${salt}:${hash}`;
-}
-
-export function verifyPassword(password: string, stored: string): boolean {
-  const [salt, hash] = stored.split(":");
-  if (!salt || !hash) return false;
-  const candidate = scryptSync(password, salt, 64);
-  const expected = Buffer.from(hash, "hex");
-  return (
-    candidate.length === expected.length && timingSafeEqual(candidate, expected)
-  );
-}
-
-/* ── session cookie ─────────────────────────────────────────────────────── */
-
-function sign(payload: string): string {
-  return createHmac("sha256", secret()).update(payload).digest("base64url");
-}
-
-function encode(session: Session): string {
-  const payload = Buffer.from(JSON.stringify(session)).toString("base64url");
-  return `${payload}.${sign(payload)}`;
-}
-
-function decode(token: string | undefined): Session | null {
-  if (!token) return null;
-  const [payload, sig] = token.split(".");
-  if (!payload || !sig) return null;
-
-  // Constant-time compare so a bad cookie can't be brute-forced byte by byte.
-  const expected = Buffer.from(sign(payload));
-  const actual = Buffer.from(sig);
-  if (expected.length !== actual.length || !timingSafeEqual(expected, actual)) {
-    return null;
-  }
-
-  try {
-    return JSON.parse(Buffer.from(payload, "base64url").toString()) as Session;
-  } catch {
-    return null;
-  }
-}
-
-export async function startSession(user: User): Promise<void> {
-  const jar = await cookies();
-  jar.set(COOKIE, encode({ userId: user.id, email: user.email, issuedAt: Date.now() }), {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
-    path: "/",
-    maxAge: MAX_AGE,
-  });
-}
-
-export async function endSession(): Promise<void> {
-  const jar = await cookies();
-  jar.delete(COOKIE);
-}
-
-export async function getSession(): Promise<Session | null> {
-  const jar = await cookies();
-  return decode(jar.get(COOKIE)?.value);
-}
-
-/* ── what the app actually calls ────────────────────────────────────────── */
+import { createClient } from "./supabase/server";
+import { findUserById, insertUser } from "./db";
+import type { User } from "./types";
 
 export async function getCurrentUser(): Promise<User | null> {
-  const session = await getSession();
-  if (!session) return null;
-  return (await findUserById(session.userId)) ?? null;
+  const supabase = await createClient();
+  const { data: { user: authUser }, error } = await supabase.auth.getUser();
+  
+  if (error || !authUser) return null;
+
+  let domainUser = await findUserById(authUser.id);
+
+  // Self-heal: If user exists in Supabase Auth but public.users row is missing
+  if (!domainUser) {
+    const newUser: User = {
+      id: authUser.id,
+      email: authUser.email || "",
+      name: authUser.user_metadata?.name || authUser.email?.split("@")[0] || "Atelier Member",
+      passwordHash: "",
+      createdAt: new Date().toISOString(),
+      preferences: { fitPreference: "regular", paletteFirst: true },
+    };
+    try {
+      domainUser = await insertUser(newUser);
+    } catch (e) {
+      console.error("Failed to self-heal user profile:", e);
+      return newUser; // Return in-memory fallback user so we never enter a 307 redirect loop
+    }
+  }
+
+  return domainUser;
 }
 
 /** For pages that cannot render without a user. Redirects to the door. */
