@@ -73,13 +73,21 @@ check("short sleeve shirt is a top", zoneOf("H&M Short Sleeve Resort Shirt"), "t
 check("track pants are bottoms", zoneOf("Nike Dri-FIT Track Pants"), "bottom");
 check("shorts are bottoms", zoneOf("Puma Woven Training Shorts"), "bottom");
 
-// recognised, but VTO can't dress a body with them
-check("chain is an accessory", zoneOf("Men's Stainless Steel Cuban Link Chain"), "accessory");
-check("chain has no VTO", vtoOf("Men's Stainless Steel Cuban Link Chain"), "none");
+// worn objects and jewellery — each has its own YouCam surface
 check("sneakers are shoes", zoneOf("Adidas Ultraboost Running Shoes"), "shoes");
-check("sneakers have no VTO", vtoOf("Adidas Ultraboost Running Shoes"), "none");
-check("handbag is an accessory", zoneOf("Caprese Leather Tote Bag"), "accessory");
-check("sunglasses are accessories", zoneOf("Ray-Ban Aviator Sunglasses"), "accessory");
+check("sneakers → shoes surface", vtoOf("Adidas Ultraboost Running Shoes"), "shoes");
+check("tote bag → bag surface", vtoOf("Caprese Leather Tote Bag"), "bag");
+check("cap → hat surface", vtoOf("Nike Sportswear Heritage86 Cap"), "hat");
+check("chain → necklace surface", vtoOf("Men's Stainless Steel Cuban Link Chain"), "necklace");
+check("chain is an accessory", zoneOf("Men's Stainless Steel Cuban Link Chain"), "accessory");
+check("jhumkas → earring surface", vtoOf("Oxidised Silver Jhumka Earrings"), "earring");
+check("bangle → bracelet surface", vtoOf("Gold Plated Kada Bangle"), "bracelet");
+check("watch → watch surface", vtoOf("Titan Neo Analog Watch"), "watch");
+check("ring → ring surface", vtoOf("Sterling Silver Signet Ring"), "ring");
+
+// genuinely no surface
+check("sunglasses have no surface", vtoOf("Ray-Ban Aviator Sunglasses"), "none");
+check("belt has no surface", vtoOf("Hidesign Reversible Leather Belt"), "none");
 
 // not clothes at all → no offer
 check("a laptop is not a garment", zoneOf("Dell Inspiron 15 Laptop, 16GB RAM"), "none");
@@ -131,9 +139,34 @@ check(
   "https://assets.ajio.com/medias/sys_master/root/x-1117Wx1400H-46.jpg",
 );
 
+const upgradeVia = (id, url) => {
+  const rz = load(["src/lib/sites.js"], { hostname: "shop.test", href: "https://shop.test/x" });
+  return rz.sites.byId(id).upgrade(url);
+};
+
+check(
+  "shopify drops the _400x suffix",
+  upgradeVia("shopify", "https://holyheaden.in/cdn/shop/files/jacket_400x.jpg?v=17"),
+  "https://holyheaden.in/cdn/shop/files/jacket.jpg?v=17",
+);
+check(
+  "shopify drops a named size",
+  upgradeVia("shopify", "https://cdn.shopify.com/s/files/1/1/2/x_grande.jpg?v=9"),
+  "https://cdn.shopify.com/s/files/1/1/2/x.jpg?v=9",
+);
+check(
+  "shopify widens the width param",
+  upgradeVia("shopify", "https://holyheaden.in/cdn/shop/files/a.jpg?v=1&width=300"),
+  "https://holyheaden.in/cdn/shop/files/a.jpg?v=1&width=1600",
+);
+check(
+  "woocommerce drops the generated size",
+  upgradeVia("woocommerce", "https://shop.test/wp-content/uploads/2026/01/tee-600x600.jpg"),
+  "https://shop.test/wp-content/uploads/2026/01/tee.jpg",
+);
 check(
   "unknown shop is left alone",
-  upgradeOn("some-shopify-store.com", "https://cdn.shop/x_400x.jpg"),
+  upgradeOn("some-random-store.com", "https://cdn.shop/x_400x.jpg"),
   "https://cdn.shop/x_400x.jpg",
 );
 

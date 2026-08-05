@@ -128,7 +128,10 @@ export function seedCatalog(userId: string): Garment[] {
   return ITEMS.map((item, i) => {
     const seed = slug(item.name);
     return {
-      id: `seed-${userId.slice(0, 8)}-${i.toString().padStart(2, "0")}`,
+      // Must be a real UUID: the garments table types `id` as uuid. A readable
+      // synthetic id ("seed-0c50c0fd-00") was rejected by Postgres, which took
+      // sign-up down with it — the user row landed and the wardrobe didn't.
+      id: crypto.randomUUID(),
       userId,
       name: item.name,
       origin: "seed",

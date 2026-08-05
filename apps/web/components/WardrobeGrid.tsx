@@ -2,12 +2,14 @@
 
 import { useMemo, useState } from "react";
 
+import { GarmentEditor } from "./GarmentActions";
 import { GarmentCard, Interstitial } from "./GarmentCard";
 import { GRID_INTERSTITIALS } from "@/lib/seed";
 import { ZONE_LABEL, ZONES, type Garment, type Zone } from "@/lib/types";
 
 type Filter = Zone | "all";
 type Sort = "recent" | "worn" | "dye";
+type Source = "all" | "shop" | "closet";
 
 export function WardrobeGrid({ garments }: { garments: Garment[] }) {
   const [zone, setZone] = useState<Filter>("all");
@@ -15,6 +17,13 @@ export function WardrobeGrid({ garments }: { garments: Garment[] }) {
   const [paletteOnly, setPaletteOnly] = useState(false);
   const [raw, setRaw] = useState(false);
   const [sort, setSort] = useState<Sort>("recent");
+  const [source, setSource] = useState<Source>("all");
+  const [editing, setEditing] = useState<Garment | null>(null);
+
+  const shopCount = useMemo(
+    () => garments.filter((g) => g.origin === "shop").length,
+    [garments],
+  );
 
   const counts = useMemo(() => {
     const map = { all: garments.length } as Record<Filter, number>;
@@ -26,6 +35,8 @@ export function WardrobeGrid({ garments }: { garments: Garment[] }) {
     const q = query.trim().toLowerCase();
     const list = garments.filter((g) => {
       if (zone !== "all" && g.zone !== zone) return false;
+      if (source === "shop" && g.origin !== "shop") return false;
+      if (source === "closet" && g.origin === "shop") return false;
       if (paletteOnly && !g.inPalette) return false;
       if (!q) return true;
       return (
@@ -39,7 +50,7 @@ export function WardrobeGrid({ garments }: { garments: Garment[] }) {
     if (sort === "worn") sorted.sort((a, b) => b.wornCount - a.wornCount);
     if (sort === "dye") sorted.sort((a, b) => a.dye.name.localeCompare(b.dye.name));
     return sorted;
-  }, [garments, zone, query, paletteOnly, sort]);
+  }, [garments, zone, query, paletteOnly, sort, source]);
 
   return (
     <section>
@@ -55,6 +66,9 @@ export function WardrobeGrid({ garments }: { garments: Garment[] }) {
         setRaw={setRaw}
         sort={sort}
         setSort={setSort}
+        source={source}
+        setSource={setSource}
+        shopCount={shopCount}
         shown={visible.length}
       />
 
@@ -75,12 +89,18 @@ export function WardrobeGrid({ garments }: { garments: Garment[] }) {
                 index={cell.index}
                 raw={raw}
                 feature={cell.feature}
+                onEdit={setEditing}
               />
             ) : (
               <Interstitial key={cell.key} {...cell.copy} />
             ),
           )}
         </div>
+      )}
+
+      {/* One editor for the whole grid rather than one per card. */}
+      {editing && (
+        <GarmentEditor garment={editing} onClose={() => setEditing(null)} />
       )}
     </section>
   );
@@ -130,6 +150,9 @@ function FilterBar({
   setRaw,
   sort,
   setSort,
+  source,
+  setSource,
+  shopCount,
   shown,
 }: {
   counts: Record<Filter, number>;
@@ -143,6 +166,9 @@ function FilterBar({
   setRaw: (v: boolean) => void;
   sort: Sort;
   setSort: (s: Sort) => void;
+  source: Source;
+  setSource: (s: Source) => void;
+  shopCount: number;
   shown: number;
 }) {
   return (
@@ -171,6 +197,29 @@ function FilterBar({
               className="field !w-44 !py-1 !text-[0.82rem]"
             />
           </label>
+
+          {/* Only worth showing once the extension has actually saved something. */}
+          {shopCount > 0 && (
+            <Chip
+              on={source !== "all"}
+              onClick={() =>
+                setSource(
+                  source === "all" ? "shop" : source === "shop" ? "closet" : "all",
+                )
+              }
+            >
+              <span className="spec">
+                {source === "shop"
+                  ? "From a shop"
+                  : source === "closet"
+                    ? "My closet"
+                    : "Any source"}
+              </span>
+              {source === "shop" && (
+                <span className="spec-sm opacity-55">{shopCount}</span>
+              )}
+            </Chip>
+          )}
 
           <Chip on={paletteOnly} onClick={() => setPaletteOnly(!paletteOnly)}>
             <span

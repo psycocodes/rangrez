@@ -138,9 +138,9 @@ globalThis.RZ = globalThis.RZ || {};
     if (!winner) throw new Error("Couldn't read any of the product photographs.");
 
     surface.applyScores(strip, scored, winner.url);
-    // Let the crown land before the view changes — this is the one moment
-    // that shows the work, and it's over in under a second.
-    await new Promise((r) => setTimeout(r, 950));
+    // Just long enough for the crown to land. The render behind it takes ~19s,
+    // so this is the only place a millisecond of ours is worth spending.
+    await new Promise((r) => setTimeout(r, 420));
 
     // ── render ─────────────────────────────────────────────────────────
     const steps = surface.renderRendering(session.avatar.renderUrl, RENDER_STEPS);

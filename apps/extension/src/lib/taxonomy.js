@@ -18,9 +18,12 @@ globalThis.RZ = globalThis.RZ || {};
 
 (() => {
   /**
-   * `vto` is the Apparel VTO category, or null where the API simply cannot
-   * help — shoes and jewellery are recognised on purpose so the panel can say
-   * so, rather than spending a call to fail.
+   * `vto` is the YouCam try-on target. Three families sit behind these names —
+   * `cloth` for anything that dresses a torso or legs, `shoes|bag|hat` for worn
+   * objects, and the `2d-vto/*` jewellery surfaces — but the classifier only
+   * has to name the thing; lib/youcam.ts maps the name to an endpoint.
+   *
+   * `null` means genuinely no surface exists. That is now only eyewear.
    *
    * `zone` maps onto the wardrobe's five rails. One-pieces have no rail of
    * their own yet, so they hang with the tops and carry the detail in the
@@ -52,10 +55,28 @@ globalThis.RZ = globalThis.RZ || {};
     { re: /\b(t[\s-]?shirts?|tees?|shirts?|tops?|blouses?|kurtas?|kurtis?|sweat(er|shirt)s?|hoodies?|pullovers?|jumpers?|cardigans?|polos?|tanks?|camisoles?|bodysuits?|vests?|crop\s*top)\b/i,
                                                label: "Top",       zone: "top",       vto: "upper_body" },
 
-    // ── recognised, but Apparel VTO can't dress a body with them ─────────
-    { re: /\b(shoes?|sneakers?|trainers?|boots?|sandals?|heels?|loafers?|flip[\s-]?flops?|slippers?|derby|oxfords?|mules?|espadrilles?|sliders?|clogs?)\b/i,
-                                               label: "Shoes",     zone: "shoes",     vto: null },
-    { re: /\b(chains?|necklaces?|bracelets?|rings?|earrings?|pendants?|anklets?|brooch|jewell?ery|watch(es)?|belts?|bags?|backpacks?|wallets?|clutch(es)?|purses?|totes?|sunglass(es)?|goggles?|caps?|hats?|beanie|scarf|scarves|stole|ties?|socks?|gloves?)\b/i,
+    // ── worn objects: their own YouCam surfaces ──────────────────────────
+    { re: /\b(shoes?|sneakers?|trainers?|boots?|sandals?|heels?|loafers?|flip[\s-]?flops?|slippers?|derby|oxfords?|mules?|espadrilles?|sliders?|clogs?|footwear)\b/i,
+                                               label: "Shoes",     zone: "shoes",     vto: "shoes"    },
+    { re: /\b(bags?|handbags?|backpacks?|rucksacks?|totes?|clutch(es)?|purses?|satchels?|slings?|duffels?)\b/i,
+                                               label: "Bag",       zone: "accessory", vto: "bag"      },
+    { re: /\b(caps?|hats?|beanies?|beanie|bucket\s*hat|snapback|fedora|visor)\b/i,
+                                               label: "Hat",       zone: "accessory", vto: "hat"      },
+
+    // ── jewellery: the 2d-vto family ─────────────────────────────────────
+    { re: /\b(chains?|necklaces?|pendants?|chokers?|mangalsutra)\b/i,
+                                               label: "Chain",     zone: "accessory", vto: "necklace" },
+    { re: /\b(earrings?|studs?|jhumkas?|hoops?)\b/i,
+                                               label: "Earrings",  zone: "accessory", vto: "earring"  },
+    { re: /\b(bracelets?|bangles?|anklets?|kadas?|cuffs?)\b/i,
+                                               label: "Bracelet",  zone: "accessory", vto: "bracelet" },
+    { re: /\bwatch(es)?\b/i,                   label: "Watch",     zone: "accessory", vto: "watch"    },
+    { re: /\brings?\b/i,                       label: "Ring",      zone: "accessory", vto: "ring"     },
+
+    // ── recognised, but genuinely no surface exists ──────────────────────
+    { re: /\b(sunglass(es)?|eyewear|goggles?|spectacles?|frames?)\b/i,
+                                               label: "Eyewear",   zone: "accessory", vto: null },
+    { re: /\b(belts?|wallets?|scarf|scarves|stole|ties?|socks?|gloves?|brooch|jewell?ery)\b/i,
                                                label: "Accessory", zone: "accessory", vto: null },
   ];
 
@@ -88,12 +109,12 @@ globalThis.RZ = globalThis.RZ || {};
       return null;
     },
 
-    /** Human sentence for the panel when VTO can't help. */
+    /** Human sentence for the panel on the few things YouCam has no surface for. */
     unsupportedReason(label) {
-      if (label === "Shoes") {
-        return "Apparel VTO dresses a body — it doesn't fit shoes yet.";
+      if (label === "Eyewear") {
+        return "YouCam has try-on surfaces for clothes, shoes, bags and jewellery — but not eyewear.";
       }
-      return "Apparel VTO dresses a body — it doesn't hang jewellery or bags yet.";
+      return `There's no try-on surface for ${label.toLowerCase()} — belts, scarves and ties have nothing to render onto.`;
     },
   };
 })();

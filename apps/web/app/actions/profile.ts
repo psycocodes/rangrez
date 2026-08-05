@@ -75,6 +75,9 @@ export async function savePreferences(form: FormData): Promise<void> {
     u.preferences.heightCm =
       Number.isFinite(height) && height > 0 ? Math.round(height) : undefined;
     u.preferences.paletteFirst = form.get("paletteFirst") === "on";
+
+    const g = String(form.get("vtoGender") ?? "");
+    if (g === "male" || g === "female") u.preferences.vtoGender = g;
   });
 
   refresh();

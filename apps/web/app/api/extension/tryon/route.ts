@@ -1,7 +1,7 @@
 import { cors, preflight } from "@/lib/cors";
 import { userFromRequest } from "@/lib/ext-token";
 import { fetchImage } from "@/lib/fetch-image";
-import { tryOnGarment, VTO_CATEGORIES, type VtoCategory } from "@/lib/youcam";
+import { isVtoTarget, tryOnGarment } from "@/lib/youcam";
 
 export const OPTIONS = preflight;
 
@@ -9,9 +9,29 @@ export const OPTIONS = preflight;
 export const maxDuration = 120;
 
 interface Body {
-  /** The garment image the extension picked as the cleanest of the gallery. */
+  /**
+   * The prepared reference: the winning gallery image already cropped to the
+   * garment and flattened onto white by the extension, base64-encoded. This is
+   * the normal path — it saves a server-side fetch and gives VTO a far cleaner
+   * input than the raw editorial shot.
+   */
+  imageData?: string;
+  contentType?: string;
+  /** Fallback when preparation failed: fetch it here instead. */
   imageUrl?: string;
   category?: string;
+}
+
+const MAX_INLINE_BYTES = 8 * 1024 * 1024;
+
+/** Base64 from the extension → bytes, with a size ceiling. */
+function decodeInline(base64: string, contentType = "image/jpeg") {
+  const bytes = Buffer.from(base64, "base64");
+  if (!bytes.byteLength) throw new Error("That garment image was empty.");
+  if (bytes.byteLength > MAX_INLINE_BYTES) {
+    throw new Error("That garment image is too large.");
+  }
+  return { bytes, contentType };
 }
 
 /**
@@ -41,10 +61,10 @@ export async function POST(req: Request) {
     return cors({ error: "Expected JSON." }, { status: 400 });
   }
 
-  const category = body.category as VtoCategory;
-  if (!body.imageUrl || !VTO_CATEGORIES.includes(category)) {
+  const target = body.category;
+  if (!isVtoTarget(target) || (!body.imageData && !body.imageUrl)) {
     return cors(
-      { error: "Need an image URL and a supported garment category." },
+      { error: "Need a garment image and a supported try-on target." },
       { status: 400 },
     );
   }
@@ -52,10 +72,17 @@ export async function POST(req: Request) {
   try {
     const [avatar, garment] = await Promise.all([
       fetchImage(user.avatar.renderUrl),
-      fetchImage(body.imageUrl),
+      body.imageData
+        ? decodeInline(body.imageData, body.contentType)
+        : fetchImage(body.imageUrl!),
     ]);
 
-    const result = await tryOnGarment(avatar, garment, category);
+    const result = await tryOnGarment(
+      avatar,
+      garment,
+      target,
+      user.preferences.vtoGender ?? "male",
+    );
 
     return cors({
       // In mock mode there is no generated render, so we hand back the avatar
@@ -65,7 +92,7 @@ export async function POST(req: Request) {
         new URL(user.avatar.renderUrl, req.url).toString(),
       taskId: result.taskId,
       mocked: result.mocked,
-      category,
+      target,
     });
   } catch (err) {
     console.error("[extension/tryon]", err);

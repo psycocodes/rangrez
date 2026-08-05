@@ -162,6 +162,30 @@ export default async function ProfilePage() {
               </div>
             </fieldset>
 
+            <fieldset>
+              <legend className="spec-sm mb-3 text-ink-3">
+                FIT MODEL · SHOES, BAGS & HATS
+              </legend>
+              <div className="flex flex-wrap gap-1.5">
+                {(["male", "female"] as const).map((g) => (
+                  <label key={g} className="chip has-checked:!bg-ink has-checked:!text-paper">
+                    <input
+                      type="radio"
+                      name="vtoGender"
+                      value={g}
+                      defaultChecked={(user.preferences.vtoGender ?? "male") === g}
+                      className="h-3 w-3 self-center accent-madder"
+                    />
+                    <span className="spec">{g}</span>
+                  </label>
+                ))}
+              </div>
+              <p className="mt-2.5 max-w-[42ch] text-[0.78rem] leading-relaxed text-ink-3">
+                YouCam&apos;s shoe, bag and hat surfaces require a body model and
+                accept only these two. It affects nothing else in Rangrez.
+              </p>
+            </fieldset>
+
             <label className="flex cursor-pointer items-start gap-3">
               <input
                 type="checkbox"

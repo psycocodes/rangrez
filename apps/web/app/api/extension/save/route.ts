@@ -76,6 +76,7 @@ export async function POST(req: Request) {
     season: SEASON_BY_MONTH[new Date().getMonth()],
     material: body.material?.slice(0, 80).trim() || "From a shop page",
     imageUrl: relativizeOwn(body.renderUrl, req),
+    sourceUrl: body.sourceUrl?.slice(0, 500),
     seed: newId().slice(0, 8),
     status: "rendered",
     inPalette: isInPalette(dye, user.avatar?.colorSeason),

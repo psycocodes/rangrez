@@ -35,19 +35,25 @@
 
   "content_scripts": [
     {
-      "matches": [
-        "*://*.amazon.com/*",
-        "*://*.amazon.in/*",
-        "*://*.amazon.co.uk/*",
-        "*://*.myntra.com/*",
-        "*://*.flipkart.com/*",
-        "*://*.ajio.com/*",
-        "*://*.zara.com/*",
-        "*://*.hm.com/*",
-        "*://*.nykaafashion.com/*",
-        "*://*.tatacliq.com/*",
-        "*://*.asos.com/*",
-        "*://*.uniqlo.com/*"
+      "matches": ["http://*/*", "https://*/*"],
+      "exclude_matches": [
+        "*://*.google.com/*",
+        "*://*.gmail.com/*",
+        "*://mail.google.com/*",
+        "*://*.youtube.com/*",
+        "*://*.facebook.com/*",
+        "*://*.instagram.com/*",
+        "*://*.x.com/*",
+        "*://*.twitter.com/*",
+        "*://*.reddit.com/*",
+        "*://*.linkedin.com/*",
+        "*://*.whatsapp.com/*",
+        "*://*.notion.so/*",
+        "*://*.figma.com/*",
+        "*://*.github.com/*",
+        "*://*.slack.com/*",
+        "*://localhost/*",
+        "*://127.0.0.1/*"
       ],
       "js": [
         "src/lib/taxonomy.js",

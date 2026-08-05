@@ -8,7 +8,7 @@ import {
   startSession,
   verifyPassword,
 } from "@/lib/auth";
-import { findUserByEmail, insertUser, newId } from "@/lib/db";
+import { DbNotReadyError, findUserByEmail, insertUser, newId } from "@/lib/db";
 import type { User } from "@/lib/types";
 
 export interface AuthState {
@@ -35,8 +35,13 @@ export async function signUp(
   if (!EMAIL_RE.test(email)) return { error: "That email doesn't look right." };
   if (password.length < 8) return { error: "Eight characters minimum." };
 
-  if (await findUserByEmail(email)) {
-    return { error: "That email is already on the ledger. Sign in instead." };
+  try {
+    if (await findUserByEmail(email)) {
+      return { error: "That email is already on the ledger. Sign in instead." };
+    }
+  } catch (err) {
+    if (err instanceof DbNotReadyError) redirect("/setup");
+    throw err;
   }
 
   const user: User = {

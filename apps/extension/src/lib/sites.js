@@ -1,25 +1,39 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- *  Per-shop adapters
+ *  Store adapters
  * ═══════════════════════════════════════════════════════════════════════════
  *
- *  Two jobs each:
- *    1. `gallery()`  — where the product photographs live on this site
- *    2. `upgrade()`  — rewrite a thumbnail URL to the full-resolution original
+ *  The content script runs on every site now, so this file has two jobs:
  *
- *  (2) matters more than it looks. Every one of these sites serves a 128px
- *  thumbnail in the DOM; feeding that to VTO produces mush. Each CDN encodes
- *  its size in the URL, so the full-size original is one string substitution
- *  away — no extra requests, no scraping of a hi-res gallery.
+ *    1. `isProduct()` — is this actually a product page? With universal
+ *       injection this is the gate that keeps us quiet on blogs, listings and
+ *       everything else. It is deliberately conservative.
+ *    2. `gallery()` + `upgrade()` — where the photographs are, and how to
+ *       rewrite a thumbnail URL into the full-size original.
  *
- *  Anything not listed falls through to `generic`, which reads JSON-LD and
- *  OpenGraph. That covers most Shopify/WooCommerce storefronts for free.
+ *  Adapters are chosen by hostname first, then by `probe()` for platforms that
+ *  aren't tied to a domain (Shopify, WooCommerce — which is most of the long
+ *  tail of clothing stores), then `generic` as the floor.
+ *
+ *  (2) matters more than it looks. Every one of these platforms serves a small
+ *  thumbnail in the DOM; feeding that to VTO produces mush. The size lives in
+ *  the URL, so the original is one substitution away.
  * ═══════════════════════════════════════════════════════════════════════════
  */
 globalThis.RZ = globalThis.RZ || {};
 
 (() => {
-  const q = (sel) => Array.from(document.querySelectorAll(sel));
+  const q = (sel) => {
+    try {
+      return Array.from(document.querySelectorAll(sel));
+    } catch {
+      return []; // a bad selector on one adapter shouldn't kill detection
+    }
+  };
+
+  const meta = (prop) =>
+    document.querySelector(`meta[property="${prop}"], meta[name="${prop}"]`)
+      ?.content || "";
 
   /** Largest URL in a srcset, by declared width. */
   function fromSrcset(srcset) {
@@ -37,17 +51,55 @@ globalThis.RZ = globalThis.RZ || {};
     return best;
   }
 
-  /** Every plausible product image an <img> on this page points at. */
   function imagesFrom(selectors) {
     const out = [];
     for (const sel of selectors) {
       for (const img of q(sel)) {
-        const url = fromSrcset(img.getAttribute("srcset")) || img.currentSrc || img.src;
+        const url =
+          fromSrcset(img.getAttribute("srcset")) || img.currentSrc || img.src;
         if (url && !url.startsWith("data:")) out.push(url);
+      }
+      // Plenty of galleries paint slides as CSS backgrounds rather than <img>.
+      for (const node of q(sel)) {
+        const bg = getComputedStyle(node).backgroundImage;
+        const hit = bg && bg !== "none" && bg.match(/url\(["']?(.*?)["']?\)/)?.[1];
+        if (hit) out.push(hit);
       }
     }
     return out;
   }
+
+  /* ── the universal "is this a product page" gate ───────────────────────── */
+
+  const CART_CONTROLS = [
+    'form[action*="/cart/add"]',
+    'button[name="add"]',
+    '[id*="AddToCart" i]',
+    '[class*="add-to-cart" i]',
+    '[class*="addtocart" i]',
+    '[data-testid*="add-to-cart" i]',
+    'button[type="submit"][name="add"]',
+  ].join(",");
+
+  function looksLikeProduct() {
+    // Structured data is the strongest signal and costs one querySelectorAll.
+    if (document.querySelector('script[type="application/ld+json"]')) {
+      for (const tag of q('script[type="application/ld+json"]')) {
+        if (/"@type"\s*:\s*"?\[?[^]]*Product/i.test(tag.textContent || "")) {
+          return true;
+        }
+      }
+    }
+    if (/product/i.test(meta("og:type"))) return true;
+    if (document.querySelector('[itemtype*="schema.org/Product" i]')) return true;
+    if (/\/(products?|product-detail|item|dp|p|buy|gp\/product)\//.test(location.pathname)) {
+      return true;
+    }
+    if (document.querySelector(CART_CONTROLS)) return true;
+    return false;
+  }
+
+  /* ── adapters ──────────────────────────────────────────────────────────── */
 
   const SITES = [
     {
@@ -64,7 +116,6 @@ globalThis.RZ = globalThis.RZ || {};
           "#imageBlock img",
         ]),
       // ".../I/71abc._AC_UY327_FMwebp_QL65_.jpg" → ".../I/71abc.jpg"
-      // Amazon's size directives all live in that one dotted segment.
       upgrade: (u) => u.replace(/\._[A-Z0-9_,]+_\.(jpg|jpeg|png|webp)/i, ".$1"),
     },
 
@@ -79,14 +130,7 @@ globalThis.RZ = globalThis.RZ || {};
           ".image-grid-imageContainer img",
           ".pdp-image img",
           ".common-image img",
-        ]).concat(
-          // Myntra paints most of the gallery as CSS background-images.
-          q(".image-grid-image")
-            .map((n) => getComputedStyle(n).backgroundImage)
-            .map((bg) => bg?.match(/url\(["']?(.*?)["']?\)/)?.[1])
-            .filter(Boolean),
-        ),
-      // "dpr_1.5,q_60,w_210,c_limit" → "q_90,w_1080,c_limit"
+        ]),
       upgrade: (u) =>
         u
           .replace(/dpr_[\d.]+,?/g, "")
@@ -101,7 +145,6 @@ globalThis.RZ = globalThis.RZ || {};
       test: (h) => /(^|\.)flipkart\.com$/.test(h),
       isProduct: () => /\/p\//.test(location.pathname),
       gallery: () => imagesFrom(["img[src*='rukminim']", "img[srcset*='rukminim']"]),
-      // "rukminim2.flixcart.com/image/128/128/…?q=70" → "/image/832/832/…?q=90"
       upgrade: (u) =>
         u.replace(/\/image\/\d+\/\d+\//, "/image/832/832/").replace(/[?&]q=\d+/, "?q=90"),
     },
@@ -111,7 +154,8 @@ globalThis.RZ = globalThis.RZ || {};
       label: "AJIO",
       test: (h) => /(^|\.)ajio\.com$/.test(h),
       isProduct: () => /\/p\/\d+/.test(location.pathname),
-      gallery: () => imagesFrom([".img-responsive", ".prod-image img", "img[src*='assets.ajio']"]),
+      gallery: () =>
+        imagesFrom([".img-responsive", ".prod-image img", "img[src*='assets.ajio']"]),
       upgrade: (u) => u.replace(/-\d+Wx\d+H-/, "-1117Wx1400H-"),
     },
 
@@ -129,35 +173,116 @@ globalThis.RZ = globalThis.RZ || {};
       label: "H&M",
       test: (h) => /(^|\.)hm\.com$/.test(h),
       isProduct: () => /productpage|\/product\//.test(location.pathname),
-      gallery: () => imagesFrom(["picture img", ".product-detail-main-image-container img"]),
-      upgrade: (u) => u.replace(/\[?fit=[^&]*/, "").replace(/([?&])imwidth=\d+/, "$1imwidth=1260"),
+      gallery: () =>
+        imagesFrom(["picture img", ".product-detail-main-image-container img"]),
+      upgrade: (u) => u.replace(/([?&])imwidth=\d+/, "$1imwidth=1260"),
+    },
+
+    {
+      // Not a domain — a platform. This is most independent clothing labels,
+      // which is exactly the case the hardcoded shop list used to miss.
+      id: "shopify",
+      label: "",
+      test: () => false,
+      probe: () =>
+        Boolean(
+          window.Shopify ||
+            document.querySelector('script[src*="cdn.shopify.com"], link[href*="cdn.shopify.com"]') ||
+            document.querySelector('[class*="shopify" i]') ||
+            /\/cdn\/shop\//.test(document.documentElement.innerHTML.slice(0, 200000)),
+        ),
+      isProduct: () =>
+        /\/products\//.test(location.pathname) || looksLikeProduct(),
+      gallery: () =>
+        imagesFrom([
+          ".product__media img",
+          ".product-single__photo img",
+          "[class*='product__media'] img",
+          "[class*='product-gallery'] img",
+          "[class*='ProductGallery'] img",
+          "[data-product-single-media-wrapper] img",
+          "img[src*='/cdn/shop/']",
+          "img[src*='cdn.shopify.com']",
+          "img[srcset*='/cdn/shop/']",
+        ]),
+      // Shopify encodes size two ways: a `_400x` style suffix before the
+      // extension, and a `width=` query param. Neutralise both.
+      upgrade: (u) =>
+        u
+          .replace(
+            /_(\d+x\d*|pico|icon|thumb|small|compact|medium|large|grande|original|master)(_crop_[a-z]+)?(?=\.(jpe?g|png|webp|avif))/i,
+            "",
+          )
+          // Raise the width, never lower it — some galleries already ask for
+          // 1920 and stepping that down would be a downgrade, not an upgrade.
+          .replace(/([?&])width=(\d+)/i, (m, sep, w) =>
+            Number(w) < 1600 ? `${sep}width=1600` : m,
+          )
+          .replace(/([?&])height=\d+/i, "$1"),
+    },
+
+    {
+      id: "woocommerce",
+      label: "",
+      test: () => false,
+      probe: () =>
+        document.body?.classList.contains("woocommerce") ||
+        Boolean(document.querySelector(".woocommerce-product-gallery, body.single-product")),
+      isProduct: () =>
+        Boolean(document.querySelector(".woocommerce-product-gallery")) ||
+        looksLikeProduct(),
+      gallery: () =>
+        imagesFrom([
+          ".woocommerce-product-gallery img",
+          ".woocommerce-product-gallery__image img",
+        ]),
+      // Woo appends "-600x600" before the extension for its generated sizes.
+      upgrade: (u) => u.replace(/-\d+x\d+(?=\.(jpe?g|png|webp|avif))/i, ""),
     },
 
     {
       id: "generic",
       label: "",
       test: () => true,
-      isProduct: () => true,
+      isProduct: looksLikeProduct,
       gallery: () =>
         imagesFrom([
-          "[class*='gallery'] img",
-          "[class*='product'] img",
-          "[data-testid*='image'] img",
+          "[class*='gallery' i] img",
+          "[class*='product' i] img",
+          "[class*='carousel' i] img",
+          "[data-testid*='image' i] img",
+          "picture img",
           "main img",
+          "article img",
         ]),
       upgrade: (u) => u,
     },
   ];
 
+  const GENERIC = SITES[SITES.length - 1];
+
   RZ.sites = {
-    /** The adapter for the page we're on. Never null — `generic` catches all. */
+    /**
+     * The adapter for this page. Hostname match wins; then platform probes;
+     * then the generic floor. Never null.
+     */
     current() {
       const host = location.hostname;
-      return SITES.find((s) => s.id !== "generic" && s.test(host)) ||
-        SITES[SITES.length - 1];
+      const byHost = SITES.find((s) => s.id !== "generic" && s.test(host));
+      if (byHost) return byHost;
+
+      for (const s of SITES) {
+        try {
+          if (s.probe?.()) return s;
+        } catch {
+          /* a probe that throws just doesn't match */
+        }
+      }
+      return GENERIC;
     },
     /** Adapter by id. Lets the harness exercise a shop's rules off-site. */
     byId: (id) => SITES.find((s) => s.id === id) || null,
+    looksLikeProduct,
     fromSrcset,
   };
 })();

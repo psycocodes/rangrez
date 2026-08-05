@@ -65,6 +65,9 @@ export interface Garment {
   inPalette: boolean;
   wornCount: number;
   addedAt: string;
+  /** Where a shop piece was found, so the card can link back to it. */
+  sourceUrl?: string;
+  updatedAt?: string;
 }
 
 /** A saved combination across zones. */
@@ -135,6 +138,12 @@ export interface User {
     heightCm?: number;
     /** Rank palette-matching pieces first across the app. */
     paletteFirst: boolean;
+    /**
+     * YouCam's shoe/bag/hat endpoints require a body model and accept only
+     * "male" or "female". It is an API parameter, not an identity — it is
+     * surfaced in the profile so nobody is stuck with a guess.
+     */
+    vtoGender?: "male" | "female";
   };
 }
 

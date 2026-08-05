@@ -4,7 +4,7 @@ import { createHmac, randomBytes, scryptSync, timingSafeEqual } from "node:crypt
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
-import { findUserById } from "./db";
+import { DbNotReadyError, findUserById } from "./db";
 import type { Session, User } from "./types";
 
 /**
@@ -28,7 +28,9 @@ import type { Session, User } from "./types";
  */
 
 const COOKIE = "rangrez_session";
-const MAX_AGE = 60 * 60 * 24 * 30; // 30 days
+const MAX_AGE = 60 * 60 * 24 * 60; // 60 days
+/** Re-issue once a session is a day old, so an active user never falls out. */
+const ROLL_AFTER_MS = 1000 * 60 * 60 * 24;
 
 function secret(): string {
   return process.env.SESSION_SECRET || "rangrez-insecure-dev-secret";
@@ -108,7 +110,31 @@ export async function getSession(): Promise<Session | null> {
 export async function getCurrentUser(): Promise<User | null> {
   const session = await getSession();
   if (!session) return null;
-  return (await findUserById(session.userId)) ?? null;
+
+  let user: User | undefined;
+  try {
+    user = await findUserById(session.userId);
+  } catch (err) {
+    // Nothing works before the schema exists. Send people somewhere that says
+    // so rather than letting a Postgres error surface as a broken page.
+    if (err instanceof DbNotReadyError) redirect("/setup");
+    throw err;
+  }
+
+  if (!user) {
+    // The cookie outlived its user (wiped database, deleted account). Clear it
+    // rather than leaving a valid-looking session that resolves to nobody.
+    await endSession().catch(() => {});
+    return null;
+  }
+
+  // Roll the expiry forward for anyone still using the app, so "logged in"
+  // means logged in until they say otherwise.
+  if (Date.now() - session.issuedAt > ROLL_AFTER_MS) {
+    await startSession(user).catch(() => {});
+  }
+
+  return user;
 }
 
 /** For pages that cannot render without a user. Redirects to the door. */

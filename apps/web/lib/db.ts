@@ -1,172 +1,374 @@
 import "server-only";
 
-import { promises as fs } from "node:fs";
-import path from "node:path";
 import { randomUUID } from "node:crypto";
 
-import type { ColorSeason, Garment, SavedFit, User } from "./types";
-import { seedCatalog } from "./seed";
 import { isInPalette } from "./palette";
+import { seedCatalog } from "./seed";
+import { supabase } from "./supabase";
+import type { ColorSeason, Garment, SavedFit, User } from "./types";
 
 /**
- * Hackathon persistence: a single JSON file under `.data/`.
+ * Persistence.
  *
- * Every caller goes through the exported functions below, never through `fs`.
- * Swapping this for Postgres (per the PRD tech stack) means reimplementing
- * these ~10 functions and nothing else.
+ * Every caller goes through the functions below — nothing else touches
+ * Supabase. The signatures are unchanged from the JSON-file version this
+ * replaced, which is why swapping the store needed no edits anywhere else.
+ *
+ * Row scoping is this module's responsibility: the schema runs RLS with no
+ * anon policies and the server holds the secret key, so `user_id` has to be in
+ * every query here. Any function taking a row id also takes the userId, so a
+ * guessed id from another account reads and writes nothing.
  */
 
-const DB_DIR = path.join(process.cwd(), ".data");
-const DB_FILE = path.join(DB_DIR, "db.json");
+export const newId = () => randomUUID();
 
-interface Schema {
-  users: User[];
-  garments: Garment[];
-  fits: SavedFit[];
+/* ── row ⇄ domain ───────────────────────────────────────────────────────── */
+
+type Row = Record<string, unknown>;
+
+function toUser(row: Row): User {
+  return {
+    id: row.id as string,
+    email: row.email as string,
+    name: row.name as string,
+    passwordHash: row.password_hash as string,
+    createdAt: row.created_at as string,
+    avatar: (row.avatar as User["avatar"]) ?? undefined,
+    preferences: {
+      fitPreference: "regular",
+      paletteFirst: true,
+      ...((row.preferences as object) ?? {}),
+    } as User["preferences"],
+  };
 }
 
-const EMPTY: Schema = { users: [], garments: [], fits: [] };
-
-/** Serialise writes so two concurrent requests can't clobber the file. */
-let queue: Promise<unknown> = Promise.resolve();
-
-function serialize<T>(job: () => Promise<T>): Promise<T> {
-  const run = queue.then(job, job);
-  queue = run.catch(() => {});
-  return run;
+function toGarment(row: Row): Garment {
+  return {
+    id: row.id as string,
+    userId: row.user_id as string,
+    name: row.name as string,
+    origin: row.origin as Garment["origin"],
+    zone: row.zone as Garment["zone"],
+    dye: row.dye as Garment["dye"],
+    season: row.season as Garment["season"],
+    material: (row.material as string) ?? "",
+    imageUrl: row.image_url as string,
+    seed: (row.seed as string) ?? "",
+    status: row.status as Garment["status"],
+    taskId: (row.task_id as string) ?? undefined,
+    inPalette: Boolean(row.in_palette),
+    wornCount: Number(row.worn_count ?? 0),
+    sourceUrl: (row.source_url as string) ?? undefined,
+    addedAt: row.added_at as string,
+    updatedAt: (row.updated_at as string) ?? undefined,
+  };
 }
 
-async function read(): Promise<Schema> {
-  try {
-    const raw = await fs.readFile(DB_FILE, "utf8");
-    return { ...EMPTY, ...(JSON.parse(raw) as Partial<Schema>) };
-  } catch {
-    return structuredClone(EMPTY);
+function fromGarment(g: Garment): Row {
+  return {
+    id: g.id,
+    user_id: g.userId,
+    name: g.name,
+    origin: g.origin,
+    zone: g.zone,
+    dye: g.dye,
+    season: g.season,
+    material: g.material,
+    image_url: g.imageUrl,
+    seed: g.seed,
+    status: g.status,
+    task_id: g.taskId ?? null,
+    in_palette: g.inPalette,
+    worn_count: g.wornCount,
+    source_url: g.sourceUrl ?? null,
+    added_at: g.addedAt,
+  };
+}
+
+function toFit(row: Row): SavedFit {
+  return {
+    id: row.id as string,
+    userId: row.user_id as string,
+    name: row.name as string,
+    garmentIds: (row.garment_ids as string[]) ?? [],
+    note: (row.note as string) ?? undefined,
+    savedAt: row.saved_at as string,
+  };
+}
+
+/**
+ * Thrown when the database is reachable but not set up — no tables, or a key
+ * that can't see them. Distinguished from a genuine query failure so the app
+ * can route to /setup instead of showing a stack trace to someone whose only
+ * mistake was not having run the schema yet.
+ */
+export class DbNotReadyError extends Error {
+  constructor(readonly detail: string) {
+    super(detail);
+    this.name = "DbNotReadyError";
   }
 }
 
-async function write(db: Schema): Promise<void> {
-  await fs.mkdir(DB_DIR, { recursive: true });
-  await fs.writeFile(DB_FILE, JSON.stringify(db, null, 2), "utf8");
+function isNotReady(message: string): boolean {
+  return (
+    message.includes("schema cache") || // PGRST205 — table doesn't exist
+    message.includes("does not exist") ||
+    message.includes("PGRST205") ||
+    message.includes("permission denied") // RLS on, no rights
+  );
 }
 
-/** Read → mutate → write, under the write lock. */
-function mutate<T>(fn: (db: Schema) => T | Promise<T>): Promise<T> {
-  return serialize(async () => {
-    const db = await read();
-    const out = await fn(db);
-    await write(db);
-    return out;
-  });
+function fail(what: string, error: unknown): never {
+  const message =
+    typeof error === "object" && error && "message" in error
+      ? String((error as { message: unknown }).message)
+      : String(error);
+  if (isNotReady(message)) throw new DbNotReadyError(message);
+  throw new Error(`${what}: ${message}`);
 }
 
-export const newId = () => randomUUID();
+/** Supabase reports failures in the payload rather than throwing. */
+function must(what: string, res: { error: unknown }): void {
+  if (res.error) fail(what, res.error);
+}
+
+/** Cheap probe used by the setup gate. */
+export async function dbReady(): Promise<true | string> {
+  try {
+    const { error } = await supabase()
+      .from("rangrez_users")
+      .select("id")
+      .limit(1);
+    if (error) return error.message;
+    return true;
+  } catch (err) {
+    return err instanceof Error ? err.message : String(err);
+  }
+}
 
 /* ── users ──────────────────────────────────────────────────────────────── */
 
 export async function findUserByEmail(email: string): Promise<User | undefined> {
-  const db = await read();
-  const needle = email.trim().toLowerCase();
-  return db.users.find((u) => u.email === needle);
+  const { data, error } = await supabase()
+    .from("rangrez_users")
+    .select("*")
+    .eq("email", email.trim().toLowerCase())
+    .maybeSingle();
+  if (error) fail("findUserByEmail", error);
+  return data ? toUser(data) : undefined;
 }
 
 export async function findUserById(id: string): Promise<User | undefined> {
-  const db = await read();
-  return db.users.find((u) => u.id === id);
+  const { data, error } = await supabase()
+    .from("rangrez_users")
+    .select("*")
+    .eq("id", id)
+    .maybeSingle();
+  if (error) fail("findUserById", error);
+  return data ? toUser(data) : undefined;
 }
 
 export async function insertUser(user: User): Promise<User> {
-  return mutate((db) => {
-    db.users.push(user);
-    // A brand-new closet is a bad demo. Seed a starter wardrobe so the grid has
-    // something to say on first load; every piece is flagged origin:"seed" and
-    // can be cleared from the profile.
-    db.garments.push(...seedCatalog(user.id));
-    return user;
-  });
+  must(
+    "insertUser",
+    await supabase().from("rangrez_users").insert({
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      password_hash: user.passwordHash,
+      avatar: user.avatar ?? null,
+      preferences: user.preferences,
+      created_at: user.createdAt,
+    }),
+  );
+
+  // A brand-new closet is a bad first impression, so we seed a starter
+  // wardrobe — but demo data must never be able to fail an account. This
+  // exact insert once left users created with no wardrobe and no way back in.
+  const seeded = await supabase()
+    .from("rangrez_garments")
+    .insert(seedCatalog(user.id).map(fromGarment));
+  if (seeded.error) {
+    console.warn(`[db] starter wardrobe skipped: ${seeded.error.message}`);
+  }
+
+  return user;
 }
 
 export async function updateUser(
   id: string,
   patch: (user: User) => void,
 ): Promise<User | undefined> {
-  return mutate((db) => {
-    const user = db.users.find((u) => u.id === id);
-    if (user) patch(user);
-    return user;
-  });
+  const user = await findUserById(id);
+  if (!user) return undefined;
+
+  patch(user);
+  must(
+    "updateUser",
+    await supabase()
+      .from("rangrez_users")
+      .update({
+        name: user.name,
+        avatar: user.avatar ?? null,
+        preferences: user.preferences,
+      })
+      .eq("id", id),
+  );
+  return user;
 }
 
 /* ── garments ───────────────────────────────────────────────────────────── */
 
 export async function listGarments(userId: string): Promise<Garment[]> {
-  const db = await read();
-  return db.garments
-    .filter((g) => g.userId === userId)
-    .sort((a, b) => b.addedAt.localeCompare(a.addedAt));
+  const { data, error } = await supabase()
+    .from("rangrez_garments")
+    .select("*")
+    .eq("user_id", userId)
+    .order("added_at", { ascending: false });
+  if (error) fail("listGarments", error);
+  return (data ?? []).map(toGarment);
+}
+
+export async function getGarment(
+  userId: string,
+  id: string,
+): Promise<Garment | undefined> {
+  const { data, error } = await supabase()
+    .from("rangrez_garments")
+    .select("*")
+    .eq("user_id", userId)
+    .eq("id", id)
+    .maybeSingle();
+  if (error) fail("getGarment", error);
+  return data ? toGarment(data) : undefined;
 }
 
 export async function insertGarments(items: Garment[]): Promise<Garment[]> {
-  return mutate((db) => {
-    db.garments.push(...items);
-    return items;
-  });
-}
-
-export async function updateGarment(
-  id: string,
-  patch: (g: Garment) => void,
-): Promise<Garment | undefined> {
-  return mutate((db) => {
-    const g = db.garments.find((x) => x.id === id);
-    if (g) patch(g);
-    return g;
-  });
+  if (!items.length) return [];
+  must(
+    "insertGarments",
+    await supabase().from("rangrez_garments").insert(items.map(fromGarment)),
+  );
+  return items;
 }
 
 /**
- * Re-rank the whole catalog against a colour season. Called once whenever the
- * avatar's skin-tone analysis lands or the user overrides their season by hand
- * — the ranking is ours, not YouCam's, so it costs nothing to redo (PRD §8).
+ * Field-level edit, for the wardrobe's own CRUD. Scoped by userId so a guessed
+ * id belonging to someone else updates nothing.
+ */
+export async function patchGarment(
+  userId: string,
+  id: string,
+  fields: Partial<
+    Pick<
+      Garment,
+      "name" | "zone" | "dye" | "season" | "material" | "wornCount" | "inPalette"
+    >
+  >,
+): Promise<Garment | undefined> {
+  const row: Row = {};
+  if (fields.name !== undefined) row.name = fields.name;
+  if (fields.zone !== undefined) row.zone = fields.zone;
+  if (fields.dye !== undefined) row.dye = fields.dye;
+  if (fields.season !== undefined) row.season = fields.season;
+  if (fields.material !== undefined) row.material = fields.material;
+  if (fields.wornCount !== undefined) row.worn_count = fields.wornCount;
+  if (fields.inPalette !== undefined) row.in_palette = fields.inPalette;
+  if (!Object.keys(row).length) return getGarment(userId, id);
+
+  const { data, error } = await supabase()
+    .from("rangrez_garments")
+    .update(row)
+    .eq("user_id", userId)
+    .eq("id", id)
+    .select()
+    .maybeSingle();
+  if (error) fail("patchGarment", error);
+  return data ? toGarment(data) : undefined;
+}
+
+export async function deleteGarment(userId: string, id: string): Promise<boolean> {
+  const { error, count } = await supabase()
+    .from("rangrez_garments")
+    .delete({ count: "exact" })
+    .eq("user_id", userId)
+    .eq("id", id);
+  if (error) fail("deleteGarment", error);
+  return (count ?? 0) > 0;
+}
+
+/**
+ * Re-rank the whole catalog against a colour season. Called whenever the
+ * avatar's analysis lands or the user overrides their season by hand — the
+ * ranking is ours, not YouCam's, so it costs nothing to redo (PRD §8).
  */
 export async function recomputePalette(
   userId: string,
   season: ColorSeason | undefined,
 ): Promise<number> {
-  return mutate((db) => {
-    let touched = 0;
-    for (const g of db.garments) {
-      if (g.userId !== userId) continue;
-      const next = isInPalette(g.dye, season);
-      if (next !== g.inPalette) touched++;
-      g.inPalette = next;
-    }
-    return touched;
-  });
+  const garments = await listGarments(userId);
+
+  // Two statements keyed on the outcome, rather than one per garment: at 30
+  // pieces that is two round trips instead of thirty.
+  const inside: string[] = [];
+  const outside: string[] = [];
+  let changed = 0;
+
+  for (const g of garments) {
+    const next = isInPalette(g.dye, season);
+    (next ? inside : outside).push(g.id);
+    if (next !== g.inPalette) changed++;
+  }
+
+  const apply = async (ids: string[], value: boolean) => {
+    if (!ids.length) return;
+    must(
+      "recomputePalette",
+      await supabase()
+        .from("rangrez_garments")
+        .update({ in_palette: value })
+        .eq("user_id", userId)
+        .in("id", ids),
+    );
+  };
+
+  await Promise.all([apply(inside, true), apply(outside, false)]);
+  return changed;
 }
 
 export async function deleteSeedGarments(userId: string): Promise<number> {
-  return mutate((db) => {
-    const before = db.garments.length;
-    db.garments = db.garments.filter(
-      (g) => !(g.userId === userId && g.origin === "seed"),
-    );
-    return before - db.garments.length;
-  });
+  const { error, count } = await supabase()
+    .from("rangrez_garments")
+    .delete({ count: "exact" })
+    .eq("user_id", userId)
+    .eq("origin", "seed");
+  if (error) fail("deleteSeedGarments", error);
+  return count ?? 0;
 }
 
 /* ── saved fits ─────────────────────────────────────────────────────────── */
 
 export async function listFits(userId: string): Promise<SavedFit[]> {
-  const db = await read();
-  return db.fits
-    .filter((f) => f.userId === userId)
-    .sort((a, b) => b.savedAt.localeCompare(a.savedAt));
+  const { data, error } = await supabase()
+    .from("rangrez_fits")
+    .select("*")
+    .eq("user_id", userId)
+    .order("saved_at", { ascending: false });
+  if (error) fail("listFits", error);
+  return (data ?? []).map(toFit);
 }
 
 export async function insertFit(fit: SavedFit): Promise<SavedFit> {
-  return mutate((db) => {
-    db.fits.push(fit);
-    return fit;
-  });
+  must(
+    "insertFit",
+    await supabase().from("rangrez_fits").insert({
+      id: fit.id,
+      user_id: fit.userId,
+      name: fit.name,
+      garment_ids: fit.garmentIds,
+      note: fit.note ?? null,
+      saved_at: fit.savedAt,
+    }),
+  );
+  return fit;
 }

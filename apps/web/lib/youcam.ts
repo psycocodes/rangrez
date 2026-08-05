@@ -238,8 +238,10 @@ async function pollTask(
   taskId: string,
   timeoutMs = 120_000,
 ): Promise<string> {
+  // A real render lands around 19s, so an aggressive first poll just burns a
+  // request. Start later, cap sooner, and the whole run costs ~7 calls.
   const deadline = Date.now() + timeoutMs;
-  let wait = 900;
+  let wait = 2500;
 
   while (Date.now() < deadline) {
     const poll = await api<TaskPoll>(
@@ -266,7 +268,7 @@ async function pollTask(
     }
 
     await new Promise((r) => setTimeout(r, wait));
-    wait = Math.min(wait * 1.5, 4000);
+    wait = Math.min(wait * 1.25, 3500);
   }
 
   throw new YouCamError("timed out waiting for render", feature);
@@ -358,22 +360,76 @@ export async function analyzeColorSeason(
 
 /* ── try-on: a garment against the saved avatar ─────────────────────────── */
 
-/**
- * What the `cloth` endpoint dresses a body with.
+/* ═══ WHAT YOUCAM CAN PUT ON A BODY ══════════════════════════════════════
  *
- * YouCam does ship separate surfaces for the rest — `/task/shoes`, `/task/bag`
- * and `/task/2d-vto/earring` all exist and answer — so the extension's "not
- * yet" on shoes and jewellery is a scope line, not an API limit. Wiring them
- * up means one more feature slug per category and a body shape check; the
- * classifier already tells them apart.
- */
-export type VtoCategory = "upper_body" | "lower_body" | "full_body";
+ *  Three families, each with its own endpoint and its own body shape. All
+ *  verified against the live API by probe — the shapes are not guesses:
+ *
+ *    cloth            {src_file_id, ref_file_id, garment_category}
+ *    shoes|bag|hat    {src_file_id, ref_file_id, gender}          ← gender required
+ *    2d-vto/*         {src_file_id, ref_file_ids[], source_info{name},
+ *                      object_infos[{name}]}                      ← both names required
+ *
+ *  Only eyewear has no surface (`2d-vto/eyewear` and `glasses` both 404).
+ * ═══════════════════════════════════════════════════════════════════════ */
 
-export const VTO_CATEGORIES: readonly VtoCategory[] = [
-  "upper_body",
-  "lower_body",
-  "full_body",
-];
+export type VtoTarget =
+  | "upper_body" | "lower_body" | "full_body"
+  | "shoes" | "bag" | "hat"
+  | "necklace" | "earring" | "ring" | "bracelet" | "watch";
+
+export type VtoGender = "male" | "female";
+
+interface Surface {
+  /** The feature slug used for both the file and task endpoints. */
+  feature: string;
+  build(src: string, ref: string, gender: VtoGender): Record<string, unknown>;
+}
+
+const SURFACES: Record<VtoTarget, Surface> = {
+  upper_body: {
+    feature: "cloth",
+    build: (s, r) => ({ src_file_id: s, ref_file_id: r, garment_category: "upper_body" }),
+  },
+  lower_body: {
+    feature: "cloth",
+    build: (s, r) => ({ src_file_id: s, ref_file_id: r, garment_category: "lower_body" }),
+  },
+  full_body: {
+    feature: "cloth",
+    build: (s, r) => ({ src_file_id: s, ref_file_id: r, garment_category: "full_body" }),
+  },
+
+  shoes: { feature: "shoes", build: (s, r, g) => ({ src_file_id: s, ref_file_id: r, gender: g }) },
+  bag: { feature: "bag", build: (s, r, g) => ({ src_file_id: s, ref_file_id: r, gender: g }) },
+  hat: { feature: "hat", build: (s, r, g) => ({ src_file_id: s, ref_file_id: r, gender: g }) },
+
+  // The jewellery family takes an array of refs and a `name` on both the
+  // source and each object — the API rejects the request without them, though
+  // it never says what the names are for.
+  necklace: jewellery("necklace"),
+  earring: jewellery("earring"),
+  ring: jewellery("ring"),
+  bracelet: jewellery("bracelet"),
+  watch: jewellery("watch"),
+};
+
+function jewellery(kind: string): Surface {
+  return {
+    feature: `2d-vto/${kind}`,
+    build: (s, r) => ({
+      src_file_id: s,
+      ref_file_ids: [r],
+      source_info: { name: "avatar" },
+      object_infos: [{ name: kind }],
+    }),
+  };
+}
+
+export const VTO_TARGETS = Object.keys(SURFACES) as VtoTarget[];
+
+export const isVtoTarget = (v: unknown): v is VtoTarget =>
+  typeof v === "string" && v in SURFACES;
 
 export interface TryOnResult {
   renderUrl: string;
@@ -382,29 +438,68 @@ export interface TryOnResult {
 }
 
 /**
- * PRD Flow D. The avatar is `src`, the garment is `ref` — the same direction
- * as every other try-on in the product, which is the whole point: a jacket
- * from a shop page lands on exactly the body a closet upload lands on.
+ * PRD Flow D. The avatar is always `src`, the thing being tried on is always
+ * `ref` — the same direction as every other try-on in the product, which is
+ * the whole point: a jacket from a shop page lands on exactly the body a
+ * closet upload lands on.
  */
+/**
+ * Render cache (PRD §7: "cache results per garment/combination to control both
+ * latency and API credit usage").
+ *
+ * Keyed on the exact bytes of both images plus the target, so trying the same
+ * jacket twice — or two people hitting the same product page — costs one
+ * render. The TTL sits under YouCam's own signed-URL expiry (2h), because a
+ * cached URL that has expired is worse than no cache at all.
+ */
+const renders = new Map<string, { url: string; taskId: string; at: number }>();
+const RENDER_TTL = 90 * 60 * 1000;
+const RENDER_CACHE_MAX = 200;
+
+function renderKey(a: Buffer, b: Buffer, target: string): string {
+  return createHash("sha256")
+    .update(a)
+    .update(b)
+    .update(target)
+    .digest("base64url");
+}
+
 export async function tryOnGarment(
   avatar: { bytes: Buffer; contentType: string },
   garment: { bytes: Buffer; contentType: string },
-  category: VtoCategory,
+  target: VtoTarget,
+  gender: VtoGender = "male",
 ): Promise<TryOnResult> {
   if (isMock()) return mockTryOn();
 
+  const key = renderKey(avatar.bytes, garment.bytes, target);
+  const hit = renders.get(key);
+  if (hit && Date.now() - hit.at < RENDER_TTL) {
+    return { renderUrl: hit.url, taskId: hit.taskId, mocked: false };
+  }
+
+  const surface = SURFACES[target];
+
+  // Files must be registered against the same feature that will consume them.
   const [avatarId, garmentId] = await Promise.all([
-    uploadImage("cloth", avatar.bytes, avatar.contentType),
-    uploadImage("cloth", garment.bytes, garment.contentType),
+    uploadImage(surface.feature, avatar.bytes, avatar.contentType),
+    uploadImage(surface.feature, garment.bytes, garment.contentType),
   ]);
 
-  const taskId = await runTask("cloth", {
-    src_file_id: avatarId,
-    ref_file_id: garmentId,
-    garment_category: category,
-  });
+  const taskId = await runTask(
+    surface.feature,
+    surface.build(avatarId, garmentId, gender),
+  );
 
-  return { renderUrl: await pollTask("cloth", taskId), taskId, mocked: false };
+  const renderUrl = await pollTask(surface.feature, taskId);
+
+  // Cheap FIFO eviction — this is a per-instance warm cache, not a store.
+  if (renders.size >= RENDER_CACHE_MAX) {
+    renders.delete(renders.keys().next().value as string);
+  }
+  renders.set(key, { url: renderUrl, taskId, at: Date.now() });
+
+  return { renderUrl, taskId, mocked: false };
 }
 
 /* ── mock mode ──────────────────────────────────────────────────────────── */

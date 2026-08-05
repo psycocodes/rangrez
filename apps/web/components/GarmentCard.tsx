@@ -1,5 +1,6 @@
 import Image from "next/image";
 
+import { GarmentMenu } from "./GarmentActions";
 import { SEASON_LABEL, type Garment } from "@/lib/types";
 
 /**
@@ -15,11 +16,13 @@ export function GarmentCard({
   index,
   raw,
   feature = false,
+  onEdit,
 }: {
   garment: Garment;
   index: number;
   raw: boolean;
   feature?: boolean;
+  onEdit: (garment: Garment) => void;
 }) {
   const pending = garment.status !== "rendered";
 
@@ -29,6 +32,7 @@ export function GarmentCard({
         feature ? "col-span-2" : ""
       }`}
     >
+      <GarmentMenu garment={garment} onEdit={() => onEdit(garment)} />
       <div
         className={`dip relative ${raw ? "raw" : ""} ${
           feature ? "aspect-[8/5]" : "aspect-[4/5]"
@@ -57,10 +61,18 @@ export function GarmentCard({
           {String(index + 1).padStart(2, "0")}
         </span>
 
+        {/* Sits bottom-left rather than top-right: the ⋯ menu owns that corner
+            now, and the hover bar rises from the bottom-right. */}
         {garment.inPalette && !raw && (
-          <span className="spec-sm absolute right-0 top-0 z-[3] flex items-center gap-1.5 bg-turmeric px-2 py-1.5 text-ink">
+          <span className="spec-sm absolute bottom-0 left-0 z-[3] flex items-center gap-1.5 bg-turmeric px-2 py-1.5 text-ink transition-transform duration-500 [transition-timing-function:var(--ease-cloth)] group-hover:-translate-y-10">
             <span aria-hidden className="block h-1.5 w-1.5 rounded-full bg-ink" />
             IN PALETTE
+          </span>
+        )}
+
+        {garment.origin === "shop" && (
+          <span className="spec-sm absolute left-0 top-7 z-[3] bg-indigo px-2 py-1.5 text-paper">
+            FROM A SHOP
           </span>
         )}
 
