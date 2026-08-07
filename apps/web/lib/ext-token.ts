@@ -1,7 +1,6 @@
 import "server-only";
 
-import { createHmac, timingSafeEqual } from "node:crypto";
-
+import { signExtensionPayload, verifyExtensionSignature } from "./auth";
 import { findUserById } from "./db";
 import type { User } from "./types";
 
@@ -17,7 +16,6 @@ import type { User } from "./types";
  * session cookie can never be replayed as an extension token or vice versa.
  */
 
-const LABEL = "rangrez.ext.v1";
 const MAX_AGE_MS = 1000 * 60 * 60 * 24 * 90; // 90 days
 
 interface TokenBody {
@@ -25,30 +23,18 @@ interface TokenBody {
   issuedAt: number;
 }
 
-function secret(): string {
-  return `${LABEL}:${process.env.SESSION_SECRET || "rangrez-insecure-dev-secret"}`;
-}
-
-function sign(payload: string): string {
-  return createHmac("sha256", secret()).update(payload).digest("base64url");
-}
-
 export function mintExtensionToken(user: User): string {
   const payload = Buffer.from(
     JSON.stringify({ userId: user.id, issuedAt: Date.now() } satisfies TokenBody),
   ).toString("base64url");
-  return `${payload}.${sign(payload)}`;
+  return `${payload}.${signExtensionPayload(payload)}`;
 }
 
 function verify(token: string): TokenBody | null {
   const [payload, sig] = token.split(".");
   if (!payload || !sig) return null;
 
-  const expected = Buffer.from(sign(payload));
-  const actual = Buffer.from(sig);
-  if (expected.length !== actual.length || !timingSafeEqual(expected, actual)) {
-    return null;
-  }
+  if (!verifyExtensionSignature(payload, sig)) return null;
 
   try {
     const body = JSON.parse(

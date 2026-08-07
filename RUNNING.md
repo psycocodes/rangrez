@@ -18,8 +18,20 @@ npm install
 
 ### b. Set up Supabase
 
-Create a project, then in **SQL Editor** paste and run
-[`apps/web/supabase/schema.sql`](apps/web/supabase/schema.sql). It's idempotent.
+Create a project, then in **SQL Editor** run, in order:
+
+1. [`apps/web/supabase/schema.sql`](apps/web/supabase/schema.sql) — tables
+2. [`apps/web/supabase/002-supabase-auth.sql`](apps/web/supabase/002-supabase-auth.sql) — ties
+   profiles to `auth.users` and adds row policies
+
+Both are idempotent. **Migration 002 truncates the tables** — old accounts can't
+be carried across, because Supabase has to hash the passwords and we only ever
+stored a digest.
+
+Then, under **Authentication → Sign In / Providers**, turn **Confirm email**
+off for development. Left on, sign-up sends a link and creates no session, so
+you can't get into the app without clicking through your inbox first. The app
+handles this and says so, but it's friction you don't want while building.
 
 Then fill in `apps/web/.env.local`:
 
@@ -28,11 +40,14 @@ NEXT_PUBLIC_SUPABASE_URL=https://<project>.supabase.co
 SUPABASE_SECRET_KEY=<Project Settings → API keys → secret>
 ```
 
-**The secret key is not optional.** Rangrez authenticates with its own signed
-cookie, not Supabase Auth, so there's no `auth.uid()` for a row policy to key
-off. The schema therefore runs RLS with no anon policies and the server holds
-the secret key. The publishable key ships to the browser and can read nothing —
-which is the point.
+Accounts live in Supabase Auth, so they show up in the **Authentication** tab
+and Supabase owns password hashing and session refresh. `rangrez_users` holds
+only the profile — display name, avatar plate, colour season, preferences —
+keyed to `auth.users.id`.
+
+Both keys are needed. The publishable key carries the signed-in user's session
+(row policies scope them to their own rows); the secret key is for the
+extension's bearer-token endpoints, which have no cookie to speak with.
 
 ### c. YouCam
 
@@ -85,7 +100,8 @@ seasons, catalog — into Supabase. Idempotent (upserts by id).
 | --- | --- |
 | `npm run dev --workspace rangrez` | web app on :3000 |
 | `apps/web/node_modules/.bin/next build` | production build |
-| `node apps/extension/test/logic.test.mjs` | extension unit tests (40 assertions) |
+| `node apps/extension/test/logic.test.mjs` | classification + CDN rewrites (40 assertions) |
+| `node apps/extension/test/score.test.mjs` | image-picking, incl. the fabric-macro trap |
 | `apps/web/node_modules/.bin/tsc --noEmit` | typecheck |
 | serve `apps/extension` + open `test/harness.html` | every panel state, no install |
 
@@ -175,7 +191,8 @@ apps/web                     Next 16 · App Router
   lib/youcam.ts              the only file that talks to Perfect Corp
   lib/db.ts                  the only file that talks to Supabase
   lib/palette.ts             colour-season ranking (ours, not theirs)
-  supabase/schema.sql        tables + RLS
+  supabase/*.sql             tables, auth wiring, row policies
+  lib/auth.ts                Supabase Auth session → profile
 
 apps/extension               MV3 · no build step
   src/background.js          token · API · image fetch · pixel analysis
@@ -184,6 +201,7 @@ apps/extension               MV3 · no build step
   src/lib/sites.js           per-platform selectors + CDN rewrites
 ```
 
-Two seams worth knowing: swapping auth for Sign in with Google means
-reimplementing `getCurrentUser()` in `lib/auth.ts` and nothing else; swapping
-the database means reimplementing `lib/db.ts` and nothing else.
+Seams worth knowing: **Sign in with Google** is `signInWithOAuth({ provider:
+"google" })` plus a callback route — `getCurrentUser()` already reads whatever
+session Supabase has, so nothing downstream changes. Swapping the database
+means reimplementing `lib/db.ts` and nothing else.

@@ -26,6 +26,11 @@ export function GarmentCard({
 }) {
   const pending = garment.status !== "rendered";
 
+  // The dye wash exists to make a bag of unrelated placeholder photos read as
+  // one lookbook. A real VTO render is a photograph of the user wearing the
+  // thing — dyeing that just tints their face. Only stand-ins get dipped.
+  const dyed = garment.origin === "seed";
+
   return (
     <article
       className={`group relative flex flex-col bg-paper ${
@@ -34,9 +39,9 @@ export function GarmentCard({
     >
       <GarmentMenu garment={garment} onEdit={() => onEdit(garment)} />
       <div
-        className={`dip relative ${raw ? "raw" : ""} ${
-          feature ? "aspect-[8/5]" : "aspect-[4/5]"
-        }`}
+        className={`relative overflow-hidden ${dyed ? "dip" : "bg-paper-3"} ${
+          dyed && raw ? "raw" : ""
+        } ${feature ? "aspect-[8/5]" : "aspect-[4/5]"}`}
         style={{ "--dye": garment.dye.hex } as React.CSSProperties}
       >
         <Image
@@ -48,7 +53,9 @@ export function GarmentCard({
               ? "(max-width: 768px) 100vw, (max-width: 1280px) 66vw, 50vw"
               : "(max-width: 768px) 50vw, (max-width: 1280px) 33vw, 25vw"
           }
-          className="object-cover group-hover:scale-[1.045]"
+          // The scale transition lives on `.dip img` in CSS; undyed renders
+          // need it declared here so both paths animate identically.
+          className="object-cover transition-transform duration-[900ms] [transition-timing-function:var(--ease-cloth)] group-hover:scale-[1.045]"
           // Placeholder photography already arrives at exactly the card's
           // size. Running it through the optimizer only re-fetches it at 4K
           // and times out under a full grid's worth of parallel requests.

@@ -31,7 +31,6 @@ function toUser(row: Row): User {
     id: row.id as string,
     email: row.email as string,
     name: row.name as string,
-    passwordHash: row.password_hash as string,
     createdAt: row.created_at as string,
     avatar: (row.avatar as User["avatar"]) ?? undefined,
     preferences: {
@@ -168,6 +167,33 @@ export async function findUserById(id: string): Promise<User | undefined> {
   return data ? toUser(data) : undefined;
 }
 
+/**
+ * The profile row that hangs off a Supabase Auth account.
+ *
+ * Called on every sign-in rather than only at sign-up, so an account created
+ * any other way — a magic link, an OAuth provider later, a row added by hand
+ * in the dashboard — still lands in the app with a wardrobe. Idempotent.
+ */
+export async function ensureProfile(input: {
+  id: string;
+  email: string;
+  name: string;
+}): Promise<User> {
+  const existing = await findUserById(input.id);
+  if (existing) return existing;
+
+  const user: User = {
+    id: input.id,
+    email: input.email,
+    name: input.name,
+    createdAt: new Date().toISOString(),
+    preferences: { fitPreference: "regular", paletteFirst: true },
+  };
+
+  await insertUser(user);
+  return user;
+}
+
 export async function insertUser(user: User): Promise<User> {
   must(
     "insertUser",
@@ -175,7 +201,6 @@ export async function insertUser(user: User): Promise<User> {
       id: user.id,
       email: user.email,
       name: user.name,
-      password_hash: user.passwordHash,
       avatar: user.avatar ?? null,
       preferences: user.preferences,
       created_at: user.createdAt,

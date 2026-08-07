@@ -129,8 +129,6 @@ export interface User {
   id: string;
   email: string;
   name: string;
-  /** Dummy auth only — see lib/auth/providers.ts for the migration seam. */
-  passwordHash: string;
   createdAt: string;
   avatar?: Avatar;
   preferences: {

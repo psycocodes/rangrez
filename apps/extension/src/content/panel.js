@@ -285,9 +285,9 @@ globalThis.RZ = globalThis.RZ || {};
       this.body.innerHTML = `
         <p class="spec kicker">Reading the gallery</p>
         <div class="strip"></div>
-        <p class="note">Scoring each photograph for how cleanly it shows the
-        garment on its own — a flat product shot renders far truer than a
-        model shot.</p>`;
+        <p class="note">Looking for the shot that shows the whole garment —
+        on a model or laid flat. Fabric close-ups and detail crops are
+        thrown out; there's nothing there to put on a body.</p>`;
 
       const strip = this.body.querySelector(".strip");
       candidates.slice(0, 5).forEach((c, i) => {

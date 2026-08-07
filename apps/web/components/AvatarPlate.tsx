@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 
+import { PlateGuides } from "./PlateGuides";
 import type { Avatar, AvatarCustomization } from "@/lib/types";
 
 const BACKDROP: Record<Avatar["customization"]["backdrop"], string> = {
@@ -71,7 +72,9 @@ export function AvatarPlate({
           />
         )}
 
-        {c.guides && <Guides />}
+        {c.guides && (
+          <PlateGuides src={avatar.renderUrl} crop={c.crop} />
+        )}
 
         <span className="spec-sm absolute left-2.5 top-2.5 bg-paper px-1.5 py-1 text-ink">
           BASE
@@ -87,29 +90,6 @@ export function AvatarPlate({
         </figcaption>
       )}
     </figure>
-  );
-}
-
-/** Tailor's rules. Decorative, but they sell the idea that this is a fitting. */
-function Guides() {
-  return (
-    <div aria-hidden className="pointer-events-none absolute inset-0">
-      {[
-        [22, "SHOULDER"],
-        [46, "WAIST"],
-        [72, "HEM"],
-      ].map(([top, label]) => (
-        <div
-          key={label as string}
-          className="absolute left-0 right-0 flex items-center pr-2"
-          style={{ top: `${top}%` }}
-        >
-          <span className="h-px flex-1 bg-paper/35" />
-          <span className="spec-sm bg-paper/85 px-1 py-0.5 text-ink">{label}</span>
-        </div>
-      ))}
-      <div className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-paper/25" />
-    </div>
   );
 }
 

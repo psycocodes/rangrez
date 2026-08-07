@@ -101,6 +101,15 @@ export function AuthDoor() {
             required
           />
 
+          {state.notice && (
+            <p
+              role="status"
+              className="border-l-2 border-turmeric bg-turmeric/12 py-2 pl-3 text-[0.85rem] leading-relaxed text-ink-2"
+            >
+              {state.notice}
+            </p>
+          )}
+
           {state.error && (
             <p
               role="alert"
