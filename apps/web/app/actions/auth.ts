@@ -1,5 +1,6 @@
 "use server";
 
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { endSession } from "@/lib/auth";
@@ -110,6 +111,46 @@ export async function signIn(
   }
 
   redirect(profile.avatar ? "/wardrobe" : "/atelier");
+}
+
+/**
+ * Google.
+ *
+ * Supabase holds the client id and secret, so nothing about Google lives in
+ * this repo or its env — the app only asks Supabase where to send the browser.
+ * Google returns to /auth/callback, which trades the code for a session.
+ */
+export async function signInWithGoogle(): Promise<void> {
+  const supabase = await authClient();
+
+  const { data, error } = await supabase.auth.signInWithOAuth({
+    provider: "google",
+    options: {
+      redirectTo: `${await origin()}/auth/callback`,
+      // Always show the picker. Silent re-auth into whichever account Google
+      // happens to have is disorienting on a shared machine.
+      queryParams: { prompt: "select_account" },
+    },
+  });
+
+  if (error || !data.url) {
+    redirect(
+      `/enter?error=${encodeURIComponent(
+        error?.message ?? "Couldn't reach Google.",
+      )}`,
+    );
+  }
+
+  redirect(data.url);
+}
+
+/** Whatever origin served this request, so local and deployed both work. */
+async function origin(): Promise<string> {
+  const h = await headers();
+  const host = h.get("x-forwarded-host") ?? h.get("host") ?? "localhost:3000";
+  const proto =
+    h.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https");
+  return `${proto}://${host}`;
 }
 
 export async function signOut(): Promise<void> {

@@ -50,6 +50,46 @@ Both keys are needed. The publishable key carries the signed-in user's session
 (row policies scope them to their own rows); the secret key is for the
 extension's bearer-token endpoints, which have no cookie to speak with.
 
+### b2. Sign in with Google (optional)
+
+Nothing about Google goes in this repo or its env — Supabase holds the
+credentials and the app only asks it where to send the browser. The button on
+the door appears on its own once the provider is switched on, and stays hidden
+until then, because a disabled provider sends people to a raw JSON error page
+with no way back.
+
+**1 · Google Cloud Console** → <https://console.cloud.google.com>
+
+- *APIs & Services → OAuth consent screen*: External, app name "Rangrez",
+  your email for support and developer contact. Default scopes are enough
+  (`openid`, `userinfo.email`, `userinfo.profile`).
+- *Credentials → Create credentials → OAuth client ID → Web application*
+- **Authorised redirect URI** — this one exactly, and it is the Supabase
+  domain, not yours:
+
+  ```
+  https://kxulzyngjuivxsqypfti.supabase.co/auth/v1/callback
+  ```
+
+- Copy the **Client ID** and **Client secret**.
+
+**2 · Supabase** → *Authentication → Sign In / Providers → Google*
+
+- Enable it, paste the Client ID and Client secret, save.
+
+**3 · Supabase** → *Authentication → URL Configuration*
+
+- **Site URL**: `http://localhost:3000` (swap for your domain in production)
+- **Redirect URLs**: add both
+
+  ```
+  http://localhost:3000/auth/callback
+  https://your-domain.com/auth/callback
+  ```
+
+While the consent screen is in *Testing*, only accounts listed under **Audience
+→ Test users** can sign in. Publish it, or add your own address there.
+
 ### c. YouCam
 
 ```bash

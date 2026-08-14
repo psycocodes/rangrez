@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Instrument_Serif, Inter_Tight, JetBrains_Mono } from "next/font/google";
+import localFont from "next/font/local";
 
 import "./globals.css";
 
@@ -19,6 +20,20 @@ const instrument = Instrument_Serif({
 const inter = Inter_Tight({
   variable: "--font-inter",
   subsets: ["latin"],
+  display: "swap",
+});
+
+/**
+ * The name in its own script.
+ *
+ * AMS Kartik is a legacy Devanagari font: it carries no Unicode Devanagari at
+ * all, only ~93 glyphs hung on ASCII slots, so the word is typed as the ASCII
+ * string its keyboard layout produces rather than as रंगरेज़. See
+ * `WORDMARK` in components/Vat.tsx — that string is not a typo.
+ */
+const kartik = localFont({
+  src: "./fonts/AMSKartik-Regular.ttf",
+  variable: "--font-kartik",
   display: "swap",
 });
 
@@ -46,7 +61,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${instrument.variable} ${inter.variable} ${jetbrains.variable} h-full`}
+      className={`${instrument.variable} ${inter.variable} ${jetbrains.variable} ${kartik.variable} h-full`}
     >
       <body className="weave grain min-h-full text-ink">{children}</body>
     </html>
