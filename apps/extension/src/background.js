@@ -13,6 +13,7 @@
  * ═══════════════════════════════════════════════════════════════════════════
  */
 
+import { api } from "./lib/api.js";
 import { clamp01, scorePixels } from "./lib/score.js";
 
 const DEFAULT_API = "http://localhost:3000";
@@ -20,11 +21,11 @@ const DEFAULT_API = "http://localhost:3000";
 /* ── config ─────────────────────────────────────────────────────────────── */
 
 async function config() {
-  const { token, apiBase } = await chrome.storage.local.get(["token", "apiBase"]);
+  const { token, apiBase } = await api.storage.local.get(["token", "apiBase"]);
   return { token: token || null, apiBase: apiBase || DEFAULT_API };
 }
 
-async function api(path, init = {}) {
+async function callRangrez(path, init = {}) {
   const { token, apiBase } = await config();
   if (!token) throw new Error("not-paired");
 
@@ -104,7 +105,7 @@ const HANDLERS = {
     const { token, apiBase } = await config();
     if (!token) return { connected: false, apiBase };
     try {
-      return { ...(await api("/api/extension/session")), apiBase };
+      return { ...(await callRangrez("/api/extension/session")), apiBase };
     } catch (err) {
       if (err.message === "not-paired" || err.code === "no-token") {
         return { connected: false, apiBase };
@@ -161,7 +162,7 @@ const HANDLERS = {
       console.warn("[rangrez] couldn't prepare the reference, sending the URL", err);
     }
 
-    return api("/api/extension/tryon", {
+    return callRangrez("/api/extension/tryon", {
       method: "POST",
       body: JSON.stringify(
         prepared
@@ -172,7 +173,7 @@ const HANDLERS = {
   },
 
   SAVE: (msg) =>
-    api("/api/extension/save", {
+    callRangrez("/api/extension/save", {
       method: "POST",
       body: JSON.stringify({
         name: msg.name,
@@ -186,40 +187,40 @@ const HANDLERS = {
 
   async PAIR({ token, apiBase }) {
     if (!token) throw new Error("No token on the page.");
-    await chrome.storage.local.set({ token, apiBase: apiBase || DEFAULT_API });
+    await api.storage.local.set({ token, apiBase: apiBase || DEFAULT_API });
     return { paired: true };
   },
 
   async UNPAIR() {
-    await chrome.storage.local.remove(["token"]);
+    await api.storage.local.remove(["token"]);
     return { paired: false };
   },
 
   async OPEN({ url }) {
-    await chrome.tabs.create({ url });
+    await api.tabs.create({ url });
     return { opened: true };
   },
 
   async DISMISS({ host }) {
-    const { dismissed = [] } = await chrome.storage.local.get("dismissed");
+    const { dismissed = [] } = await api.storage.local.get("dismissed");
     if (!dismissed.includes(host)) {
-      await chrome.storage.local.set({ dismissed: [...dismissed, host] });
+      await api.storage.local.set({ dismissed: [...dismissed, host] });
     }
     return { dismissed: true };
   },
 
   async GET_DISMISSED({ host }) {
-    const { dismissed = [] } = await chrome.storage.local.get("dismissed");
+    const { dismissed = [] } = await api.storage.local.get("dismissed");
     return { dismissed: dismissed.includes(host) };
   },
 
   async CLEAR_DISMISSED() {
-    await chrome.storage.local.set({ dismissed: [] });
+    await api.storage.local.set({ dismissed: [] });
     return { cleared: true };
   },
 };
 
-chrome.runtime.onMessage.addListener((msg, _sender, respond) => {
+api.runtime.onMessage.addListener((msg, _sender, respond) => {
   const handler = HANDLERS[msg?.type];
   if (!handler) {
     respond({ error: `Unknown message: ${msg?.type}` });
@@ -231,10 +232,10 @@ chrome.runtime.onMessage.addListener((msg, _sender, respond) => {
   return true; // keep the channel open for the async reply
 });
 
-chrome.runtime.onInstalled.addListener(async ({ reason }) => {
-  const { apiBase } = await chrome.storage.local.get("apiBase");
-  if (!apiBase) await chrome.storage.local.set({ apiBase: DEFAULT_API });
+api.runtime.onInstalled.addListener(async ({ reason }) => {
+  const { apiBase } = await api.storage.local.get("apiBase");
+  if (!apiBase) await api.storage.local.set({ apiBase: DEFAULT_API });
   if (reason === "install") {
-    await chrome.tabs.create({ url: `${apiBase || DEFAULT_API}/connect` });
+    await api.tabs.create({ url: `${apiBase || DEFAULT_API}/connect` });
   }
 });

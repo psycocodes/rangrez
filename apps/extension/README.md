@@ -1,11 +1,14 @@
-# Rangrez — Chrome extension
+# Rangrez — browser extension
 
 Try-on while you shop (PRD §4.3, Flow D). Finds the clothes on a product page,
 works out what the piece actually is, picks the cleanest photograph of it out of
 the gallery, and hangs it on the same avatar the wardrobe uses — without leaving
 the tab.
 
-**There is no build step.** The folder *is* the extension.
+Ships for **Chrome and Firefox from one source tree.** The only difference is
+the manifest — Chrome runs the background in a service worker, Firefox in an
+event page — so the two can't drift apart. Anything that differs at runtime is
+handled in [`src/lib/api.js`](src/lib/api.js), not by forking a file.
 
 ---
 
@@ -15,8 +18,25 @@ the tab.
 npm run dev --workspace rangrez
 ```
 
+**Chrome** — no build step, the folder *is* the extension:
+
 1. `chrome://extensions` → switch on **Developer mode**
 2. **Load unpacked** → pick this folder (`apps/extension`)
+
+**Firefox** — one command to lay out the event-page manifest:
+
+```bash
+node apps/extension/build.mjs
+```
+
+1. `about:debugging` → **This Firefox** → **Load Temporary Add-on**
+2. Pick `apps/extension/dist/firefox/manifest.json`
+3. Firefox treats MV3 host permissions as *optional*, so nothing injects until
+   you allow it. Open the Rangrez popup and hit **Grant site access** — or do it
+   from `about:addons` → Rangrez → Permissions.
+
+Then, in either browser:
+
 3. Open <http://localhost:3000/connect> while signed in — the extension reads its
    key off that page on its own. Nothing to copy.
 4. Open a product page on Amazon, Myntra, Flipkart, Ajio, Zara or H&M.
@@ -50,16 +70,26 @@ detect  →  offer  →  isolate  →  render  →  save
 
 ### The isolation pass
 
-Apparel VTO wants a garment, not a scene. A flat product shot on seamless white
-transfers far more faithfully than the hero shot of a model wearing it in a
-field, so we score each photograph and pick the cleanest:
+We want the shot that shows the whole garment — on a model or laid flat — and
+never a close-up of the weave. Each photograph is scored on six measurements:
 
 | Measurement | Weight | Why |
 | --- | --- | --- |
-| Backdrop uniformity | 0.38 | Low edge deviation = seamless studio backdrop |
-| Skin fraction | 0.28 | Graded penalty, not a veto — some galleries are model shots all the way down |
-| Framing | 0.18 | Too little subject is a swatch; too much is a scene |
-| Resolution | 0.16 | After the thumbnail→full-size rewrite |
+| Structure | 0.26 | Block-average to 32px: fabric texture vanishes, a collar or silhouette survives |
+| Backdrop uniformity | 0.24 | Low edge deviation = seamless studio backdrop |
+| Framing | 0.22 | Too little subject is a swatch; too much is a scene |
+| Skin fraction | 0.14 | Mild lean toward a flat lay — a model shot is perfectly usable |
+| Resolution | 0.10 | After the thumbnail→full-size rewrite |
+| Aspect | 0.04 | A 3:1 image is a banner, not a product |
+
+**Structure is the one that matters.** Without it a macro of the fabric wins
+outright: it has no border deviation (a perfect "clean backdrop") and no skin
+(a perfect "not a model shot"). That is a real bug this had — the try-on came
+back looking like a swatch. Anything scoring below the structure/coverage floor
+is flagged a swatch and multiplied down to 12%, so it can still be chosen if a
+gallery is nothing but close-ups, but never otherwise. Collages get the same
+treatment at 45%: VTO transfers whatever it's shown, and a three-view tile
+produces a garment with three collars.
 
 The same pass returns the garment's average colour, which the wardrobe snaps to
 the nearest house dye when you save it.
@@ -82,44 +112,55 @@ OpenGraph — which covers most Shopify storefronts for free.
 
 ### What it will not do
 
-Apparel VTO dresses a body. It does not hang jewellery or fit shoes. Those are
-still recognised — a chain is classified as a chain — and the panel says so
-rather than spending a call to fail.
+Clothes, shoes, bags, hats and jewellery all have YouCam surfaces, and the
+classifier routes each to the right one. **Eyewear is the only category with no
+endpoint at all** — it's still recognised, and the panel says so plainly rather
+than spending a call to fail.
 
 ---
 
 ## Layout
 
 ```
-manifest.json
+manifest.json          Chrome  — background as a service worker
+manifest.firefox.json  Firefox — background as an event page + gecko id
+build.mjs              lays both out into dist/ (--zip for store uploads)
 src/
-  background.js        service worker — token, API, image fetch, pixel analysis
+  background.js        token, API, image fetch, pixel analysis
   pair.js              reads the handshake token off /connect (localhost only)
-  popup.html/.js       status: paired? avatar? mock or live?
+  popup.html/.js       status: paired? avatar? mock or live? permissions?
+  lib/api.js           browser ?? chrome — the whole cross-browser story
+  lib/api-global.js    the same, for classic content scripts
+  lib/score.js         candidate scoring, pure so it can be tested
   lib/taxonomy.js      garment classification
-  lib/sites.js         per-shop selectors + URL rewrites
+  lib/sites.js         per-platform selectors + CDN rewrites
   content/detect.js    product + gallery extraction
   content/panel.js     shadow-DOM trigger and panel
   content/main.js      orchestration, SPA navigation
 assets/                icons + the three brand fonts
 test/
-  logic.test.mjs       classification + URL rewrites  (node, no deps)
+  logic.test.mjs       classification + URL rewrites   (node, no deps)
+  score.test.mjs       image picking, incl. the fabric-macro trap
   harness.html         every panel state, plus detect() on fixture markup
 ```
 
 ## Tests
 
 ```bash
-node apps/extension/test/logic.test.mjs
+node apps/extension/test/logic.test.mjs   # 40 assertions
+node apps/extension/test/score.test.mjs   # 10 assertions
+npx web-ext lint --source-dir apps/extension/dist/firefox
 ```
 
-30 assertions over classification and the URL rewrites, including the ordering
-traps (`denim jacket`, `dress shirt`, `shirt dress`, `short sleeve shirt`) and
-the negative cases (a laptop is not a garment).
+`logic` covers classification and the CDN rewrites, including the ordering traps
+(`denim jacket`, `dress shirt`, `shirt dress`, `short sleeve shirt`) and the
+negative cases (a laptop is not a garment). `score` runs synthetic pixels
+through the picker and pins the ordering: fabric macro and logo crop below,
+model shot and flat lay above.
 
-For the UI, serve this folder and open `test/harness.html` — it renders every
-panel state and runs `detect()` against Amazon-shaped fixture markup, with
-`chrome.*` stubbed. Nothing in `test/` ships.
+For the UI, serve this folder and open `test/harness.html` — every panel state,
+plus `detect()` against Amazon-shaped fixture markup, with the extension APIs
+stubbed. Nothing in `test/` ships.
 
 ## Permissions
 
@@ -127,8 +168,15 @@ panel state and runs `detect()` against Amazon-shaped fixture markup, with
 | --- | --- |
 | `storage` | the pairing token, the API origin, and per-site dismissals |
 | `host_permissions: https://*/*` | the service worker fetches garment images from whatever CDN the shop uses, and calls your Rangrez origin |
-| content scripts on the shop list | the trigger and panel |
+| content scripts on all sites | the trigger and panel — clothing stores are not a knowable list |
 | content script on localhost | pairing only — see above |
 
-No analytics, no page content leaves the browser except the one garment image
-URL you asked to try on.
+The content script stays inert unless the page is a product page *and* the
+classifier recognises a garment.
+
+**On Firefox** host permissions are optional under MV3: declared in the
+manifest, but not granted until you say so. Nothing injects until you allow it,
+which the popup offers on first open. Chrome grants them at install.
+
+No analytics, and no page content leaves the browser except the one garment
+image you asked to try on.

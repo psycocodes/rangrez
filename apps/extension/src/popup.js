@@ -1,3 +1,5 @@
+import { api, isGecko } from "./lib/api.js";
+
 /**
  * Popup: the extension's own status page. Says exactly one useful thing —
  * whether it can render on your body right now — and gives you the one action
@@ -11,11 +13,48 @@ const esc = (s) =>
   })[c]);
 
 const ask = (type, payload = {}) =>
-  chrome.runtime.sendMessage({ type, ...payload });
+  api.runtime.sendMessage({ type, ...payload });
 
 function open(url) {
-  chrome.tabs.create({ url });
+  api.tabs.create({ url });
   window.close();
+}
+
+/**
+ * Firefox treats MV3 host permissions as optional — declared in the manifest,
+ * but not granted until the user says so — where Chrome grants them at install.
+ * Without them nothing injects and no shop CDN can be fetched, so the popup
+ * asks. `permissions.request` needs a user gesture, which a click here is.
+ */
+async function siteAccess() {
+  if (!isGecko || !api.permissions) return true;
+  try {
+    return await api.permissions.contains({ origins: ["<all_urls>"] });
+  } catch {
+    return true;
+  }
+}
+
+function renderNeedsPermission() {
+  view.innerHTML = `
+    <p class="display">Let me <em>see</em><br>the shops.</p>
+    <p class="note" style="margin-top:11px">
+      Firefox asks before an add-on can read pages. Rangrez needs it to spot
+      clothes on a product page and fetch the photograph — nothing leaves your
+      browser except the one image you ask to try on.
+    </p>
+    <div class="rule"><button class="btn" data-act="grant">
+      <span class="spec">Grant site access</span><span class="spec">&rarr;</span>
+    </button></div>`;
+
+  view.querySelector('[data-act="grant"]').addEventListener("click", async () => {
+    try {
+      const granted = await api.permissions.request({ origins: ["<all_urls>"] });
+      if (granted) boot();
+    } catch (err) {
+      console.warn("[rangrez] permission request failed", err);
+    }
+  });
 }
 
 function render(session) {
@@ -99,11 +138,14 @@ function render(session) {
   });
 }
 
-(async () => {
+async function boot() {
   view.innerHTML = `<p class="spec" style="color:var(--ink-3)">Checking…</p>`;
   try {
+    if (!(await siteAccess())) return renderNeedsPermission();
     render(await ask("SESSION"));
   } catch (err) {
     view.innerHTML = `<p class="note">${esc(err.message || "Something went wrong.")}</p>`;
   }
-})();
+}
+
+void boot();

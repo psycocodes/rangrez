@@ -14,7 +14,7 @@
     if (!token || node.dataset.paired === "1") return;
 
     try {
-      await chrome.runtime.sendMessage({
+      await RZ.api.runtime.sendMessage({
         type: "PAIR",
         token,
         apiBase: node.dataset.api || location.origin,

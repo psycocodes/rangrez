@@ -27,7 +27,7 @@ globalThis.RZ = globalThis.RZ || {};
 
   function ensureFonts() {
     if (document.getElementById("rz-fontface")) return;
-    const url = (f) => chrome.runtime.getURL(`assets/fonts/${f}`);
+    const url = (f) => RZ.api.runtime.getURL(`assets/fonts/${f}`);
     const style = document.createElement("style");
     style.id = "rz-fontface";
     style.textContent = `

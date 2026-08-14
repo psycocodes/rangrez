@@ -1,7 +1,8 @@
 # Running & deploying Rangrez
 
-Two pieces: the **web app** (`apps/web`, Next.js) and the **Chrome extension**
-(`apps/extension`, no build step). They talk over three bearer-token endpoints.
+Two pieces: the **web app** (`apps/web`, Next.js) and the **browser extension**
+(`apps/extension`, Chrome + Firefox from one source tree). They talk over three
+bearer-token endpoints.
 
 ---
 
@@ -77,11 +78,27 @@ you which step you're on rather than throwing a stack trace.
 
 ### e. Load the extension
 
+**Chrome** — no build step:
+
 1. `chrome://extensions` → **Developer mode** on
 2. **Load unpacked** → `apps/extension`
-3. Visit <http://localhost:3000/connect> while signed in — the extension lifts
+
+**Firefox** — one command first:
+
+```bash
+node apps/extension/build.mjs
+```
+
+1. `about:debugging` → **This Firefox** → **Load Temporary Add-on**
+2. Pick `apps/extension/dist/firefox/manifest.json`
+3. Open the Rangrez popup → **Grant site access**. Firefox makes MV3 host
+   permissions opt-in, so nothing injects until you allow it.
+
+Then, either browser:
+
+4. Visit <http://localhost:3000/connect> while signed in — the extension lifts
    its key off that page. Nothing to copy.
-4. Open any clothing product page.
+5. Open any clothing product page.
 
 ### f. Migrating an older local wardrobe
 
@@ -102,6 +119,8 @@ seasons, catalog — into Supabase. Idempotent (upserts by id).
 | `apps/web/node_modules/.bin/next build` | production build |
 | `node apps/extension/test/logic.test.mjs` | classification + CDN rewrites (40 assertions) |
 | `node apps/extension/test/score.test.mjs` | image-picking, incl. the fabric-macro trap |
+| `node apps/extension/build.mjs` | lay out `dist/chrome` + `dist/firefox` |
+| `npx web-ext lint --source-dir apps/extension/dist/firefox` | Mozilla's own validator |
 | `apps/web/node_modules/.bin/tsc --noEmit` | typecheck |
 | serve `apps/extension` + open `test/harness.html` | every panel state, no install |
 
@@ -140,8 +159,10 @@ Two things that bite:
 
 ## 4 · Deploying the extension
 
-The extension has no build step — the folder *is* the extension. Two edits
-before it works against a deployed app:
+Chrome needs no build step — the folder *is* the extension. Firefox needs
+`node apps/extension/build.mjs`, which lays the same `src/` and `assets/` next
+to an event-page manifest. Two edits before either works against a deployed
+app:
 
 **`apps/extension/manifest.json`** — add your origin to the *pairing* content
 script (the second entry). It trusts localhost only by default, deliberately: it
@@ -163,18 +184,24 @@ would let any other tenant hand your extension somebody else's token.
 origin (or just visit `/connect` there once; pairing stores the origin it came
 from, so this only affects a fresh install that has never paired).
 
-Then either keep using **Load unpacked**, or package it:
+Then either keep loading it unpacked, or package both stores at once:
 
 ```bash
-cd apps/extension && zip -r ../rangrez-extension.zip . -x '*.DS_Store' 'test/*'
+node apps/extension/build.mjs --zip
+# → dist/rangrez-chrome.zip   → Chrome Web Store dashboard
+# → dist/rangrez-firefox.zip  → addons.mozilla.org
 ```
 
-`test/` is excluded because nothing in it ships. Upload the zip to the Chrome
-Web Store dashboard. Review notes worth pre-empting: the broad `host_permissions`
-exist so the service worker can fetch garment images from arbitrary shop CDNs,
-and the content script runs on all sites because clothing stores are not a
-knowable list — it stays inert unless the page is a product page *and* the
-classifier recognises a garment.
+`test/` and `dist/` never ship. The Firefox build passes `web-ext lint` with
+zero errors; the twelve `UNSAFE_VAR_ASSIGNMENT` warnings are the linter unable
+to see through the `esc()` helper every interpolation goes through — worth a
+note in the AMO review comments.
+
+Two more things worth pre-empting in a store review: the broad `host_permissions`
+exist so the background can fetch garment images from arbitrary shop CDNs, and
+the content script runs on all sites because clothing stores are not a knowable
+list — it stays inert unless the page is a product page *and* the classifier
+recognises a garment.
 
 ---
 
@@ -194,8 +221,13 @@ apps/web                     Next 16 · App Router
   supabase/*.sql             tables, auth wiring, row policies
   lib/auth.ts                Supabase Auth session → profile
 
-apps/extension               MV3 · no build step
+apps/extension               MV3 · Chrome + Firefox, one source
+  manifest.json              Chrome (service worker)
+  manifest.firefox.json      Firefox (event page + gecko id)
+  build.mjs                  lays both out into dist/
+  src/lib/api.js             browser ?? chrome — the whole port, one line
   src/background.js          token · API · image fetch · pixel analysis
+  src/lib/score.js           candidate scoring, pure and unit-tested
   src/content/               detect → panel → orchestration
   src/lib/taxonomy.js        what is this garment
   src/lib/sites.js           per-platform selectors + CDN rewrites

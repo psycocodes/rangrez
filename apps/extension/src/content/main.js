@@ -30,7 +30,7 @@ globalThis.RZ = globalThis.RZ || {};
   /** The service worker is the only thing that talks to the network. */
   async function ask(type, payload) {
     try {
-      const res = await chrome.runtime.sendMessage({ type, ...payload });
+      const res = await RZ.api.runtime.sendMessage({ type, ...payload });
       if (res?.error) throw new Error(res.error);
       return res;
     } catch (err) {
