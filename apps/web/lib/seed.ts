@@ -1,13 +1,15 @@
+import { garmentArt } from "./garment-art";
 import { hexToHsl } from "./palette";
 import type { Dye, Garment, SeasonTag, Zone } from "./types";
 
 /**
  * Starter wardrobe.
  *
- * Placeholder photography is pulled from picsum by seed, then dipped in each
- * garment's own dye by the card treatment (see `.dip` in globals.css), so a
- * bag of unrelated stock photos still reads as one coherent lookbook. Replace
- * `imageUrl` with the Apparel VTO result URL once the pipeline is live.
+ * Every piece is drawn — a flat-lay of the garment it claims to be, in its own
+ * catalogued dye (see lib/garment-art.ts). That replaced deterministic stock
+ * photography, which was coherent enough as grid texture but put a typewriter
+ * on a card reading "Raw Denim Straight". Replace `imageUrl` with the Apparel
+ * VTO result URL once a piece has actually been rendered onto a body.
  */
 
 export const DYES = {
@@ -107,16 +109,16 @@ const ITEMS: SeedItem[] = [
   { name: "Structured Tote", zone: "accessory", dye: DYES.pomegranate, season: "yearround", material: "Saddle leather", worn: 30 },
 ];
 
-/**
- * Deterministic photo seeds. Picsum returns the same image for the same seed,
- * so the grid does not reshuffle between renders (which would be maddening).
- */
 const slug = (s: string) =>
   s
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-|-$/g, "");
 
+/**
+ * Still exported for the editorial furniture that wants a photograph rather
+ * than a garment — the grid interstitials. Starter *pieces* are drawn now.
+ */
 export function placeholderPhoto(seed: string, w = 900, h = 1200) {
   return `https://picsum.photos/seed/rangrez-${seed}/${w}/${h}`;
 }
@@ -140,7 +142,10 @@ export function seedCatalog(userId: string): Garment[] {
       season: item.season,
       material: item.material,
       seed,
-      imageUrl: placeholderPhoto(seed),
+      // Drawn, not photographed: a card labelled "Raw Denim Straight" showing a
+      // stock photo of a typewriter was fine as grid texture and embarrassing
+      // the moment those cards were dealt onto the look creator's wheels.
+      imageUrl: garmentArt(item.name, item.zone, item.dye),
       status: "rendered",
       // Recomputed against the real colour season the moment the avatar's
       // skin-tone analysis returns — see app/api/avatar/route.ts.

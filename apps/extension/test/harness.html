@@ -85,6 +85,8 @@
 
     <div class="bar">
       <button data-run="detect">Run detect()</button>
+      <button data-state="pick-2">State · pick body (2)</button>
+      <button data-state="pick-3">State · pick body (3)</button>
       <button data-state="isolating">State · isolating</button>
       <button data-state="rendering">State · rendering</button>
       <button data-state="result">State · result</button>
@@ -162,6 +164,24 @@
           }
 
           s.open("AMAZON");
+
+          // Only reachable with more than one plate — see main.js. Both counts
+          // are here because the row has to hold its shape at two and three.
+          if (state.startsWith("pick-")) {
+            const n = Number(state.slice(5));
+            const plates = [
+              { id: "a", label: "Gantavya", renderUrl: "https://picsum.photos/seed/rz-p1/300/400" },
+              { id: "b", label: "Full length", renderUrl: "https://picsum.photos/seed/rz-p2/300/400" },
+              { id: "c", label: "Studio", renderUrl: "https://picsum.photos/seed/rz-p3/300/400" },
+            ].slice(0, n);
+            const view = s.renderAvatarPick(plates, "a");
+            view.querySelectorAll("[data-avatar]").forEach((btn) =>
+              btn.addEventListener("click", () =>
+                log("picked", btn.dataset.avatar),
+              ),
+            );
+            return log("state", `${state} — click a plate`);
+          }
 
           if (state === "isolating") {
             const strip = s.renderIsolating(SHOTS);

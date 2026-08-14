@@ -14,7 +14,7 @@
  */
 
 import { api } from "./lib/api.js";
-import { clamp01, scorePixels } from "./lib/score.js";
+import { prepareReference, scorePixels } from "./lib/score.js";
 
 const DEFAULT_API = "http://localhost:3000";
 
@@ -154,7 +154,7 @@ const HANDLERS = {
    * raw editorial shot. Falls back to the URL if preparation fails, so a
    * canvas hiccup can't take the feature down.
    */
-  async TRYON({ imageUrl, category }) {
+  async TRYON({ imageUrl, category, avatarId }) {
     let prepared = null;
     try {
       prepared = await prepareReference(imageUrl);
@@ -164,11 +164,15 @@ const HANDLERS = {
 
     return callRangrez("/api/extension/tryon", {
       method: "POST",
-      body: JSON.stringify(
-        prepared
-          ? { imageData: prepared.base64, contentType: "image/jpeg", category }
-          : { imageUrl, category },
-      ),
+      body: JSON.stringify({
+        category,
+        // Omitted entirely when there was no choice to make, so the server
+        // falls back to whichever plate is in use.
+        ...(avatarId ? { avatarId } : {}),
+        ...(prepared
+          ? { imageData: prepared.base64, contentType: "image/jpeg" }
+          : { imageUrl }),
+      }),
     });
   },
 
@@ -178,6 +182,8 @@ const HANDLERS = {
       body: JSON.stringify({
         name: msg.name,
         zone: msg.zone,
+        vtoTarget: msg.vtoTarget,
+        avatarId: msg.avatarId,
         dominantColor: msg.dominantColor,
         material: msg.material,
         renderUrl: msg.renderUrl,

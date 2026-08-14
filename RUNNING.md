@@ -24,10 +24,18 @@ Create a project, then in **SQL Editor** run, in order:
 1. [`apps/web/supabase/schema.sql`](apps/web/supabase/schema.sql) — tables
 2. [`apps/web/supabase/002-supabase-auth.sql`](apps/web/supabase/002-supabase-auth.sql) — ties
    profiles to `auth.users` and adds row policies
+3. [`apps/web/supabase/003-avatars-and-uploads.sql`](apps/web/supabase/003-avatars-and-uploads.sql)
+   — up to three avatar plates per account, and the second image a garment
+   carries (the piece worn, as opposed to the piece)
 
-Both are idempotent. **Migration 002 truncates the tables** — old accounts can't
-be carried across, because Supabase has to hash the passwords and we only ever
-stored a digest.
+All three are idempotent. **Migration 002 truncates the tables** — old accounts
+can't be carried across, because Supabase has to hash the passwords and we only
+ever stored a digest. **003 drops nothing** and backfills existing avatars into
+the new list, so it is safe to run on a database already in use.
+
+Until 003 has run, the app still reads fine but every write that touches an
+avatar or an upload fails and routes you to `/setup` — the columns simply
+aren't there yet.
 
 Then, under **Authentication → Sign In / Providers**, turn **Confirm email**
 off for development. Left on, sign-up sends a link and creates no session, so

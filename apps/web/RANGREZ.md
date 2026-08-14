@@ -213,26 +213,59 @@ minimal SaaS dashboard.
 ## 12 · Build state
 
 **Done**
-- Dummy auth (sign up / sign in / sign out) — HMAC-signed httpOnly cookie, JSON user store
-- Dashboard — editorial wardrobe grid, filters by zone/colour, saved fits rail, placeholder catalog
-- Avatar studio (`/atelier`) — photo upload, capture guidance, YouCam call, colour-season result
-- Profile — avatar retake, colour season override, stage/backdrop customization, preferences
+- **Auth** — Supabase Auth (accounts live in the Authentication tab), email + password and Sign in with
+  Google, sessions as Supabase cookies so "stay logged in" isn't ours to implement
+- **Storage** — Supabase Postgres, RLS on with no anon policies; every query in `lib/db.ts` scopes by
+  `user_id` and the server holds the secret key
+- Dashboard — editorial wardrobe grid, filters by rail / colour / **source**, full CRUD behind the ⋯ menu
+- **Up to three avatar plates** per account, one active. Shelf in the profile (`AvatarShelf`), compact
+  switcher on the wardrobe (`PlateSwitcher`), and each plate carries its own colour season — switching
+  re-ranks the wardrobe, which is our maths and costs no API credit.
+- **Upload from your own photos** (`UploadDock`) — the garment is cut out **in the browser**
+  (`lib/extract.ts`: subject box off the corner colour, cropped, centred on white), so the server only
+  ever sees a ~200KB square. Rows land in the grid immediately as "queued"; the VTO renders follow
+  three at a time. The grid shows the piece, and hover crossfades to the piece **worn**.
+- Avatar studio (`/atelier`) — photo upload, capture guidance, YouCam call, colour-season result,
+  `?replace=<id>` to re-shoot a plate in place
 - `lib/youcam.ts` — S2S auth + task-poll client with a **mock mode** so the app runs before the key lands
-- **Chrome extension (`apps/extension`)** — PRD §4.3 / Flow D. Detects garments on Amazon, Myntra,
-  Flipkart, Ajio, Zara and H&M (plus a JSON-LD/OpenGraph fallback for everything else), classifies the
-  piece, scores every gallery photograph to pick the one that isolates the garment best, renders it onto
-  the saved avatar, and saves the result into the same catalog.
+- **Chrome + Firefox extension (`apps/extension`)** — PRD §4.3 / Flow D. Detects garments on Amazon,
+  Myntra, Flipkart, Ajio, Zara and H&M (plus a JSON-LD/OpenGraph fallback for everything else),
+  classifies the piece, scores every gallery photograph to pick the one that isolates the garment best,
+  renders it onto the chosen avatar, and saves the result into the same catalog. Shoes, bags, hats and
+  the jewellery family all have surfaces; only eyewear is honestly refused.
+- **The extension asks which body — only when there is more than one.** The gallery read starts before
+  the question so the two overlap.
 - **Extension API** — `/api/extension/{session,tryon,save}`, bearer-token auth (`lib/ext-token.ts`),
   CORS confined to those routes, SSRF-guarded remote image fetch (`lib/fetch-image.ts`)
 - **`/connect`** — pairing page. The extension lifts its token off the page; nothing to copy.
 
+- **Look creator (`/look`)** — PRD §4.2, the Sims-mode feature, and the one page in the product that is
+  a *room* rather than a spec sheet. It owns exactly one viewport and never scrolls (the colophon hides
+  itself there); the whole page is lit by three colours in `--look-a/b/c`, registered with `@property`
+  so the browser interpolates them and the light **drifts** between moods instead of cutting. Idle, it
+  cycles the vat's own dyes; with clothes on the body it takes their colours.
+  Hierarchy is the design: the body is centre, the slot rail sits above it, and the two card wheels are
+  hubbed below the bottom corners — `rotate(θ) translateY(-R)` puts each card on the rim standing
+  radially, so turning really does carry one side up and over the top. Scrolling over a wheel spins it.
+  Cards are CSS 3D rather than WebGL: every card stays a real DOM node, so images lazy-load and the
+  wheels are keyboard-reachable.
+  Rim z-order is **monotonic**, not peaked at the front. Peaking it put one card on top of both its
+  neighbours, and pointer sampling showed it owning ~100× its share of the wheel's hit area — which is
+  what made hover feel stuck on a single card. Monotonic ordering brings that ratio to ~1.3×.
+  "Build the fit" chains one YouCam render per layer, innermost first, outerwear last, each render
+  becoming the next one's body. The client drives the chain (`/api/look/step`) so the body updates as
+  each layer lands instead of showing one ninety-second spinner.
+- **Avatar framing** — a plate records how much of the body is in shot (`bust` / `knee` / `full`),
+  guessed from head-height-to-frame at upload and confirmed by the user. Slots the body can't carry are
+  struck out in the look creator and refused by the API, so nobody spends a render fitting trousers to a
+  head-and-shoulders photograph.
+
 **Next**
-- Real garment segmentation on upload (currently manual category assign)
-- Swipe-to-Style customizer ("Sims mode")
-- Extension: shoes and jewellery (needs YouCam surfaces beyond Apparel VTO — currently detected and
-  honestly refused)
-- Swap dummy auth → Sign in with Google (see `lib/auth.ts` — one function)
-- Swap JSON store → Postgres (see `lib/db.ts`)
+- Move `public/uploads/` to Supabase Storage — it is ephemeral on Vercel, so uploads and mirrored
+  renders do not survive a deploy
+- True cutout segmentation on upload. `lib/extract.ts` crops and centres but never repaints the
+  interior, deliberately: a white shirt on a white sheet is the same colour as its background and
+  guessing there destroys the garment.
 
 **Live-verified 2026-08-05:** detection fires correctly on a real Amazon India product page, and a full
 try-on has been rendered end to end against the real YouCam API (`mocked: false`, ~19s, garment
@@ -243,6 +276,17 @@ transferred onto the user's own avatar with pose and background preserved).
   `YOUCAM_SKIN_FEATURE` and falls back to a deterministic local derivation, so onboarding never breaks.
 - Myntra, Flipkart, Ajio, Zara and H&M selectors in `apps/extension/src/lib/sites.js` are unit-tested
   for their URL rewrites but haven't met a live page yet. Amazon has.
+- The garment classifier exists **twice** — `apps/extension/src/lib/taxonomy.js` (content script, plain
+  JS) and `apps/web/lib/garment-kind.ts` (server + upload dock). Neither can import the other.
+  `apps/extension/test/taxonomy-twin.test.mjs` parses both rule tables and fails if they drift.
+- `/api/extension/tryon` and `/api/look/step` declare `maxDuration = 120`, above Vercel Hobby's 60s
+  ceiling. Each *look* step is one render, so the chain never needs a single long request — but one
+  render can still exceed 60s on a slow day.
+- The avatar on the pedestal is a photograph, not a 3D model, and can't be one: YouCam returns 2D
+  renders. The pedestal, its cast shadow and the colour-reactive backdrop are what give it dimension.
+- `tsconfig.json` sets `incremental: true`. A stale `tsconfig.tsbuildinfo` will happily report a clean
+  typecheck over files it has already seen — `lib/extract.ts` carried five real errors behind one. If a
+  check matters, delete `tsconfig.tsbuildinfo` and `.next/cache/.tsbuildinfo` first.
 
 **Env** — see `.env.example`. `YOUCAM_API_KEY` / `YOUCAM_SECRET_KEY` go in `.env.local`; until then the app
 runs in `YOUCAM_MOCK=1` mode and fabricates plausible task responses so every flow stays clickable.

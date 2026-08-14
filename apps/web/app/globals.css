@@ -33,6 +33,12 @@
   /* ── motion: fabric settles, it does not bounce ────────────────────────── */
   --ease-cloth: cubic-bezier(0.22, 1, 0.36, 1);
   --ease-drape: cubic-bezier(0.65, 0, 0.35, 1);
+
+  /* ── the shell ─────────────────────────────────────────────────────────── */
+  /* Height of the sticky top bar. Anything that sticks *below* it offsets by
+     this, so the two can never disagree — they did, by 8px, and the page
+     showed through the seam on every scroll. One number, two consumers. */
+  --spacing-shell-top: 3rem;
 }
 
 /* ── base ─────────────────────────────────────────────────────────────────── */
@@ -152,6 +158,32 @@ body {
   font-family: var(--font-sans);
   letter-spacing: -0.022em;
   font-weight: 500;
+}
+
+/* ── the look creator's room ──────────────────────────────────────────────
+   Three colours the whole page is lit by. Registered as real typed custom
+   properties so the browser can *interpolate* them — a plain `--x: #abc` is a
+   string to CSS and jumps between values, which is why the gradient could
+   never crossfade before. With @property it transitions like any colour. */
+@property --look-a {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #e4dcca;
+}
+@property --look-b {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #d8cfba;
+}
+@property --look-c {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #ede7da;
+}
+@property --look-d {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #e4dcca;
 }
 
 /* Rotated spine text down the left edge of the shell. */

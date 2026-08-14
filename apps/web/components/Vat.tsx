@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 
-import { Knot } from "./Wordmark";
+import { Knot, Rangrez } from "./Wordmark";
 
 /**
  * The vat: the deep colour field on the left of the door.
@@ -11,16 +11,6 @@ import { Knot } from "./Wordmark";
  * makes a static sign-in page feel like a place rather than a form. Slow on
  * purpose (5s hold, 1.6s crossfade); anything faster reads as a bug.
  */
-
-/**
- * "रंगरेज़", spelled for AMS Kartik.
- *
- * Kept as a named constant rather than inlined so nobody tidies it into
- * something that looks more like a word. It is nine characters and every one
- * of them matters; the trailing `‼` (U+203C) draws the nukta under ज़ and will
- * not survive being retyped by hand.
- */
-const WORDMARK = "r/gareja\u203C";
 
 const VAT_DYES = [
   { name: "Indigo", hex: "#26356E", note: "Indigofera tinctoria · fermented ten days" },
@@ -129,21 +119,7 @@ export function VatMasthead() {
 
       <div className="mt-10 lg:mt-14">
         <p className="mb-6 flex items-center gap-4 text-paper/85">
-          {/* Renders as रंगरेज़. AMS Kartik is a legacy font with no Unicode
-              Devanagari — every glyph sits on an ASCII slot — so the word has
-              to be spelled in that font's own keyboard layout. Typing the
-              actual Devanagari here would render nothing.
-              The `‼` is U+203C and is load-bearing: it draws the ज़ nukta.
-              aria-label carries the real word, since the markup is gibberish
-              to anything that isn't this font. */}
-          <span
-            aria-label="Rangrez"
-            role="img"
-            className="block shrink-0 text-[2.9rem] leading-[0.75]"
-            style={{ fontFamily: "var(--font-kartik)" }}
-          >
-            {WORDMARK}
-          </span>
+          <Rangrez className="block shrink-0 text-[2.9rem] leading-[0.75]" />
           <span className="spec">the dyer of cloth</span>
         </p>
         <h1 className="display display-door">

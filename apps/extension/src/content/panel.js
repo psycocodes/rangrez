@@ -129,6 +129,24 @@ globalThis.RZ = globalThis.RZ || {};
 .cand__flag{position:absolute;left:0;right:0;bottom:0;background:var(--turmeric);color:var(--ink);padding:3px 4px;text-align:center;opacity:0;transform:translateY(100%);transition:all .45s var(--cloth)}
 .cand[data-win="1"] .cand__flag{opacity:1;transform:none}
 
+/* ── choosing a body ────────────────────────────────────────────────── */
+.plates{display:flex;gap:6px;margin-top:12px}
+.plate-pick{
+  flex:1;min-width:0;padding:0;cursor:pointer;font:inherit;text-align:left;
+  background:transparent;border:0;animation:rise .4s var(--cloth) both;
+}
+.plate-pick__shot{position:relative;aspect-ratio:3/4;overflow:hidden;background:var(--vat);border:1px solid rgba(20,18,14,.2);transition:border-color .3s var(--cloth)}
+.plate-pick__shot img{width:100%;height:100%;object-fit:cover;display:block;opacity:.72;filter:grayscale(.5);transition:all .4s var(--cloth)}
+.plate-pick:hover .plate-pick__shot{border-color:var(--ink)}
+.plate-pick:hover .plate-pick__shot img{opacity:1;filter:none}
+.plate-pick__rule{position:absolute;top:0;left:0;right:0;height:3px;background:var(--madder);opacity:0;transition:opacity .3s}
+.plate-pick[data-on="1"] .plate-pick__shot{border-color:var(--ink)}
+.plate-pick[data-on="1"] .plate-pick__shot img{opacity:1;filter:none}
+.plate-pick[data-on="1"] .plate-pick__rule{opacity:1}
+.plate-pick__name{display:block;margin-top:5px;color:var(--ink-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.plate-pick[data-on="1"] .plate-pick__name{color:var(--ink)}
+.plate-pick__tag{position:absolute;bottom:0;left:0;right:0;background:var(--turmeric);color:var(--ink);padding:3px 4px;text-align:center}
+
 /* ── steps ──────────────────────────────────────────────────────────── */
 .steps{list-style:none;margin-top:12px;display:flex;flex-direction:column;gap:7px}
 .steps li{display:flex;align-items:center;gap:8px;color:var(--ink-3);transition:color .4s}
@@ -311,6 +329,42 @@ globalThis.RZ = globalThis.RZ || {};
         cards[i].dataset.scored = "1";
         if (s.url === winnerUrl) cards[i].dataset.win = "1";
       });
+    }
+
+    /**
+     * Which body?
+     *
+     * Only ever reached when the account holds more than one plate — see
+     * main.js. A question with one answer is not a question, and making
+     * everybody confirm their only avatar before every try-on would be a tax
+     * on the common case to serve the rare one.
+     *
+     * Photographs, not a list: these are bodies, and the user recognises them
+     * faster than they read "Plate 02".
+     */
+    renderAvatarPick(avatars, activeId) {
+      this.body.innerHTML = `
+        <p class="spec kicker">Which body?</p>
+        <p class="note">You keep more than one plate. Pick the one to hang this on.</p>
+        <div class="plates"></div>`;
+
+      const row = this.body.querySelector(".plates");
+      avatars.forEach((a, i) => {
+        const on = a.id === activeId;
+        const card = el(`<button class="plate-pick" type="button"
+            data-on="${on ? "1" : ""}" data-avatar="${esc(a.id)}"
+            style="animation-delay:${i * 70}ms">
+          <span class="plate-pick__shot">
+            <span class="plate-pick__rule"></span>
+            <img src="${esc(a.renderUrl)}" alt="" referrerpolicy="no-referrer">
+            ${on ? `<span class="spec-sm plate-pick__tag">In use</span>` : ""}
+          </span>
+          <span class="spec-sm plate-pick__name">${esc(a.label)}</span>
+        </button>`);
+        row.appendChild(card);
+      });
+
+      return this.body;
     }
 
     /** The VTO call itself. */

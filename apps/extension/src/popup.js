@@ -109,7 +109,11 @@ function render(session) {
             ${esc(session.avatar.colorSeason || "Unanalysed")}
           </p>
           <p class="note" style="margin-top:8px">
-            Open any product page. The mark appears when there are clothes on it.
+            Open any product page. The mark appears when there are clothes on it.${
+              session.avatars?.length > 1
+                ? ` You keep ${session.avatars.length} plates, so it will ask which body to use.`
+                : ""
+            }
           </p>
         </div>
       </div>

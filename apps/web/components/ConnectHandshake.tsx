@@ -42,11 +42,19 @@ export function ConnectHandshake({
 
   return (
     <>
+      {/* The whole point of this node is that something outside React writes
+          to it, and the content script often wins the race against hydration
+          — so the live DOM has `data-paired` while the server HTML never
+          will. That is the one case suppressHydrationWarning exists for.
+          Without it React reports a mismatch on every already-paired visit,
+          and the fix must not be to stop the extension writing early: writing
+          early is what makes pairing feel instant. */}
       <div
         id={NODE_ID}
         data-token={token}
         data-api={apiBase}
         hidden
+        suppressHydrationWarning
       />
 
       <div

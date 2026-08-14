@@ -1,5 +1,7 @@
 "use client";
 
+import Image from "next/image";
+import { useRouter } from "next/navigation";
 import { useActionState, useEffect, useRef, useState, useTransition } from "react";
 import { useFormStatus } from "react-dom";
 
@@ -166,6 +168,150 @@ function MenuItem({
     >
       {children}
     </button>
+  );
+}
+
+/* ═══ the hover bar: try it on, or look closer ═══════════════════════════ */
+
+/** Rails whose try-on surface is unambiguous without a stored `vtoTarget`. */
+const RENDERABLE_ZONES = new Set(["top", "bottom", "outerwear", "shoes"]);
+
+/**
+ * The bar that rises off the bottom of a card.
+ *
+ * It has exactly one job at a time, decided by what the piece already has:
+ * a garment with no body shot offers to render one; a garment that has one
+ * offers to show it properly. Two labels, never both — a hover bar with a
+ * choice in it is a hover bar nobody reads.
+ */
+export function GarmentTryOn({
+  garment,
+  canTryOn,
+}: {
+  garment: Garment;
+  canTryOn: boolean;
+}) {
+  const router = useRouter();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [open, setOpen] = useState(false);
+
+  // A shop save *is* the render — the extension already put it on the body, so
+  // its main image is the body shot. Seeds are placeholder photography and
+  // rendering one would spend a real API call on a stock photo of a stranger.
+  const alreadyWorn = garment.origin === "shop";
+  const isDemo = garment.origin === "seed";
+
+  const renderable =
+    canTryOn &&
+    !alreadyWorn &&
+    !isDemo &&
+    (Boolean(garment.vtoTarget) || RENDERABLE_ZONES.has(garment.zone));
+
+  // What the lightbox would show. Uploads carry a separate body shot; shop
+  // saves already are one.
+  const worn = garment.tryOnUrl ?? (alreadyWorn ? garment.imageUrl : undefined);
+
+  // Nothing useful to offer: no body on file, and no render to enlarge.
+  if (!worn && !renderable) return null;
+
+  async function render() {
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/wardrobe/render", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: garment.id }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error ?? "That render didn't take.");
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "That render didn't take.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <>
+      <div className="absolute inset-x-0 bottom-0 z-[4] translate-y-full bg-ink text-paper transition-transform duration-500 [transition-timing-function:var(--ease-cloth)] group-hover:translate-y-0 group-focus-within:translate-y-0">
+        {error && (
+          <p role="alert" className="spec-sm bg-madder px-3 py-1.5 text-paper">
+            {error}
+          </p>
+        )}
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => (worn ? setOpen(true) : void render())}
+          className="flex w-full items-center justify-between px-3 py-2.5 transition-colors duration-300 hover:bg-madder disabled:opacity-70"
+        >
+          <span className="spec">
+            {busy ? "In the vat" : worn ? "See it full size" : "Try on avatar"}
+          </span>
+          <span aria-hidden className="spec">
+            {busy ? "···" : worn ? "⤢" : "→"}
+          </span>
+        </button>
+      </div>
+
+      {open && worn && (
+        <Lightbox
+          src={worn}
+          name={garment.name}
+          onClose={() => setOpen(false)}
+        />
+      )}
+    </>
+  );
+}
+
+/**
+ * The render, given the room it earns. Everything else on screen goes dark —
+ * this is the one image in the product that is worth looking at properly.
+ */
+function Lightbox({
+  src,
+  name,
+  onClose,
+}: {
+  src: string;
+  name: string;
+  onClose: () => void;
+}) {
+  useEffect(() => {
+    const esc = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    document.addEventListener("keydown", esc);
+    return () => document.removeEventListener("keydown", esc);
+  }, [onClose]);
+
+  return (
+    <div
+      className="fixed inset-0 z-[90] flex flex-col items-center justify-center gap-4 bg-ink/90 p-5 backdrop-blur-sm"
+      onMouseDown={(e) => e.target === e.currentTarget && onClose()}
+    >
+      <div className="rise relative max-h-[80dvh] w-full max-w-[34rem] flex-1">
+        <Image
+          src={src}
+          alt={`${name}, on your avatar`}
+          fill
+          sizes="(max-width: 640px) 100vw, 544px"
+          className="object-contain"
+        />
+      </div>
+      <div className="flex w-full max-w-[34rem] items-baseline justify-between gap-4">
+        <span className="tight text-[0.95rem] text-paper">{name}</span>
+        <button
+          type="button"
+          onClick={onClose}
+          className="spec text-paper/60 transition-colors hover:text-paper"
+        >
+          CLOSE ✕
+        </button>
+      </div>
+    </div>
   );
 }
 

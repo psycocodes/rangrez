@@ -3,6 +3,7 @@ import { insertGarments, newId } from "@/lib/db";
 import { userFromRequest } from "@/lib/ext-token";
 import { isInPalette } from "@/lib/palette";
 import { nearestDye } from "@/lib/seed";
+import { isVtoTarget } from "@/lib/youcam";
 import { ZONES, type Garment, type SeasonTag, type Zone } from "@/lib/types";
 
 export const OPTIONS = preflight;
@@ -10,6 +11,10 @@ export const OPTIONS = preflight;
 interface Body {
   name?: string;
   zone?: string;
+  /** The YouCam surface it was rendered through, so it can be re-rendered. */
+  vtoTarget?: string;
+  /** Which plate it was hung on — the panel asks when there's more than one. */
+  avatarId?: string;
   /** Average colour the extension measured off the garment image. */
   dominantColor?: string;
   material?: string;
@@ -76,6 +81,13 @@ export async function POST(req: Request) {
     season: SEASON_BY_MONTH[new Date().getMonth()],
     material: body.material?.slice(0, 80).trim() || "From a shop page",
     imageUrl: relativizeOwn(body.renderUrl, req),
+    vtoTarget: isVtoTarget(body.vtoTarget) ? body.vtoTarget : undefined,
+    // The render already is this plate wearing the piece, so the card knows
+    // whose body it is looking at even after the active plate changes.
+    tryOnAvatarId:
+      body.avatarId && user.avatars.some((a) => a.id === body.avatarId)
+        ? body.avatarId
+        : user.activeAvatarId,
     sourceUrl: body.sourceUrl?.slice(0, 500),
     seed: newId().slice(0, 8),
     status: "rendered",

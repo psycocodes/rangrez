@@ -1,4 +1,5 @@
 import { cors, preflight } from "@/lib/cors";
+import { pickAvatar } from "@/lib/db";
 import { userFromRequest } from "@/lib/ext-token";
 import { fetchImage } from "@/lib/fetch-image";
 import { isVtoTarget, tryOnGarment } from "@/lib/youcam";
@@ -20,6 +21,12 @@ interface Body {
   /** Fallback when preparation failed: fetch it here instead. */
   imageUrl?: string;
   category?: string;
+  /**
+   * Which plate to dress. The panel only asks when the account holds more than
+   * one; absent means "whichever is in use", which is what every single-plate
+   * account sends and what an older extension build sends too.
+   */
+  avatarId?: string;
 }
 
 const MAX_INLINE_BYTES = 8 * 1024 * 1024;
@@ -47,18 +54,22 @@ export async function POST(req: Request) {
   if (!user) {
     return cors({ error: "Not connected.", code: "no-token" }, { status: 401 });
   }
-  if (!user.avatar) {
-    return cors(
-      { error: "No avatar on file yet.", code: "no-avatar" },
-      { status: 409 },
-    );
-  }
-
   let body: Body;
   try {
     body = (await req.json()) as Body;
   } catch {
     return cors({ error: "Expected JSON." }, { status: 400 });
+  }
+
+  // An unknown or stale avatarId falls back to the active plate rather than
+  // failing: a plate retired in another tab shouldn't turn a try-on into an
+  // error the user can do nothing about from a shop page.
+  const avatar = pickAvatar(user, body.avatarId);
+  if (!avatar) {
+    return cors(
+      { error: "No avatar on file yet.", code: "no-avatar" },
+      { status: 409 },
+    );
   }
 
   const target = body.category;
@@ -70,15 +81,15 @@ export async function POST(req: Request) {
   }
 
   try {
-    const [avatar, garment] = await Promise.all([
-      fetchImage(user.avatar.renderUrl),
+    const [plate, garment] = await Promise.all([
+      fetchImage(avatar.renderUrl),
       body.imageData
         ? decodeInline(body.imageData, body.contentType)
         : fetchImage(body.imageUrl!),
     ]);
 
     const result = await tryOnGarment(
-      avatar,
+      plate,
       garment,
       target,
       user.preferences.vtoGender ?? "male",
@@ -88,11 +99,11 @@ export async function POST(req: Request) {
       // In mock mode there is no generated render, so we hand back the avatar
       // plate itself — the panel still shows a real body, clearly labelled.
       renderUrl:
-        result.renderUrl ||
-        new URL(user.avatar.renderUrl, req.url).toString(),
+        result.renderUrl || new URL(avatar.renderUrl, req.url).toString(),
       taskId: result.taskId,
       mocked: result.mocked,
       target,
+      avatarId: avatar.id,
     });
   } catch (err) {
     console.error("[extension/tryon]", err);

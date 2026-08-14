@@ -12,10 +12,19 @@ function refresh() {
   revalidatePath("/wardrobe");
 }
 
-/** Presentation of the avatar plate — applies everywhere it appears. */
+/**
+ * Presentation of one avatar plate — applies everywhere that plate appears.
+ *
+ * Takes an explicit `id` rather than assuming the active plate: the profile
+ * shelf can hold three, and editing the crop of the one you are looking at
+ * should not depend on it also being the one currently in use.
+ */
 export async function saveCustomization(form: FormData): Promise<void> {
   const user = await requireUser();
-  if (!user.avatar) return;
+
+  const id = String(form.get("id") ?? "") || user.activeAvatarId;
+  const target = user.avatars.find((a) => a.id === id);
+  if (!target) return;
 
   const backdrop = String(form.get("backdrop") ?? "paper") as AvatarCustomization["backdrop"];
   const crop = String(form.get("crop") ?? "three-quarter") as AvatarCustomization["crop"];
@@ -23,8 +32,9 @@ export async function saveCustomization(form: FormData): Promise<void> {
   const label = String(form.get("label") ?? user.name).trim() || user.name;
 
   await updateUser(user.id, (u) => {
-    if (!u.avatar) return;
-    u.avatar.customization = {
+    const plate = u.avatars.find((a) => a.id === target.id);
+    if (!plate) return;
+    plate.customization = {
       backdrop: (["paper", "vat", "madder", "studio"] as const).includes(backdrop)
         ? backdrop
         : "paper",

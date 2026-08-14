@@ -5,7 +5,7 @@ import { randomUUID } from "node:crypto";
 import { isInPalette } from "./palette";
 import { seedCatalog } from "./seed";
 import { supabase } from "./supabase";
-import type { ColorSeason, Garment, SavedFit, User } from "./types";
+import type { Avatar, ColorSeason, Garment, SavedFit, User } from "./types";
 
 /**
  * Persistence.
@@ -27,18 +27,41 @@ export const newId = () => randomUUID();
 type Row = Record<string, unknown>;
 
 function toUser(row: Row): User {
+  // Accounts predating the multi-plate migration have a single `avatar` and an
+  // empty `avatars`, so the column that is populated wins. The SQL backfills
+  // this too; reading defensively means a half-migrated row still signs in.
+  const stored = (row.avatars as Avatar[] | null) ?? [];
+  const legacy = (row.avatar as Avatar | null) ?? null;
+  const avatars = stored.length ? stored : legacy ? [legacy] : [];
+
+  const activeAvatarId =
+    (row.active_avatar_id as string | null) ?? avatars[0]?.id ?? undefined;
+
   return {
     id: row.id as string,
     email: row.email as string,
     name: row.name as string,
     createdAt: row.created_at as string,
-    avatar: (row.avatar as User["avatar"]) ?? undefined,
+    avatars,
+    activeAvatarId,
+    // The same object as the array entry, not a copy: `u.avatar.colorSeason = x`
+    // inside an updateUser patch has to reach the row that gets written back.
+    avatar: avatars.find((a) => a.id === activeAvatarId) ?? avatars[0],
     preferences: {
       fitPreference: "regular",
       paletteFirst: true,
       ...((row.preferences as object) ?? {}),
     } as User["preferences"],
   };
+}
+
+/** The plate a try-on should land on, by id or else whichever is active. */
+export function pickAvatar(user: User, id?: string | null): Avatar | undefined {
+  if (id) {
+    const named = user.avatars.find((a) => a.id === id);
+    if (named) return named;
+  }
+  return user.avatar;
 }
 
 function toGarment(row: Row): Garment {
@@ -52,6 +75,9 @@ function toGarment(row: Row): Garment {
     season: row.season as Garment["season"],
     material: (row.material as string) ?? "",
     imageUrl: row.image_url as string,
+    tryOnUrl: (row.try_on_url as string) ?? undefined,
+    tryOnAvatarId: (row.try_on_avatar_id as string) ?? undefined,
+    vtoTarget: (row.vto_target as string) ?? undefined,
     seed: (row.seed as string) ?? "",
     status: row.status as Garment["status"],
     taskId: (row.task_id as string) ?? undefined,
@@ -74,6 +100,9 @@ function fromGarment(g: Garment): Row {
     season: g.season,
     material: g.material,
     image_url: g.imageUrl,
+    try_on_url: g.tryOnUrl ?? null,
+    try_on_avatar_id: g.tryOnAvatarId ?? null,
+    vto_target: g.vtoTarget ?? null,
     seed: g.seed,
     status: g.status,
     task_id: g.taskId ?? null,
@@ -187,6 +216,7 @@ export async function ensureProfile(input: {
     email: input.email,
     name: input.name,
     createdAt: new Date().toISOString(),
+    avatars: [],
     preferences: { fitPreference: "regular", paletteFirst: true },
   };
 
@@ -201,6 +231,8 @@ export async function insertUser(user: User): Promise<User> {
       id: user.id,
       email: user.email,
       name: user.name,
+      avatars: user.avatars,
+      active_avatar_id: user.activeAvatarId ?? null,
       avatar: user.avatar ?? null,
       preferences: user.preferences,
       created_at: user.createdAt,
@@ -228,13 +260,28 @@ export async function updateUser(
   if (!user) return undefined;
 
   patch(user);
+
+  // The patch may have added, removed or re-pointed a plate, so the active one
+  // is resolved *after* it runs rather than trusting whatever `user.avatar`
+  // now holds. An activeAvatarId naming a plate that no longer exists falls
+  // back to the first, which is the only way this can't strand an account
+  // with plates it can't use.
+  const active =
+    user.avatars.find((a) => a.id === user.activeAvatarId) ?? user.avatars[0];
+  user.activeAvatarId = active?.id;
+  user.avatar = active;
+
   must(
     "updateUser",
     await supabase()
       .from("rangrez_users")
       .update({
         name: user.name,
-        avatar: user.avatar ?? null,
+        avatars: user.avatars,
+        active_avatar_id: user.activeAvatarId ?? null,
+        // Still written, so anything reading the pre-migration column — an old
+        // deploy mid-rollout, a SQL console — sees the plate that is in use.
+        avatar: active ?? null,
         preferences: user.preferences,
       })
       .eq("id", id),
@@ -287,7 +334,8 @@ export async function patchGarment(
   fields: Partial<
     Pick<
       Garment,
-      "name" | "zone" | "dye" | "season" | "material" | "wornCount" | "inPalette"
+      | "name" | "zone" | "dye" | "season" | "material" | "wornCount"
+      | "inPalette" | "status" | "tryOnUrl" | "tryOnAvatarId" | "taskId"
     >
   >,
 ): Promise<Garment | undefined> {
@@ -299,6 +347,13 @@ export async function patchGarment(
   if (fields.material !== undefined) row.material = fields.material;
   if (fields.wornCount !== undefined) row.worn_count = fields.wornCount;
   if (fields.inPalette !== undefined) row.in_palette = fields.inPalette;
+  if (fields.status !== undefined) row.status = fields.status;
+  if (fields.taskId !== undefined) row.task_id = fields.taskId;
+  // Nullable on purpose: clearing a render is how a failed retry resets.
+  if (fields.tryOnUrl !== undefined) row.try_on_url = fields.tryOnUrl ?? null;
+  if (fields.tryOnAvatarId !== undefined) {
+    row.try_on_avatar_id = fields.tryOnAvatarId ?? null;
+  }
   if (!Object.keys(row).length) return getGarment(userId, id);
 
   const { data, error } = await supabase()

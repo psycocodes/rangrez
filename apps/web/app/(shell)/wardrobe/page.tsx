@@ -1,12 +1,14 @@
 import Link from "next/link";
 
+import { AddClothesButton, AddClothesProvider } from "@/components/AddClothes";
 import { AvatarMissing, AvatarPlate } from "@/components/AvatarPlate";
 import { Marquee } from "@/components/Chrome";
 import { PaletteStrip } from "@/components/PaletteStrip";
+import { PlateSwitcher } from "@/components/PlateSwitcher";
 import { WardrobeGrid } from "@/components/WardrobeGrid";
 import { requireUser } from "@/lib/auth";
 import { listFits, listGarments } from "@/lib/db";
-import { ZONE_LABEL, type Garment } from "@/lib/types";
+import { MAX_AVATARS, ZONE_LABEL, type Garment } from "@/lib/types";
 
 export const metadata = { title: "Wardrobe — Rangrez" };
 
@@ -22,27 +24,41 @@ export default async function WardrobePage() {
   const mostWorn = [...garments].sort((a, b) => b.wornCount - a.wornCount)[0];
   const season = user.avatar?.colorSeason;
 
+  const uploaded = garments.filter((g) => g.origin === "upload").length;
+
   const ticker = [
     `${garments.length} PIECES CATALOGUED`,
     `${dyes.size} DYES ON THE CARD`,
     season ? `SEASON — ${season.name.toUpperCase()}` : "AVATAR NOT YET ANALYSED",
     `${inPalette} PIECES INSIDE YOUR PALETTE`,
-    `${fits.length} SAVED FITS`,
+    uploaded
+      ? `${uploaded} SHOT BY YOU`
+      : "UPLOAD YOUR OWN CLOTHES FROM THE GRID",
+    user.avatars.length > 1
+      ? `${user.avatars.length} PLATES ON THE SHELF`
+      : `${fits.length} SAVED FITS`,
     mostWorn ? `MOST WORN — ${mostWorn.name.toUpperCase()}` : "NOTHING WORN YET",
-    "SWIPE-TO-STYLE ARRIVES NEXT",
+    "HOVER ANY PIECE TO SEE IT WORN",
   ];
 
   return (
     <>
       <Marquee items={ticker} />
-      <Masthead
-        name={user.name}
-        garments={garments}
-        dyeCount={dyes.size}
-        inPalette={inPalette}
-        user={user}
-      />
-      <WardrobeGrid garments={garments} />
+      {/* The provider wraps both because the masthead and the grid each offer
+          to open the dock, and only one of them may exist on screen at a time. */}
+      <AddClothesProvider
+        avatars={user.avatars}
+        activeAvatarId={user.activeAvatarId}
+      >
+        <Masthead
+          name={user.name}
+          garments={garments}
+          dyeCount={dyes.size}
+          inPalette={inPalette}
+          user={user}
+        />
+        <WardrobeGrid garments={garments} hasAvatar={Boolean(user.avatar)} />
+      </AddClothesProvider>
     </>
   );
 }
@@ -110,10 +126,18 @@ function Masthead({
             />
           </dl>
 
+          {/* Adding clothes is the point of the page, so it leads — and it is
+              a plain link to ?add=1 rather than an island, because the grid
+              below owns the dock and a URL crosses that boundary for free. */}
           <div className="mt-6 flex flex-wrap gap-2.5">
-            <Link href="/atelier" className="btn">
+            <AddClothesButton />
+            <Link href="/atelier" className="btn btn-ghost">
               <span className="spec">
-                {user.avatar ? "Re-shoot the avatar" : "Create your avatar"}
+                {user.avatar
+                  ? user.avatars.length < MAX_AVATARS
+                    ? "Shoot another plate"
+                    : "Re-shoot a plate"
+                  : "Create your avatar"}
               </span>
               <span aria-hidden className="spec">→</span>
             </Link>
@@ -134,6 +158,10 @@ function Masthead({
           {user.avatar ? (
             <>
               <AvatarPlate avatar={user.avatar} />
+              <PlateSwitcher
+                avatars={user.avatars}
+                activeId={user.activeAvatarId}
+              />
               {user.avatar.colorSeason && (
                 <div className="mt-6">
                   <PaletteStrip season={user.avatar.colorSeason} />
@@ -141,8 +169,9 @@ function Masthead({
               )}
               <p className="rule mt-6 pt-3 text-[0.8rem] leading-relaxed text-ink-3">
                 Every garment on this page was composited against this plate.
-                Change it in <Link href="/profile" className="text-ink underline decoration-madder underline-offset-4">your profile</Link> and the whole
-                wardrobe re-renders against the new one.
+                Keep up to {MAX_AVATARS} in{" "}
+                <Link href="/profile" className="text-ink underline decoration-madder underline-offset-4">your profile</Link>{" "}
+                and switch whenever the light changes.
               </p>
             </>
           ) : (

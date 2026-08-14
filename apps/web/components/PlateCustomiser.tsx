@@ -49,6 +49,9 @@ export function PlateCustomiser({ avatar }: { avatar: Avatar }) {
       </div>
 
       <form action={saveCustomization} className="lg:order-1">
+        {/* Which plate this edits. Named explicitly rather than left to mean
+            "the active one" — the shelf lets you edit a spare. */}
+        <input type="hidden" name="id" value={avatar.id} />
         {/* Mirrors of the local state, so the server action gets the draft. */}
         <input type="hidden" name="backdrop" value={draft.backdrop} />
         <input type="hidden" name="crop" value={draft.crop} />

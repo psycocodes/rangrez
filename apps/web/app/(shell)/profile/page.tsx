@@ -6,11 +6,12 @@ import {
   setColorSeason,
 } from "@/app/actions/profile";
 import { AvatarMissing } from "@/components/AvatarPlate";
+import { AvatarShelf } from "@/components/AvatarShelf";
 import { PaletteStrip } from "@/components/PaletteStrip";
-import { PlateCustomiser } from "@/components/PlateCustomiser";
 import { requireUser } from "@/lib/auth";
 import { listGarments } from "@/lib/db";
 import { SEASONS } from "@/lib/palette";
+import { MAX_AVATARS } from "@/lib/types";
 
 export const metadata = { title: "Profile — Rangrez" };
 
@@ -45,10 +46,14 @@ export default async function ProfilePage() {
         </p>
       </header>
 
-      {/* ── 3.1 · the plate ────────────────────────────────────────────── */}
-      <Block index="3.1" title="The plate" aside="one body, every garment">
-        {user.avatar ? (
-          <PlateCustomiser avatar={user.avatar} />
+      {/* ── 3.1 · the plates ───────────────────────────────────────────── */}
+      <Block
+        index="3.1"
+        title="Your plates"
+        aside={`up to ${MAX_AVATARS} bodies, one in use`}
+      >
+        {user.avatars.length ? (
+          <AvatarShelf avatars={user.avatars} activeId={user.activeAvatarId} />
         ) : (
           <div className="grid gap-6 sm:max-w-sm">
             <AvatarMissing />
