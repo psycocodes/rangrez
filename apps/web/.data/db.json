@@ -1,0 +1,1130 @@
+{
+  "users": [
+    {
+      "id": "3b1d95ad-21e9-4a35-9a6f-7c9563f1637a",
+      "email": "k13rohilla@gmail.com",
+      "name": "Gantavya Rohilla",
+      "passwordHash": "aa592c05f6554203622e3a57df2f02a8:f41e911b01657397e135f7fa79bc5908f9540d21518c1310617fd5de1ff8f2d3ac9321950f621ee48d9a63814ed6817b627a536f8cd1ffea3c54402dd1f4c26a",
+      "createdAt": "2026-08-05T10:07:33.175Z",
+      "preferences": {
+        "fitPreference": "regular",
+        "paletteFirst": true
+      },
+      "avatar": {
+        "id": "be83bba3-e9eb-42f5-9af0-f2d924a97672",
+        "sourceUrl": "/uploads/b01bfb93-c4fb-406a-af4f-b48622d73bf1.jpg",
+        "renderUrl": "/uploads/b01bfb93-c4fb-406a-af4f-b48622d73bf1.jpg",
+        "status": "rendered",
+        "taskId": "mock_b2eb0628-3e9e-49e2-a2f7-d165be1f446a",
+        "colorSeason": {
+          "name": "Soft Autumn",
+          "temperature": "warm",
+          "palette": [
+            {
+              "name": "Myrobalan",
+              "hex": "#8A8A52"
+            },
+            {
+              "name": "Henna",
+              "hex": "#8E4B2E"
+            },
+            {
+              "name": "Ecru",
+              "hex": "#CFC3AA"
+            },
+            {
+              "name": "Sage",
+              "hex": "#93A08A"
+            },
+            {
+              "name": "Clay",
+              "hex": "#B07A5E"
+            },
+            {
+              "name": "Umber",
+              "hex": "#5E4A38"
+            }
+          ],
+          "note": "Muted and warm. Everything a half-step dusty. High-contrast black-and-white pairings will overpower you; keep the values close together.",
+          "confidence": 0.86
+        },
+        "createdAt": "2026-08-05T10:07:48.443Z",
+        "customization": {
+          "backdrop": "paper",
+          "crop": "three-quarter",
+          "grade": 0,
+          "guides": true,
+          "label": "Gantavya Rohilla"
+        }
+      }
+    },
+    {
+      "id": "4ee36737-f82b-45c9-8d4e-3bed729fb21b",
+      "email": "gantavya@gmail.com",
+      "name": "gantavya@gmail.com",
+      "passwordHash": "36300d0f7beda56c1e7661f9482ba93a:efc9b380f0c5b4b04aad3edcf1b332237b1cf64cf9b837052c9d21a9867ced8578291d1dec11dab70cfc6501c76b5ce1d7bdd77c8eb20f16d0514c693becec68",
+      "createdAt": "2026-08-05T10:32:29.028Z",
+      "preferences": {
+        "fitPreference": "regular",
+        "paletteFirst": true
+      },
+      "avatar": {
+        "id": "a5e9d761-1e96-44d0-b80c-c66537ad9b5e",
+        "sourceUrl": "/uploads/b17b5900-be76-4d3f-97e8-54801b7403dd.jpg",
+        "renderUrl": "/uploads/b17b5900-be76-4d3f-97e8-54801b7403dd.jpg",
+        "status": "rendered",
+        "taskId": "mock_24b35db8-03c2-41bf-acec-fc03ab5eca85",
+        "colorSeason": {
+          "name": "Deep Autumn",
+          "temperature": "warm",
+          "palette": [
+            {
+              "name": "Madder",
+              "hex": "#B03A21"
+            },
+            {
+              "name": "Turmeric",
+              "hex": "#D99B21"
+            },
+            {
+              "name": "Catechu",
+              "hex": "#6E4326"
+            },
+            {
+              "name": "Moss",
+              "hex": "#5C6034"
+            },
+            {
+              "name": "Pomegranate",
+              "hex": "#7C2D3A"
+            },
+            {
+              "name": "Iron Black",
+              "hex": "#1F1D1A"
+            }
+          ],
+          "note": "Deep, warm and saturated. Earth pigments over pastels — madder and catechu carry you; icy blues will drain the warmth out of your skin.",
+          "confidence": 0.86
+        },
+        "createdAt": "2026-08-05T10:34:26.367Z",
+        "customization": {
+          "backdrop": "paper",
+          "crop": "three-quarter",
+          "grade": 0,
+          "guides": true,
+          "label": "gantavya@gmail.com"
+        }
+      }
+    }
+  ],
+  "garments": [
+    {
+      "id": "seed-3b1d95ad-00",
+      "userId": "3b1d95ad-21e9-4a35-9a6f-7c9563f1637a",
+      "name": "Oversized Poplin Shirt",
+      "origin": "seed",
+      "zone": "top",
+      "dye": {
+        "name": "Ecru",
+        "hex": "#CFC3AA"
+      },
+      "season": "yearround",
+      "material": "Cotton poplin, 120gsm",
+      "seed": "oversized-poplin-shirt",
+      "imageUrl": "https://picsum.photos/seed/rangrez-oversized-poplin-shirt/900/1200",
+      "status": "rendered",
+      "inPalette": true,
+      "wornCount": 14,
+      "addedAt": "2026-05-06T10:07:33.176Z"
+    },
+    {
+      "id": "seed-3b1d95ad-01",
+      "userId": "3b1d95ad-21e9-4a35-9a6f-7c9563f1637a",
+      "name": "Khadi Camp Collar",
+      "origin": "seed",
+      "zone": "top",
+      "dye": {
+        "name": "Indigo",
+        "hex": "#26356E"
+      },
+      "season": "summer",
+      "material": "Handloom khadi",
+      "seed": "khadi-camp-collar",
+      "imageUrl": "https://picsum.photos/seed/rangrez-khadi-camp-collar/900/1200",
+      "status": "rendered",
+      "inPalette": false,
+      "wornCount": 9,
+      "addedAt": "2026-05-09T22:07:33.176Z"
+    },
+    {
+      "id": "seed-3b1d95ad-02",
+      "userId": "3b1d95ad-21e9-4a35-9a6f-7c9563f1637a",
+      "name": "Ribbed Merino Tank",
+      "origin": "seed",
+      "zone": "top",
+      "dye": {
+        "name": "Iron Black",
+        "hex": "#1F1D1A"
+      },
+      "season": "yearround",
+      "material": "Merino rib, 18.5µ",
+      "seed": "ribbed-merino-tank",
+      "imageUrl": "https://picsum.photos/seed/rangrez-ribbed-merino-tank/900/1200",
+      "status": "rendered",
+      "inPalette": false,
+      "wornCount": 21,
+      "addedAt": "2026-05-13T10:07:33.176Z"
+    },
+    {
+      "id": "seed-3b1d95ad-03",
+      "userId": "3b1d95ad-21e9-4a35-9a6f-7c9563f1637a",
+      "name": "Boxy Heavyweight Tee",
+      "origin": "seed",
+      "zone": "top",
+      "dye": {
+        "name": "Madder",
+        "hex": "#B03A21"
+      },
+      "season": "summer",
+      "material": "Loopwheel cotton, 240gsm",
+      "seed": "boxy-heavyweight-tee",
+      "imageUrl": "https://picsum.photos/seed/rangrez-boxy-heavyweight-tee/900/1200",
+      "status": "rendered",
+      "inPalette": true,
+      "wornCount": 32,
+      "addedAt": "2026-05-16T22:07:33.176Z"
+    },
+    {
+      "id": "seed-3b1d95ad-04",
+      "userId": "3b1d95ad-21e9-4a35-9a6f-7c9563f1637a",
+      "name": "Silk Wrap Blouse",
+      "origin": "seed",
+      "zone": "top",
+      "dye": {
+        "name": "Lac Rose",
+        "hex": "#B5607E"
+      },
+      "season": "spring",
+      "material": "Sandwashed silk",
+      "seed": "silk-wrap-blouse",
+      "imageUrl": "https://picsum.photos/seed/rangrez-silk-wrap-blouse/900/1200",
+      "status": "rendered",
+      "inPalette": true,
+      "wornCount": 4,
+      "addedAt": "2026-05-20T10:07:33.176Z"
+    },
+    {
+      "id": "seed-3b1d95ad-05",
+      "userId": "3b1d95ad-21e9-4a35-9a6f-7c9563f1637a",
+      "name": "Cable Knit Crewneck",
+      "origin": "seed",
+      "zone": "top",
+      "dye": {
+        "name": "Myrobalan",
+        "hex": "#8A8A52"
+      },
+      "season": "winter",
+      "material": "Lambswool, 5gg",
+      "seed": "cable-knit-crewneck",
+      "imageUrl": "https://picsum.photos/seed/rangrez-cable-knit-crewneck/900/1200",
+      "status": "rendered",
+      "inPalette": true,
+      "wornCount": 11,
+      "addedAt": "2026-05-23T22:07:33.176Z"
+    },
+    {
+      "id": "seed-3b1d95ad-06",
+      "userId": "3b1d95ad-21e9-4a35-9a6f-7c9563f1637a",
+      "name": "Breton Long-Sleeve",
+      "origin": "seed",
+      "zone": "top",
+      "dye": {
+        "name": "Vat Blue",
+        "hex": "#161D3D"
+      },
+      "season": "autumn",
+      "material": "Combed cotton jersey",
+      "seed": "breton-long-sleeve",
+      "imageUrl": "https://picsum.photos/seed/rangrez-breton-long-sleeve/900/1200",
+      "status": "rendered",
+      "inPalette": false,
+      "wornCount": 18,
+      "addedAt": "2026-05-27T10:07:33.176Z"
+    },
+    {
+      "id": "seed-3b1d95ad-07",
+      "userId": "3b1d95ad-21e9-4a35-9a6f-7c9563f1637a",
+      "name": "Wide-Leg Pleated Trouser",
+      "origin": "seed",
+      "zone": "bottom",
+      "dye": {
+        "name": "Catechu",
+        "hex": "#6E4326"
+      },
+      "season": "autumn",
+      "material": "Wool-linen twill",
+      "seed": "wide-leg-pleated-trouser",
+      "imageUrl": "https://picsum.photos/seed/rangrez-wide-leg-pleated-trouser/900/1200",
+      "status": "rendered",
+      "inPalette": true,
+      "wornCount": 12,
+      "addedAt": "2026-05-30T22:07:33.176Z"
+    },
+    {
+      "id": "seed-3b1d95ad-08",
+      "userId": "3b1d95ad-21e9-4a35-9a6f-7c9563f1637a",
+      "name": "Raw Denim Straight",
+      "origin": "seed",
+      "zone": "bottom",
+      "dye": {
+        "name": "Indigo",
+        "hex": "#26356E"
+      },
+      "season": "yearround",
+      "material": "14oz selvedge, unwashed",
+      "seed": "raw-denim-straight",
+      "imageUrl": "https://picsum.photos/seed/rangrez-raw-denim-straight/900/1200",
+      "status": "rendered",
+      "inPalette": false,
+      "wornCount": 47,
+      "addedAt": "2026-06-03T10:07:33.176Z"
+    },
+    {
+      "id": "seed-3b1d95ad-09",
+      "userId": "3b1d95ad-21e9-4a35-9a6f-7c9563f1637a",
+      "name": "Linen Drawstring Short",
+      "origin": "seed",
+      "zone": "bottom",
+      "dye": {
+        "name": "Ecru",
+        "hex": "#CFC3AA"
+      },
+      "season": "summer",
+      "material": "Washed linen",
+      "seed": "linen-drawstring-short",
+      "imageUrl": "https://picsum.photos/seed/rangrez-linen-drawstring-short/900/1200",
+      "status": "rendered",
+      "inPalette": true,
+      "wornCount": 8,
+      "addedAt": "2026-06-06T22:07:33.176Z"
+    },
+    {
+      "id": "seed-3b1d95ad-10",
+      "userId": "3b1d95ad-21e9-4a35-9a6f-7c9563f1637a",
+      "name": "Bias-Cut Midi Skirt",
+      "origin": "seed",
+      "zone": "bottom",
+      "dye": {
+        "name": "Pomegranate",
+        "hex": "#7C2D3A"
+      },
+      "season": "spring",
+      "material": "Cupro satin",
+      "seed": "bias-cut-midi-skirt",
+      "imageUrl": "https://picsum.photos/seed/rangrez-bias-cut-midi-skirt/900/1200",
+      "status": "rendered",
+      "inPalette": true,
+      "wornCount": 6,
+      "addedAt": "2026-06-10T10:07:33.176Z"
+    },
+    {
+      "id": "seed-3b1d95ad-11",
+      "userId": "3b1d95ad-21e9-4a35-9a6f-7c9563f1637a",
+      "name": "Cargo Utility Pant",
+      "origin": "seed",
+      "zone": "bottom",
+      "dye": {
+        "name": "Myrobalan",
+        "hex": "#8A8A52"
+      },
+      "season": "yearround",
+      "material": "Ripstop cotton",
+      "seed": "cargo-utility-pant",
+      "imageUrl": "https://picsum.photos/seed/rangrez-cargo-utility-pant/900/1200",
+      "status": "rendered",
+      "inPalette": true,
+      "wornCount": 23,
+      "addedAt": "2026-06-13T22:07:33.176Z"
+    },
+    {
+      "id": "seed-3b1d95ad-12",
+      "userId": "3b1d95ad-21e9-4a35-9a6f-7c9563f1637a",
+      "name": "Tailored Wool Trouser",
+      "origin": "seed",
+      "zone": "bottom",
+      "dye": {
+        "name": "Iron Black",
+        "hex": "#1F1D1A"
+      },
+      "season": "winter",
+      "material": "Super 110s worsted",
+      "seed": "tailored-wool-trouser",
+      "imageUrl": "https://picsum.photos/seed/rangrez-tailored-wool-trouser/900/1200",
+      "status": "rendered",
+      "inPalette": false,
+      "wornCount": 15,
+      "addedAt": "2026-06-17T10:07:33.176Z"
+    },
+    {
+      "id": "seed-3b1d95ad-13",
+      "userId": "3b1d95ad-21e9-4a35-9a6f-7c9563f1637a",
+      "name": "Quilted Bomber",
+      "origin": "seed",
+      "zone": "outerwear",
+      "dye": {
+        "name": "Verdigris",
+        "hex": "#2E6B5E"
+      },
+      "season": "autumn",
+      "material": "Diamond-quilted nylon",
+      "seed": "quilted-bomber",
+      "imageUrl": "https://picsum.photos/seed/rangrez-quilted-bomber/900/1200",
+      "status": "rendered",
+      "inPalette": false,
+      "wornCount": 10,
+      "addedAt": "2026-06-20T22:07:33.176Z"
+    },
+    {
+      "id": "seed-3b1d95ad-14",
+      "userId": "3b1d95ad-21e9-4a35-9a6f-7c9563f1637a",
+      "name": "Unstructured Linen Blazer",
+      "origin": "seed",
+      "zone": "outerwear",
+      "dye": {
+        "name": "Ecru",
+        "hex": "#CFC3AA"
+      },
+      "season": "spring",
+      "material": "Irish linen, unlined",
+      "seed": "unstructured-linen-blazer",
+      "imageUrl": "https://picsum.photos/seed/rangrez-unstructured-linen-blazer/900/1200",
+      "status": "rendered",
+      "inPalette": true,
+      "wornCount": 7,
+      "addedAt": "2026-06-24T10:07:33.176Z"
+    },
+    {
+      "id": "seed-3b1d95ad-15",
+      "userId": "3b1d95ad-21e9-4a35-9a6f-7c9563f1637a",
+      "name": "Cropped Trench",
+      "origin": "seed",
+      "zone": "outerwear",
+      "dye": {
+        "name": "Turmeric",
+        "hex": "#D99B21"
+      },
+      "season": "spring",
+      "material": "Waxed cotton gabardine",
+      "seed": "cropped-trench",
+      "imageUrl": "https://picsum.photos/seed/rangrez-cropped-trench/900/1200",
+      "status": "rendered",
+      "inPalette": true,
+      "wornCount": 5,
+      "addedAt": "2026-06-27T22:07:33.176Z"
+    },
+    {
+      "id": "seed-3b1d95ad-16",
+      "userId": "3b1d95ad-21e9-4a35-9a6f-7c9563f1637a",
+      "name": "Shearling Chore Coat",
+      "origin": "seed",
+      "zone": "outerwear",
+      "dye": {
+        "name": "Henna",
+        "hex": "#8E4B2E"
+      },
+      "season": "winter",
+      "material": "Suede + shearling lining",
+      "seed": "shearling-chore-coat",
+      "imageUrl": "https://picsum.photos/seed/rangrez-shearling-chore-coat/900/1200",
+      "status": "rendered",
+      "inPalette": true,
+      "wornCount": 13,
+      "addedAt": "2026-07-01T10:07:33.176Z"
+    },
+    {
+      "id": "seed-3b1d95ad-17",
+      "userId": "3b1d95ad-21e9-4a35-9a6f-7c9563f1637a",
+      "name": "Nehru Collar Jacket",
+      "origin": "seed",
+      "zone": "outerwear",
+      "dye": {
+        "name": "Vat Blue",
+        "hex": "#161D3D"
+      },
+      "season": "autumn",
+      "material": "Cotton-silk matka",
+      "seed": "nehru-collar-jacket",
+      "imageUrl": "https://picsum.photos/seed/rangrez-nehru-collar-jacket/900/1200",
+      "status": "rendered",
+      "inPalette": false,
+      "wornCount": 3,
+      "addedAt": "2026-07-04T22:07:33.176Z"
+    },
+    {
+      "id": "seed-3b1d95ad-18",
+      "userId": "3b1d95ad-21e9-4a35-9a6f-7c9563f1637a",
+      "name": "Leather Derby",
+      "origin": "seed",
+      "zone": "shoes",
+      "dye": {
+        "name": "Catechu",
+        "hex": "#6E4326"
+      },
+      "season": "yearround",
+      "material": "Vegetable-tanned calf",
+      "seed": "leather-derby",
+      "imageUrl": "https://picsum.photos/seed/rangrez-leather-derby/900/1200",
+      "status": "rendered",
+      "inPalette": true,
+      "wornCount": 29,
+      "addedAt": "2026-07-08T10:07:33.176Z"
+    },
+    {
+      "id": "seed-3b1d95ad-19",
+      "userId": "3b1d95ad-21e9-4a35-9a6f-7c9563f1637a",
+      "name": "Canvas Low-Top",
+      "origin": "seed",
+      "zone": "shoes",
+      "dye": {
+        "name": "Ecru",
+        "hex": "#CFC3AA"
+      },
+      "season": "summer",
+      "material": "Cotton canvas, gum sole",
+      "seed": "canvas-low-top",
+      "imageUrl": "https://picsum.photos/seed/rangrez-canvas-low-top/900/1200",
+      "status": "rendered",
+      "inPalette": true,
+      "wornCount": 41,
+      "addedAt": "2026-07-11T22:07:33.176Z"
+    },
+    {
+      "id": "seed-3b1d95ad-20",
+      "userId": "3b1d95ad-21e9-4a35-9a6f-7c9563f1637a",
+      "name": "Suede Chelsea Boot",
+      "origin": "seed",
+      "zone": "shoes",
+      "dye": {
+        "name": "Iron Black",
+        "hex": "#1F1D1A"
+      },
+      "season": "winter",
+      "material": "Calf suede",
+      "seed": "suede-chelsea-boot",
+      "imageUrl": "https://picsum.photos/seed/rangrez-suede-chelsea-boot/900/1200",
+      "status": "rendered",
+      "inPalette": false,
+      "wornCount": 19,
+      "addedAt": "2026-07-15T10:07:33.176Z"
+    },
+    {
+      "id": "seed-3b1d95ad-21",
+      "userId": "3b1d95ad-21e9-4a35-9a6f-7c9563f1637a",
+      "name": "Woven Slide",
+      "origin": "seed",
+      "zone": "shoes",
+      "dye": {
+        "name": "Henna",
+        "hex": "#8E4B2E"
+      },
+      "season": "summer",
+      "material": "Hand-woven leather",
+      "seed": "woven-slide",
+      "imageUrl": "https://picsum.photos/seed/rangrez-woven-slide/900/1200",
+      "status": "rendered",
+      "inPalette": true,
+      "wornCount": 16,
+      "addedAt": "2026-07-18T22:07:33.176Z"
+    },
+    {
+      "id": "seed-3b1d95ad-22",
+      "userId": "3b1d95ad-21e9-4a35-9a6f-7c9563f1637a",
+      "name": "Ajrakh Silk Scarf",
+      "origin": "seed",
+      "zone": "accessory",
+      "dye": {
+        "name": "Madder",
+        "hex": "#B03A21"
+      },
+      "season": "yearround",
+      "material": "Block-printed mulberry silk",
+      "seed": "ajrakh-silk-scarf",
+      "imageUrl": "https://picsum.photos/seed/rangrez-ajrakh-silk-scarf/900/1200",
+      "status": "rendered",
+      "inPalette": true,
+      "wornCount": 22,
+      "addedAt": "2026-07-22T10:07:33.176Z"
+    },
+    {
+      "id": "seed-3b1d95ad-23",
+      "userId": "3b1d95ad-21e9-4a35-9a6f-7c9563f1637a",
+      "name": "Woven Leather Belt",
+      "origin": "seed",
+      "zone": "accessory",
+      "dye": {
+        "name": "Catechu",
+        "hex": "#6E4326"
+      },
+      "season": "yearround",
+      "material": "Braided bridle leather",
+      "seed": "woven-leather-belt",
+      "imageUrl": "https://picsum.photos/seed/rangrez-woven-leather-belt/900/1200",
+      "status": "rendered",
+      "inPalette": true,
+      "wornCount": 35,
+      "addedAt": "2026-07-25T22:07:33.176Z"
+    },
+    {
+      "id": "seed-3b1d95ad-24",
+      "userId": "3b1d95ad-21e9-4a35-9a6f-7c9563f1637a",
+      "name": "Wire-Frame Sunglasses",
+      "origin": "seed",
+      "zone": "accessory",
+      "dye": {
+        "name": "Turmeric",
+        "hex": "#D99B21"
+      },
+      "season": "summer",
+      "material": "Titanium, G15 lens",
+      "seed": "wire-frame-sunglasses",
+      "imageUrl": "https://picsum.photos/seed/rangrez-wire-frame-sunglasses/900/1200",
+      "status": "rendered",
+      "inPalette": true,
+      "wornCount": 26,
+      "addedAt": "2026-07-29T10:07:33.176Z"
+    },
+    {
+      "id": "seed-3b1d95ad-25",
+      "userId": "3b1d95ad-21e9-4a35-9a6f-7c9563f1637a",
+      "name": "Structured Tote",
+      "origin": "seed",
+      "zone": "accessory",
+      "dye": {
+        "name": "Pomegranate",
+        "hex": "#7C2D3A"
+      },
+      "season": "yearround",
+      "material": "Saddle leather",
+      "seed": "structured-tote",
+      "imageUrl": "https://picsum.photos/seed/rangrez-structured-tote/900/1200",
+      "status": "rendered",
+      "inPalette": true,
+      "wornCount": 30,
+      "addedAt": "2026-08-01T22:07:33.176Z"
+    },
+    {
+      "id": "3eab2667-ad66-49b4-a505-88a6e592c332",
+      "userId": "3b1d95ad-21e9-4a35-9a6f-7c9563f1637a",
+      "name": "Levi's Relaxed Fit Denim Trucker Jacket",
+      "origin": "shop",
+      "zone": "outerwear",
+      "dye": {
+        "name": "Indigo",
+        "hex": "#26356E"
+      },
+      "season": "summer",
+      "material": "Outerwear · Amazon",
+      "imageUrl": "/uploads/b01bfb93-c4fb-406a-af4f-b48622d73bf1.jpg",
+      "seed": "d2bc238c",
+      "status": "rendered",
+      "inPalette": false,
+      "wornCount": 0,
+      "addedAt": "2026-08-05T10:17:08.767Z"
+    },
+    {
+      "id": "seed-4ee36737-00",
+      "userId": "4ee36737-f82b-45c9-8d4e-3bed729fb21b",
+      "name": "Oversized Poplin Shirt",
+      "origin": "seed",
+      "zone": "top",
+      "dye": {
+        "name": "Ecru",
+        "hex": "#CFC3AA"
+      },
+      "season": "yearround",
+      "material": "Cotton poplin, 120gsm",
+      "seed": "oversized-poplin-shirt",
+      "imageUrl": "https://picsum.photos/seed/rangrez-oversized-poplin-shirt/900/1200",
+      "status": "rendered",
+      "inPalette": true,
+      "wornCount": 14,
+      "addedAt": "2026-05-06T10:32:29.031Z"
+    },
+    {
+      "id": "seed-4ee36737-01",
+      "userId": "4ee36737-f82b-45c9-8d4e-3bed729fb21b",
+      "name": "Khadi Camp Collar",
+      "origin": "seed",
+      "zone": "top",
+      "dye": {
+        "name": "Indigo",
+        "hex": "#26356E"
+      },
+      "season": "summer",
+      "material": "Handloom khadi",
+      "seed": "khadi-camp-collar",
+      "imageUrl": "https://picsum.photos/seed/rangrez-khadi-camp-collar/900/1200",
+      "status": "rendered",
+      "inPalette": false,
+      "wornCount": 9,
+      "addedAt": "2026-05-09T22:32:29.031Z"
+    },
+    {
+      "id": "seed-4ee36737-02",
+      "userId": "4ee36737-f82b-45c9-8d4e-3bed729fb21b",
+      "name": "Ribbed Merino Tank",
+      "origin": "seed",
+      "zone": "top",
+      "dye": {
+        "name": "Iron Black",
+        "hex": "#1F1D1A"
+      },
+      "season": "yearround",
+      "material": "Merino rib, 18.5µ",
+      "seed": "ribbed-merino-tank",
+      "imageUrl": "https://picsum.photos/seed/rangrez-ribbed-merino-tank/900/1200",
+      "status": "rendered",
+      "inPalette": true,
+      "wornCount": 21,
+      "addedAt": "2026-05-13T10:32:29.031Z"
+    },
+    {
+      "id": "seed-4ee36737-03",
+      "userId": "4ee36737-f82b-45c9-8d4e-3bed729fb21b",
+      "name": "Boxy Heavyweight Tee",
+      "origin": "seed",
+      "zone": "top",
+      "dye": {
+        "name": "Madder",
+        "hex": "#B03A21"
+      },
+      "season": "summer",
+      "material": "Loopwheel cotton, 240gsm",
+      "seed": "boxy-heavyweight-tee",
+      "imageUrl": "https://picsum.photos/seed/rangrez-boxy-heavyweight-tee/900/1200",
+      "status": "rendered",
+      "inPalette": true,
+      "wornCount": 32,
+      "addedAt": "2026-05-16T22:32:29.031Z"
+    },
+    {
+      "id": "seed-4ee36737-04",
+      "userId": "4ee36737-f82b-45c9-8d4e-3bed729fb21b",
+      "name": "Silk Wrap Blouse",
+      "origin": "seed",
+      "zone": "top",
+      "dye": {
+        "name": "Lac Rose",
+        "hex": "#B5607E"
+      },
+      "season": "spring",
+      "material": "Sandwashed silk",
+      "seed": "silk-wrap-blouse",
+      "imageUrl": "https://picsum.photos/seed/rangrez-silk-wrap-blouse/900/1200",
+      "status": "rendered",
+      "inPalette": true,
+      "wornCount": 4,
+      "addedAt": "2026-05-20T10:32:29.031Z"
+    },
+    {
+      "id": "seed-4ee36737-05",
+      "userId": "4ee36737-f82b-45c9-8d4e-3bed729fb21b",
+      "name": "Cable Knit Crewneck",
+      "origin": "seed",
+      "zone": "top",
+      "dye": {
+        "name": "Myrobalan",
+        "hex": "#8A8A52"
+      },
+      "season": "winter",
+      "material": "Lambswool, 5gg",
+      "seed": "cable-knit-crewneck",
+      "imageUrl": "https://picsum.photos/seed/rangrez-cable-knit-crewneck/900/1200",
+      "status": "rendered",
+      "inPalette": true,
+      "wornCount": 11,
+      "addedAt": "2026-05-23T22:32:29.031Z"
+    },
+    {
+      "id": "seed-4ee36737-06",
+      "userId": "4ee36737-f82b-45c9-8d4e-3bed729fb21b",
+      "name": "Breton Long-Sleeve",
+      "origin": "seed",
+      "zone": "top",
+      "dye": {
+        "name": "Vat Blue",
+        "hex": "#161D3D"
+      },
+      "season": "autumn",
+      "material": "Combed cotton jersey",
+      "seed": "breton-long-sleeve",
+      "imageUrl": "https://picsum.photos/seed/rangrez-breton-long-sleeve/900/1200",
+      "status": "rendered",
+      "inPalette": false,
+      "wornCount": 18,
+      "addedAt": "2026-05-27T10:32:29.031Z"
+    },
+    {
+      "id": "seed-4ee36737-07",
+      "userId": "4ee36737-f82b-45c9-8d4e-3bed729fb21b",
+      "name": "Wide-Leg Pleated Trouser",
+      "origin": "seed",
+      "zone": "bottom",
+      "dye": {
+        "name": "Catechu",
+        "hex": "#6E4326"
+      },
+      "season": "autumn",
+      "material": "Wool-linen twill",
+      "seed": "wide-leg-pleated-trouser",
+      "imageUrl": "https://picsum.photos/seed/rangrez-wide-leg-pleated-trouser/900/1200",
+      "status": "rendered",
+      "inPalette": true,
+      "wornCount": 12,
+      "addedAt": "2026-05-30T22:32:29.031Z"
+    },
+    {
+      "id": "seed-4ee36737-08",
+      "userId": "4ee36737-f82b-45c9-8d4e-3bed729fb21b",
+      "name": "Raw Denim Straight",
+      "origin": "seed",
+      "zone": "bottom",
+      "dye": {
+        "name": "Indigo",
+        "hex": "#26356E"
+      },
+      "season": "yearround",
+      "material": "14oz selvedge, unwashed",
+      "seed": "raw-denim-straight",
+      "imageUrl": "https://picsum.photos/seed/rangrez-raw-denim-straight/900/1200",
+      "status": "rendered",
+      "inPalette": false,
+      "wornCount": 47,
+      "addedAt": "2026-06-03T10:32:29.031Z"
+    },
+    {
+      "id": "seed-4ee36737-09",
+      "userId": "4ee36737-f82b-45c9-8d4e-3bed729fb21b",
+      "name": "Linen Drawstring Short",
+      "origin": "seed",
+      "zone": "bottom",
+      "dye": {
+        "name": "Ecru",
+        "hex": "#CFC3AA"
+      },
+      "season": "summer",
+      "material": "Washed linen",
+      "seed": "linen-drawstring-short",
+      "imageUrl": "https://picsum.photos/seed/rangrez-linen-drawstring-short/900/1200",
+      "status": "rendered",
+      "inPalette": true,
+      "wornCount": 8,
+      "addedAt": "2026-06-06T22:32:29.031Z"
+    },
+    {
+      "id": "seed-4ee36737-10",
+      "userId": "4ee36737-f82b-45c9-8d4e-3bed729fb21b",
+      "name": "Bias-Cut Midi Skirt",
+      "origin": "seed",
+      "zone": "bottom",
+      "dye": {
+        "name": "Pomegranate",
+        "hex": "#7C2D3A"
+      },
+      "season": "spring",
+      "material": "Cupro satin",
+      "seed": "bias-cut-midi-skirt",
+      "imageUrl": "https://picsum.photos/seed/rangrez-bias-cut-midi-skirt/900/1200",
+      "status": "rendered",
+      "inPalette": true,
+      "wornCount": 6,
+      "addedAt": "2026-06-10T10:32:29.031Z"
+    },
+    {
+      "id": "seed-4ee36737-11",
+      "userId": "4ee36737-f82b-45c9-8d4e-3bed729fb21b",
+      "name": "Cargo Utility Pant",
+      "origin": "seed",
+      "zone": "bottom",
+      "dye": {
+        "name": "Myrobalan",
+        "hex": "#8A8A52"
+      },
+      "season": "yearround",
+      "material": "Ripstop cotton",
+      "seed": "cargo-utility-pant",
+      "imageUrl": "https://picsum.photos/seed/rangrez-cargo-utility-pant/900/1200",
+      "status": "rendered",
+      "inPalette": true,
+      "wornCount": 23,
+      "addedAt": "2026-06-13T22:32:29.031Z"
+    },
+    {
+      "id": "seed-4ee36737-12",
+      "userId": "4ee36737-f82b-45c9-8d4e-3bed729fb21b",
+      "name": "Tailored Wool Trouser",
+      "origin": "seed",
+      "zone": "bottom",
+      "dye": {
+        "name": "Iron Black",
+        "hex": "#1F1D1A"
+      },
+      "season": "winter",
+      "material": "Super 110s worsted",
+      "seed": "tailored-wool-trouser",
+      "imageUrl": "https://picsum.photos/seed/rangrez-tailored-wool-trouser/900/1200",
+      "status": "rendered",
+      "inPalette": true,
+      "wornCount": 15,
+      "addedAt": "2026-06-17T10:32:29.031Z"
+    },
+    {
+      "id": "seed-4ee36737-13",
+      "userId": "4ee36737-f82b-45c9-8d4e-3bed729fb21b",
+      "name": "Quilted Bomber",
+      "origin": "seed",
+      "zone": "outerwear",
+      "dye": {
+        "name": "Verdigris",
+        "hex": "#2E6B5E"
+      },
+      "season": "autumn",
+      "material": "Diamond-quilted nylon",
+      "seed": "quilted-bomber",
+      "imageUrl": "https://picsum.photos/seed/rangrez-quilted-bomber/900/1200",
+      "status": "rendered",
+      "inPalette": false,
+      "wornCount": 10,
+      "addedAt": "2026-06-20T22:32:29.031Z"
+    },
+    {
+      "id": "seed-4ee36737-14",
+      "userId": "4ee36737-f82b-45c9-8d4e-3bed729fb21b",
+      "name": "Unstructured Linen Blazer",
+      "origin": "seed",
+      "zone": "outerwear",
+      "dye": {
+        "name": "Ecru",
+        "hex": "#CFC3AA"
+      },
+      "season": "spring",
+      "material": "Irish linen, unlined",
+      "seed": "unstructured-linen-blazer",
+      "imageUrl": "https://picsum.photos/seed/rangrez-unstructured-linen-blazer/900/1200",
+      "status": "rendered",
+      "inPalette": true,
+      "wornCount": 7,
+      "addedAt": "2026-06-24T10:32:29.031Z"
+    },
+    {
+      "id": "seed-4ee36737-15",
+      "userId": "4ee36737-f82b-45c9-8d4e-3bed729fb21b",
+      "name": "Cropped Trench",
+      "origin": "seed",
+      "zone": "outerwear",
+      "dye": {
+        "name": "Turmeric",
+        "hex": "#D99B21"
+      },
+      "season": "spring",
+      "material": "Waxed cotton gabardine",
+      "seed": "cropped-trench",
+      "imageUrl": "https://picsum.photos/seed/rangrez-cropped-trench/900/1200",
+      "status": "rendered",
+      "inPalette": true,
+      "wornCount": 5,
+      "addedAt": "2026-06-27T22:32:29.031Z"
+    },
+    {
+      "id": "seed-4ee36737-16",
+      "userId": "4ee36737-f82b-45c9-8d4e-3bed729fb21b",
+      "name": "Shearling Chore Coat",
+      "origin": "seed",
+      "zone": "outerwear",
+      "dye": {
+        "name": "Henna",
+        "hex": "#8E4B2E"
+      },
+      "season": "winter",
+      "material": "Suede + shearling lining",
+      "seed": "shearling-chore-coat",
+      "imageUrl": "https://picsum.photos/seed/rangrez-shearling-chore-coat/900/1200",
+      "status": "rendered",
+      "inPalette": true,
+      "wornCount": 13,
+      "addedAt": "2026-07-01T10:32:29.031Z"
+    },
+    {
+      "id": "seed-4ee36737-17",
+      "userId": "4ee36737-f82b-45c9-8d4e-3bed729fb21b",
+      "name": "Nehru Collar Jacket",
+      "origin": "seed",
+      "zone": "outerwear",
+      "dye": {
+        "name": "Vat Blue",
+        "hex": "#161D3D"
+      },
+      "season": "autumn",
+      "material": "Cotton-silk matka",
+      "seed": "nehru-collar-jacket",
+      "imageUrl": "https://picsum.photos/seed/rangrez-nehru-collar-jacket/900/1200",
+      "status": "rendered",
+      "inPalette": false,
+      "wornCount": 3,
+      "addedAt": "2026-07-04T22:32:29.031Z"
+    },
+    {
+      "id": "seed-4ee36737-18",
+      "userId": "4ee36737-f82b-45c9-8d4e-3bed729fb21b",
+      "name": "Leather Derby",
+      "origin": "seed",
+      "zone": "shoes",
+      "dye": {
+        "name": "Catechu",
+        "hex": "#6E4326"
+      },
+      "season": "yearround",
+      "material": "Vegetable-tanned calf",
+      "seed": "leather-derby",
+      "imageUrl": "https://picsum.photos/seed/rangrez-leather-derby/900/1200",
+      "status": "rendered",
+      "inPalette": true,
+      "wornCount": 29,
+      "addedAt": "2026-07-08T10:32:29.031Z"
+    },
+    {
+      "id": "seed-4ee36737-19",
+      "userId": "4ee36737-f82b-45c9-8d4e-3bed729fb21b",
+      "name": "Canvas Low-Top",
+      "origin": "seed",
+      "zone": "shoes",
+      "dye": {
+        "name": "Ecru",
+        "hex": "#CFC3AA"
+      },
+      "season": "summer",
+      "material": "Cotton canvas, gum sole",
+      "seed": "canvas-low-top",
+      "imageUrl": "https://picsum.photos/seed/rangrez-canvas-low-top/900/1200",
+      "status": "rendered",
+      "inPalette": true,
+      "wornCount": 41,
+      "addedAt": "2026-07-11T22:32:29.031Z"
+    },
+    {
+      "id": "seed-4ee36737-20",
+      "userId": "4ee36737-f82b-45c9-8d4e-3bed729fb21b",
+      "name": "Suede Chelsea Boot",
+      "origin": "seed",
+      "zone": "shoes",
+      "dye": {
+        "name": "Iron Black",
+        "hex": "#1F1D1A"
+      },
+      "season": "winter",
+      "material": "Calf suede",
+      "seed": "suede-chelsea-boot",
+      "imageUrl": "https://picsum.photos/seed/rangrez-suede-chelsea-boot/900/1200",
+      "status": "rendered",
+      "inPalette": true,
+      "wornCount": 19,
+      "addedAt": "2026-07-15T10:32:29.031Z"
+    },
+    {
+      "id": "seed-4ee36737-21",
+      "userId": "4ee36737-f82b-45c9-8d4e-3bed729fb21b",
+      "name": "Woven Slide",
+      "origin": "seed",
+      "zone": "shoes",
+      "dye": {
+        "name": "Henna",
+        "hex": "#8E4B2E"
+      },
+      "season": "summer",
+      "material": "Hand-woven leather",
+      "seed": "woven-slide",
+      "imageUrl": "https://picsum.photos/seed/rangrez-woven-slide/900/1200",
+      "status": "rendered",
+      "inPalette": true,
+      "wornCount": 16,
+      "addedAt": "2026-07-18T22:32:29.031Z"
+    },
+    {
+      "id": "seed-4ee36737-22",
+      "userId": "4ee36737-f82b-45c9-8d4e-3bed729fb21b",
+      "name": "Ajrakh Silk Scarf",
+      "origin": "seed",
+      "zone": "accessory",
+      "dye": {
+        "name": "Madder",
+        "hex": "#B03A21"
+      },
+      "season": "yearround",
+      "material": "Block-printed mulberry silk",
+      "seed": "ajrakh-silk-scarf",
+      "imageUrl": "https://picsum.photos/seed/rangrez-ajrakh-silk-scarf/900/1200",
+      "status": "rendered",
+      "inPalette": true,
+      "wornCount": 22,
+      "addedAt": "2026-07-22T10:32:29.031Z"
+    },
+    {
+      "id": "seed-4ee36737-23",
+      "userId": "4ee36737-f82b-45c9-8d4e-3bed729fb21b",
+      "name": "Woven Leather Belt",
+      "origin": "seed",
+      "zone": "accessory",
+      "dye": {
+        "name": "Catechu",
+        "hex": "#6E4326"
+      },
+      "season": "yearround",
+      "material": "Braided bridle leather",
+      "seed": "woven-leather-belt",
+      "imageUrl": "https://picsum.photos/seed/rangrez-woven-leather-belt/900/1200",
+      "status": "rendered",
+      "inPalette": true,
+      "wornCount": 35,
+      "addedAt": "2026-07-25T22:32:29.031Z"
+    },
+    {
+      "id": "seed-4ee36737-24",
+      "userId": "4ee36737-f82b-45c9-8d4e-3bed729fb21b",
+      "name": "Wire-Frame Sunglasses",
+      "origin": "seed",
+      "zone": "accessory",
+      "dye": {
+        "name": "Turmeric",
+        "hex": "#D99B21"
+      },
+      "season": "summer",
+      "material": "Titanium, G15 lens",
+      "seed": "wire-frame-sunglasses",
+      "imageUrl": "https://picsum.photos/seed/rangrez-wire-frame-sunglasses/900/1200",
+      "status": "rendered",
+      "inPalette": true,
+      "wornCount": 26,
+      "addedAt": "2026-07-29T10:32:29.031Z"
+    },
+    {
+      "id": "seed-4ee36737-25",
+      "userId": "4ee36737-f82b-45c9-8d4e-3bed729fb21b",
+      "name": "Structured Tote",
+      "origin": "seed",
+      "zone": "accessory",
+      "dye": {
+        "name": "Pomegranate",
+        "hex": "#7C2D3A"
+      },
+      "season": "yearround",
+      "material": "Saddle leather",
+      "seed": "structured-tote",
+      "imageUrl": "https://picsum.photos/seed/rangrez-structured-tote/900/1200",
+      "status": "rendered",
+      "inPalette": true,
+      "wornCount": 30,
+      "addedAt": "2026-08-01T22:32:29.031Z"
+    }
+  ],
+  "fits": []
+}
