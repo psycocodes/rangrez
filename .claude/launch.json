@@ -2,9 +2,9 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "rangrez-web",
+      "name": "rangrez",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev", "--workspace", "rangrez"],
+      "runtimeArgs": ["run", "dev", "--workspace", "apps/web"],
       "port": 3000
     }
   ]

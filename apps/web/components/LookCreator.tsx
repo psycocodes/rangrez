@@ -11,6 +11,8 @@ import {
   SLOTS,
   slotFor,
 } from "@/lib/look";
+import { GarmentPlate } from "./GarmentPlate";
+import { materialise } from "@/lib/rasterize";
 import {
   FRAMING,
   type Avatar,
@@ -77,7 +79,22 @@ export function LookCreator({
     return () => clearInterval(t);
   }, []);
 
-  const { left, right } = useMemo(() => split(garments), [garments]);
+  /**
+   * Which rail the wheels are showing.
+   *
+   * A wheel that holds your whole wardrobe is a wheel you cannot find anything
+   * on — thirty pieces is six full turns. Filtering to one zone at a time makes
+   * each wheel a handful of cards, which is the number a carousel is actually
+   * good for. Torso first because it is the layer everything else is chosen
+   * around, and because it is the one every avatar framing can carry.
+   */
+  const [zone, setZone] = useState<ZoneFilter>("torso");
+
+  const inZone = useMemo(
+    () => garments.filter((g) => ZONE_FILTERS[zone].zones.includes(g.zone)),
+    [garments, zone],
+  );
+  const { left, right } = useMemo(() => split(inZone), [inZone]);
 
   const chosen = SLOTS.filter((s) => picked[s.id]);
   const done = SLOTS.filter((s) => steps[s.id] === "done").length;
@@ -122,21 +139,52 @@ export function LookCreator({
     setBuilding(true);
     setError(null);
     setNote(null);
-    setSteps(Object.fromEntries(order.map((id) => [id, "waiting"])));
+    setSteps(
+      Object.fromEntries(order.flatMap((s) => s.slots.map((id) => [id, "waiting"]))),
+    );
+
+    // The starter pieces are drawings held as data: URIs, which the engine
+    // cannot fetch and cannot decode. Rasterise any of those to a real file on
+    // our origin first — once per garment, ever — so the chain below only ever
+    // deals in ordinary URLs. Done up front rather than per layer so a fit
+    // can't fail three renders in.
+    try {
+      await Promise.all(
+        order
+          .flatMap((s) => s.slots)
+          .map((id) => materialise(picked[id]!)),
+      );
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Couldn't prepare those pieces.",
+      );
+      setSteps({});
+      setBuilding(false);
+      return;
+    }
 
     // Start from the bare plate, so rebuilding doesn't stack onto the last fit.
     let base: string | undefined;
     setRender(null);
 
-    for (const id of order) {
-      setSteps((s) => ({ ...s, [id]: "working" }));
+    for (const step of order) {
+      const mark = (state: StepState) =>
+        setSteps((s) => ({
+          ...s,
+          ...Object.fromEntries(step.slots.map((id) => [id, state])),
+        }));
+
+      mark("working");
       try {
         const res = await fetch("/api/look/step", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            garmentId: picked[id]!.id,
-            slot: id,
+            // The whole outfit at once. It is drawn onto one reference sheet
+            // server-side and worn in a single render — rendering piece by
+            // piece drifted the face and let the jacket paint over the tee.
+            pieces: step.pieces,
+            target: step.target,
             avatarId: plate.id,
             baseUrl: base,
           }),
@@ -146,9 +194,9 @@ export function LookCreator({
 
         base = json.renderUrl as string;
         setRender(base);
-        setSteps((s) => ({ ...s, [id]: "done" }));
+        mark("done");
       } catch (err) {
-        setSteps((s) => ({ ...s, [id]: "failed" }));
+        mark("failed");
         setError(err instanceof Error ? err.message : "That layer didn't take.");
         break; // sequential: there is no body to carry on from
       }
@@ -157,7 +205,21 @@ export function LookCreator({
     setBuilding(false);
   }
 
-  const shown = render ?? plate?.renderUrl;
+  /**
+   * The figure in the room.
+   *
+   * Before anything is built, the cutout — this room is a gradient and a body
+   * on a rectangle of someone's hallway sits *on* it rather than *in* it, which
+   * was the one thing that kept the page reading as a web page instead of a
+   * room. Falls back to the plate when the photograph was too busy to matte, or
+   * when it predates cutouts existing.
+   *
+   * Once a look has been built, the render — that one is a fresh photograph
+   * from YouCam with its own background, and there is nothing of ours to matte
+   * it with.
+   */
+  const shown = render ?? plate?.cutoutUrl ?? plate?.renderUrl;
+  const floating = !render && Boolean(plate?.cutoutUrl);
 
   return (
     <div
@@ -167,7 +229,7 @@ export function LookCreator({
       // the intended look. Below `md` the fans are gone and the room is
       // allowed to scroll, because a phone in portrait genuinely cannot hold
       // a body, a rail and a button at once.
-      className="relative flex h-[calc(100dvh-var(--spacing-shell-top))] min-h-[34rem] flex-col overflow-y-auto md:overflow-hidden"
+      className="page relative min-h-[34rem] justify-between"
       style={
         {
           "--look-a": lightA,
@@ -266,7 +328,15 @@ export function LookCreator({
               height={1200}
               priority
               sizes="(max-width: 1024px) 80vw, 23rem"
-              className="rise h-full w-auto max-w-full object-contain drop-shadow-[0_28px_38px_rgba(20,18,14,0.28)]"
+              // A cutout casts a shadow shaped like the body; a rectangular
+              // photograph casts one shaped like a rectangle, which is worse
+              // than none at all. So the drop shadow only goes on when there
+              // is a silhouette for it to follow.
+              className={`rise h-full w-auto max-w-full object-contain ${
+                floating
+                  ? "drop-shadow-[0_28px_38px_rgba(20,18,14,0.32)]"
+                  : "shadow-[0_28px_38px_rgba(20,18,14,0.28)]"
+              }`}
             />
           )}
 
@@ -307,7 +377,7 @@ export function LookCreator({
       {/* ── the hands of cards ──────────────────────────────────────────── */}
       <Fan
         side="left"
-        title="From the shops"
+        title={`${ZONE_FILTERS[zone].label} · shops`}
         empty="Nothing saved yet"
         garments={left}
         openSlots={openSlots}
@@ -323,6 +393,44 @@ export function LookCreator({
         onPick={put}
         disabled={building}
       />
+
+      {/* ── the three racks ─────────────────────────────────────────────── */}
+      {/* Directly above the build button, because they are the same gesture:
+          pick a rail, turn the wheels, add it, move to the next rail. Three
+          taps down the body — torso, bottoms, shoes — is the order you dress
+          in, so it is the order they sit in. */}
+      <div className="relative z-30 mb-2.5 flex shrink-0 justify-center px-4">
+        <div className="flex border-2 border-abyss bg-leaf/85 backdrop-blur-sm">
+          {(Object.keys(ZONE_FILTERS) as ZoneFilter[]).map((id, i) => {
+            const on = zone === id;
+            const count = garments.filter((g) =>
+              ZONE_FILTERS[id].zones.includes(g.zone),
+            ).length;
+            return (
+              <button
+                key={id}
+                type="button"
+                onClick={() => setZone(id)}
+                aria-pressed={on}
+                className={`spec relative flex items-center gap-2 px-4 py-2.5 transition-colors duration-300 ${
+                  i > 0 ? "border-l-2 border-abyss" : ""
+                } ${on ? "bg-brass text-abyss" : "text-abyss/55 hover:bg-abyss/8 hover:text-abyss"}`}
+              >
+                {ZONE_FILTERS[id].label}
+                <span className={`spec-sm ${on ? "opacity-65" : "opacity-40"}`}>
+                  {String(count).padStart(2, "0")}
+                </span>
+                {on && (
+                  <span
+                    aria-hidden
+                    className="absolute inset-x-0 top-0 h-[3px] bg-madder"
+                  />
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </div>
 
       {/* ── the one button ──────────────────────────────────────────────── */}
       <div className="relative z-30 mx-auto flex w-full max-w-[30rem] shrink-0 flex-col items-center px-4 pb-4">
@@ -385,6 +493,18 @@ export function LookCreator({
  * the page can be driven before you own anything. They are real rows with real
  * images, so they render like anything else and need no label saying so.
  */
+/** The three racks the dashboard filters by, in the order you dress. */
+type ZoneFilter = "torso" | "bottom" | "shoes";
+
+const ZONE_FILTERS: Record<
+  ZoneFilter,
+  { label: string; zones: Garment["zone"][] }
+> = {
+  torso: { label: "Torso", zones: ["top", "outerwear"] },
+  bottom: { label: "Bottoms", zones: ["bottom"] },
+  shoes: { label: "Shoes", zones: ["shoes", "accessory"] },
+};
+
 function split(garments: Garment[]): { left: Garment[]; right: Garment[] } {
   const left: Garment[] = [];
   const right: Garment[] = [];
@@ -807,6 +927,16 @@ function Fan({
   );
 }
 
+/**
+ * One card on the wheel — the same plate the closet hangs, on its side.
+ *
+ * It used to be its own thing: a paper card with a cropped photograph and a
+ * swatch chip. Two card designs for the same object in the same product is one
+ * too many, and the wheel's version was the weaker of the pair — a beige card
+ * behind a garment drawn on transparency is a beige card. `GarmentPlate` takes
+ * its colour from the piece, so a wheel of them is a wheel of colours rather
+ * than a stack of beige rectangles.
+ */
 function Card({
   garment,
   lifted,
@@ -821,49 +951,30 @@ function Card({
 
   return (
     <div
-      className="relative flex flex-col border border-ink bg-paper text-left"
+      className="relative flex flex-col border-2 border-abyss text-left"
       style={{
         boxShadow: lifted
-          ? "0 34px 58px -20px rgba(20,18,14,.7)"
-          : "0 14px 28px -16px rgba(20,18,14,.55)",
+          ? "0 34px 58px -20px rgba(14,44,57,.7)"
+          : "0 14px 28px -16px rgba(14,44,57,.5)",
         transition: "box-shadow 640ms var(--ease-cloth)",
       }}
     >
-      <span className="absolute inset-x-0 top-0 z-[2] h-[3px] bg-madder" />
+      <span className="absolute inset-x-0 top-0 z-[4] h-[3px] bg-madder" />
 
-      <div className="relative aspect-[4/5] overflow-hidden bg-paper-3">
-        <Image
-          src={garment.imageUrl}
-          alt={garment.name}
-          fill
-          sizes="200px"
-          className="object-cover"
-          style={{
-            transform: lifted ? "scale(1.06)" : "none",
-            transition: "transform 640ms var(--ease-cloth)",
-          }}
-        />
+      <div className="relative aspect-[4/5]">
+        <GarmentPlate garment={garment} />
         {blocked && (
-          <span className="absolute inset-0 flex items-end bg-ink/60 p-2">
-            <span className="spec-sm text-paper">NOT IN FRAME</span>
+          <span className="absolute inset-0 z-[4] flex items-end bg-abyss/65 p-2">
+            <span className="spec-sm text-leaf">NOT IN FRAME</span>
           </span>
         )}
-      </div>
-
-      <div className="flex items-center justify-between gap-2 px-2.5 py-2">
-        <p className="tight min-w-0 truncate text-[0.82rem]">{garment.name}</p>
-        <span
-          aria-hidden
-          className="block h-3 w-3 shrink-0 border border-ink/25"
-          style={{ backgroundColor: garment.dye.hex }}
-        />
       </div>
 
       {/* The card under the pointer is the one that says what clicking does —
           it follows the hand, not a fixed position on the wheel. */}
       <div
         className={`overflow-hidden transition-[max-height] duration-500 ${
-          blocked ? "bg-madder text-paper" : "bg-ink text-paper"
+          blocked ? "bg-madder text-leaf" : "bg-abyss text-leaf"
         } ${lifted ? "max-h-9" : "max-h-0"}`}
         style={{ transitionTimingFunction: "var(--ease-cloth)" }}
       >

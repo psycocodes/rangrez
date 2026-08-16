@@ -77,11 +77,71 @@ export function slotFor(garment: Garment): SlotId | null {
   return SLOTS.find((s) => s.zones.includes(garment.zone))?.id ?? null;
 }
 
-/** A selection, in the order the renders have to run. */
-export function chainOrder(selected: Partial<Record<SlotId, string>>): SlotId[] {
-  return SLOTS.filter((s) => selected[s.id])
+/** What the engine is asked for, in one call. */
+export interface LookStep {
+  /** Slots this call satisfies. All of them, when the outfit goes on at once. */
+  slots: SlotId[];
+  target: VtoTarget;
+  /** The pieces, in body order, to be drawn into one reference sheet. */
+  pieces: Array<{ slot: SlotId; garmentId: string }>;
+}
+
+/**
+ * A selection, as the renders that build it — which is now almost always one.
+ *
+ * This used to return one step per filled slot and chain them, each render
+ * becoming the next render's body. Two bugs came out of that, both reported
+ * from the product: the person drifted, because every call regenerates the
+ * whole photograph including the face; and a layer replaced the top under it,
+ * because `upper_body` means *replace the upper body* and the engine paints in
+ * a white shirt where the tee used to be.
+ *
+ * So the whole outfit goes on in one `full_body` call against a single sheet
+ * with every piece drawn on it — see outfitReference in lib/garment-cut.ts.
+ * Nothing renders twice, so nothing can drift, and a four-piece fit is one
+ * thirty-second render rather than four.
+ *
+ * A single piece keeps its own category: `upper_body` for a lone shirt is a
+ * sharper instruction than `full_body` with one thing on the sheet, and it
+ * leaves the rest of what the person is wearing alone.
+ */
+export function chainOrder(selected: Partial<Record<SlotId, string>>): LookStep[] {
+  const chosen = [...SLOTS]
     .sort((a, b) => a.order - b.order)
-    .map((s) => s.id);
+    .flatMap((slot) => {
+      const garmentId = selected[slot.id];
+      return garmentId ? [{ slot: slot.id, garmentId, target: slot.target }] : [];
+    });
+
+  // Shoes stay their own call. On the sheet they are a small object at the
+  // bottom of a lot of clothes, and the engine read a trainer as a pair of
+  // slides; asked for on their own with garment_category "shoes" they come out
+  // exactly right and leave the figure untouched. Two renders, both of them
+  // verified, is a better answer than one render that guesses at footwear.
+  const shoes = chosen.filter((p) => p.slot === "shoes");
+  const worn = chosen.filter((p) => p.slot !== "shoes");
+
+  const steps: LookStep[] = [];
+
+  if (worn.length) {
+    steps.push({
+      slots: worn.map((p) => p.slot),
+      // One piece keeps its own category — `upper_body` for a lone shirt is a
+      // sharper instruction than `full_body` with one thing on the sheet.
+      target: worn.length === 1 ? worn[0].target : "full_body",
+      pieces: worn.map(({ slot, garmentId }) => ({ slot, garmentId })),
+    });
+  }
+
+  for (const shoe of shoes) {
+    steps.push({
+      slots: [shoe.slot],
+      target: shoe.target,
+      pieces: [{ slot: shoe.slot, garmentId: shoe.garmentId }],
+    });
+  }
+
+  return steps;
 }
 
 /* ── the light in the room ────────────────────────────────────────────────── */

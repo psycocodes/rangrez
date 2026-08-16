@@ -1,4 +1,5 @@
 import { context2d, makeCanvas, toJpegBlob } from "./canvas";
+import { cutout } from "./cutout";
 import { classify, kindIdFor } from "./garment-kind";
 
 /**
@@ -17,20 +18,34 @@ import { classify, kindIdFor } from "./garment-kind";
  *
  *  What it actually does — the same treatment the extension gives a shop's
  *  gallery image, because Apparel VTO takes no text prompt and the reference
- *  image *is* the prompt:
+ *  image *is* the prompt.
  *
- *    1. find the subject by how far each pixel sits from the corner colour
- *    2. crop to that box with a little air
- *    3. centre it on a white square
+ *  Two passes, best first:
  *
- *  It never repaints the interior. A white shirt on a white sheet is the same
- *  colour as its background, and a cutout that guesses there destroys the
- *  garment — so the background is left alone and only the framing is fixed.
+ *    1. a real cutout (lib/matte.ts): flood the backdrop in from the frame's
+ *       edge, matte the garment out of it, drop it on a clean white square
+ *    2. failing that — a busy room, a garment filling the frame — the older
+ *       crop: find the subject box, trim to it, centre it on white
+ *
+ *  Neither ever repaints the interior of the garment. A white shirt on a white
+ *  sheet is the same colour as its background, and anything that guesses there
+ *  destroys the piece; the fill gets around that with connectivity rather than
+ *  with a better guess, and the fallback simply doesn't try.
+ *
+ *  ── why the result lands on white, and not on transparency ───────────────
+ *
+ *  The matte can give us an alpha channel and a garment floating on nothing
+ *  looks better in the grid. But this same image is what gets handed to
+ *  Apparel VTO as the reference, and what the engine composites transparency
+ *  against is undefined — a garment whose background is "whatever YouCam
+ *  decides" is a garment we cannot predict the render of. Flattening onto
+ *  white here keeps one image doing both jobs, which is also what keeps a
+ *  wardrobe entry at two pictures rather than three.
  * ═══════════════════════════════════════════════════════════════════════════
  */
 
 export interface Extracted {
-  /** The garment, cropped and centred on white. What we upload and store. */
+  /** The garment, matted or cropped, centred on white. What we store. */
   blob: Blob;
   /** Object URL for the blob. The caller owns revoking it. */
   previewUrl: string;
@@ -38,6 +53,11 @@ export interface Extracted {
   dominantColor: string;
   /** Was there a background to trim, or is this already a flat product shot. */
   cropped: boolean;
+  /**
+   * True when the background was genuinely matted away rather than merely
+   * cropped around. Shown in the dock so the user knows which they got.
+   */
+  matted: boolean;
   /** Guessed from the filename. */
   suggestedName: string;
   suggestedKindId: string;
@@ -58,6 +78,31 @@ export async function extractGarment(file: File): Promise<Extracted> {
   const bitmap = await createImageBitmap(file);
 
   try {
+    // ── 0 · try to cut it out properly first ──────────────────────────────
+    // The bitmap is passed rather than the file so the decode is not paid for
+    // twice; `cutout` leaves a bitmap it did not create open.
+    const matte = await cutout(bitmap, {
+      square: true,
+      background: "#ffffff",
+      maxSize: OUT_MAX,
+      pad: 0.07,
+    });
+
+    if (matte.confident) {
+      return {
+        blob: matte.blob,
+        previewUrl: matte.previewUrl,
+        dominantColor: matte.dominantColor,
+        cropped: true,
+        matted: true,
+        suggestedName: titleFromFilename(file.name),
+        suggestedKindId: kindIdFor(classify(stripExtension(file.name))),
+      };
+    }
+
+    // Nothing here to keep — the crop below produces its own.
+    URL.revokeObjectURL(matte.previewUrl);
+
     // ── 1 · find the subject, on a small copy ─────────────────────────────
     // 128px is enough to locate a garment and cheap enough that a dozen files
     // analyse in the time it takes to notice they were dropped.
@@ -147,6 +192,7 @@ export async function extractGarment(file: File): Promise<Extracted> {
       previewUrl: URL.createObjectURL(blob),
       dominantColor,
       cropped,
+      matted: false,
       suggestedName: titleFromFilename(file.name),
       suggestedKindId: kindIdFor(kind),
     };

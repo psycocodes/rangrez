@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { requireUser } from "@/lib/auth";
 import { insertGarments, newId } from "@/lib/db";
+import { CUTS, type Cut } from "@/lib/fit";
 import { UPLOAD_KINDS } from "@/lib/garment-kind";
 import { isInPalette } from "@/lib/palette";
 import { nearestDye } from "@/lib/seed";
@@ -59,6 +60,13 @@ export async function POST(req: Request) {
   const name =
     String(form.get("name") ?? "").trim().slice(0, 90) || `${kind.label} · new`;
 
+  // Read off the garment's own label in the dock. Both optional — an unsized
+  // piece is a perfectly good wardrobe entry — but together they are what
+  // calibrates every size recommendation the extension makes later.
+  const sizeLabel = String(form.get("sizeLabel") ?? "").trim().slice(0, 12);
+  const claimedCut = String(form.get("cut") ?? "");
+  const cut: Cut = CUTS.includes(claimedCut as Cut) ? (claimedCut as Cut) : "regular";
+
   const garment: Garment = {
     id: newId(),
     userId: user.id,
@@ -70,6 +78,8 @@ export async function POST(req: Request) {
     material: String(form.get("material") ?? "").trim().slice(0, 80) || kind.label,
     imageUrl: stored.url,
     vtoTarget: kind.vto ?? undefined,
+    sizeLabel: sizeLabel || undefined,
+    fit: { cut, sizeLabel: sizeLabel || undefined },
     seed: newId().slice(0, 8),
     // "queued" is the honest state: it is in the wardrobe, and the body shot is
     // still coming. A piece YouCam has no surface for (a belt, a scarf) is

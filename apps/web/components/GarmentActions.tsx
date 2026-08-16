@@ -12,6 +12,7 @@ import {
   wearGarment,
   type WardrobeState,
 } from "@/app/actions/wardrobe";
+import { materialise } from "@/lib/rasterize";
 import { DYES } from "@/lib/seed";
 import {
   SEASON_LABEL,
@@ -219,6 +220,10 @@ export function GarmentTryOn({
     setBusy(true);
     setError(null);
     try {
+      // A drawn starter piece has no address the engine can fetch. Give it a
+      // real one first — once, permanently — then render as normal.
+      await materialise(garment);
+
       const res = await fetch("/api/wardrobe/render", {
         method: "POST",
         headers: { "Content-Type": "application/json" },

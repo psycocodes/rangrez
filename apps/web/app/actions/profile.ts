@@ -4,6 +4,12 @@ import { revalidatePath } from "next/cache";
 
 import { requireUser } from "@/lib/auth";
 import { deleteSeedGarments, recomputePalette, updateUser } from "@/lib/db";
+import {
+  MEASUREMENT_FIELDS,
+  readMeasurement,
+  type MeasureUnit,
+  type Measurements,
+} from "@/lib/fit";
 import { buildSeason, SEASON_NAMES } from "@/lib/palette";
 import type { AvatarCustomization } from "@/lib/types";
 
@@ -73,7 +79,6 @@ export async function savePreferences(form: FormData): Promise<void> {
   const user = await requireUser();
 
   const fit = String(form.get("fitPreference") ?? "regular");
-  const height = Number(form.get("heightCm"));
 
   await updateUser(user.id, (u) => {
     u.name = String(form.get("name") ?? u.name).trim() || u.name;
@@ -82,8 +87,6 @@ export async function savePreferences(form: FormData): Promise<void> {
     )
       ? (fit as "relaxed" | "regular" | "tailored")
       : "regular";
-    u.preferences.heightCm =
-      Number.isFinite(height) && height > 0 ? Math.round(height) : undefined;
     u.preferences.paletteFirst = form.get("paletteFirst") === "on";
 
     const g = String(form.get("vtoGender") ?? "");
@@ -91,6 +94,39 @@ export async function savePreferences(form: FormData): Promise<void> {
   });
 
   refresh();
+}
+
+/**
+ * The body, entered once.
+ *
+ * Every field is optional and every field is independently discarded if it
+ * doesn't parse or lands outside the range a human occupies — a mistyped
+ * "1740" for a height must not be able to poison a size recommendation, and
+ * it must not take the other eight numbers down with it either.
+ *
+ * Blank means "I don't know this one", so a field cleared on purpose clears
+ * in storage. That is why this walks the whole field list rather than only
+ * the keys that came back with something in them.
+ */
+export async function saveMeasurements(form: FormData): Promise<void> {
+  const user = await requireUser();
+
+  const claimed = String(form.get("unit") ?? "cm");
+  const unit: MeasureUnit = claimed === "in" ? "in" : "cm";
+
+  await updateUser(user.id, (u) => {
+    const next: Measurements = { unit, updatedAt: new Date().toISOString() };
+    for (const field of MEASUREMENT_FIELDS) {
+      const value = readMeasurement(field.key, form.get(field.key), unit);
+      if (value !== undefined) {
+        (next[field.key] as number) = value;
+      }
+    }
+    u.measurements = next;
+  });
+
+  revalidatePath("/profile");
+  revalidatePath("/wardrobe");
 }
 
 /** Clear the demo starter wardrobe once real uploads exist. */

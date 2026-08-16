@@ -6,6 +6,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { PaletteStrip } from "./PaletteStrip";
 import { guessFraming } from "@/lib/avatar-framing";
+import { cutout } from "@/lib/cutout";
 import {
   FRAMING,
   MAX_AVATARS,
@@ -125,6 +126,24 @@ export function AvatarStudio({
     body.append("label", label.trim());
     body.append("framing", framing);
     if (replacing) body.append("replace", replacing.id);
+
+    // Cut the figure out of its backdrop, here, before anything is sent.
+    //
+    // Presentation only — YouCam gets the untouched photograph, because a
+    // matte that clipped a shoulder is a matte it would fit a jacket to. This
+    // is what lets the look creator stand you *in* its gradient instead of on
+    // a rectangle of your hallway, and a photograph too busy to matte simply
+    // doesn't send one: `confident` is false, nothing is attached, and every
+    // surface falls back to the plate.
+    try {
+      const matte = await cutout(file, { square: false, pad: 0.02, maxSize: 1400 });
+      if (matte.confident) {
+        body.append("cutout", matte.blob, "cutout.png");
+      }
+      URL.revokeObjectURL(matte.previewUrl);
+    } catch (err) {
+      console.warn("[atelier] couldn't matte the plate:", err);
+    }
 
     try {
       const res = await fetch("/api/avatar", { method: "POST", body });

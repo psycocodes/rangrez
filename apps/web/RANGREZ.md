@@ -72,8 +72,18 @@ instead of a folder of screenshots.
 - Wardrobe items and swipe suggestions ranked/highlighted when inside the user's flattering palette
 - "Surprise me" weighted toward colour-season-matching combinations first
 
-### 4.5 General / supporting
+### 4.5 Fit & sizing — the half a try-on can't answer
+- Body measurements captured once on the profile; stored in cm, displayed in cm or inches
+- Each wardrobe entry carries its size, its cut, and the shop's size chart when the page published one
+- On a product page the extension scrapes the size options and any size table, and Rangrez answers with
+  a size, a verdict in plain words, and the measurement that decided it
+- The body never leaves the server: the extension sends a chart that was already public on the page and
+  gets a letter back, so a shop page is never in a position to learn the shape of the person browsing it
+
+### 4.6 General / supporting
 - Onboarding flow to capture a clean, front-facing base avatar photo (lighting/pose guidance)
+- **Base models** — a stock body to borrow instead of uploading one, for anyone who wants to see the
+  product work before putting their own photograph into it
 - Outfit history log (tried / saved / worn-on-date)
 - Basic auth + per-user private catalog storage
 
@@ -260,12 +270,49 @@ minimal SaaS dashboard.
   struck out in the look creator and refused by the API, so nobody spends a render fitting trousers to a
   head-and-shoulders photograph.
 
+- **Two images per wardrobe entry, and each column means one thing.** `image_url` is the garment alone;
+  `try_on_url` is the same garment worn. Shop saves used to put the *render* in `image_url` because
+  there was nowhere else for it, so a card crossfaded from a body shot to nothing — the extension's
+  isolated garment is now kept by `/api/extension/tryon` and travels with the save. Migration 004 moves
+  the existing rows across.
+- **Real cutouts** (`lib/matte.ts` + `lib/cutout.ts`). The backdrop is flooded in from the frame's edge
+  and the subject matted out of it. Connectivity is what makes this safe where a colour threshold isn't:
+  a white shirt on a white sweep is the same colour as its background, but the sweep touches the frame
+  edge and the shirt doesn't, so the shirt's interior is never reached and survives. An enclosed pocket
+  of backdrop — the triangle between an arm and a torso — is taken out by a second pass, gated on being
+  both small and a closer colour match than the main fill, so it can't punch a hole through a pale
+  garment. The matte reports when it has failed and every caller falls back.
+  Garments land on white (VTO composites transparency against something undefined); the **avatar keeps
+  its alpha**, which is what lets the look creator stand the figure *in* its gradient rather than on a
+  rectangle of someone's hallway. YouCam is always given the untouched photograph.
+- **Fit** (`lib/fit.ts`) — measurements on the person, size charts on the garment, and the ease between
+  them. Ease *is* the calculation: a shirt measuring exactly your chest is a compression top, and ~8cm
+  of ease is slim where ~30cm is the oversized silhouette people buy on purpose. Too tight is scored
+  harder than equally too loose, because that is the failure people return things over.
+  The subtle half is the **chart basis**. Shops publish "to fit chest 96-101" and "garment chest 110"
+  and almost never label which; read a garment chart as a body chart and you confidently recommend two
+  sizes too small. It's inferred by comparing against standard sizing, and a body chart then has the
+  cut and the stretch *already priced in* — applying our own ease on top double-counted the shop's
+  homework and reported a dead-centre M as 3cm roomy. 27 tests cover it.
+- **The extension says what fits** — `content/sizing.js` scrapes size options and candidate tables,
+  `/api/extension/fit` interprets. The body never goes down to the content script.
+- **Base models** (`lib/base-models.ts`) — six stock bodies. Each has a *poster* (a generated
+  silhouette, drawn from three proportions) and a *plate* (a real photograph). The poster is what you
+  choose from and is the slot a 3D model drops into later; the plate is the only thing ever submitted to
+  VTO, because the engine fits garments to anatomy it can see and an illustration is not anatomy.
+  `listBaseModels()` checks the disk, so adding a body is copying a JPEG into `public/base-models/` —
+  no code change and no redeploy.
+- **`/avatars`** — bodies got their own page. They stopped being a setting the moment there could be
+  three of them and a catalog to choose from.
+
 **Next**
 - Move `public/uploads/` to Supabase Storage — it is ephemeral on Vercel, so uploads and mirrored
   renders do not survive a deploy
-- True cutout segmentation on upload. `lib/extract.ts` crops and centres but never repaints the
-  interior, deliberately: a white shirt on a white sheet is the same colour as its background and
-  guessing there destroys the garment.
+- Photographs for the base models. Four of six slots are empty; the cards say so and stay disabled
+  rather than pretending and failing at the first render.
+- A learned matte for the photographs the flood fill can't do: a patterned wall, a subject filling the
+  frame. It knows when it has failed and falls back to the plain crop, which is the right behaviour and
+  still a worse picture.
 
 **Live-verified 2026-08-05:** detection fires correctly on a real Amazon India product page, and a full
 try-on has been rendered end to end against the real YouCam API (`mocked: false`, ~19s, garment

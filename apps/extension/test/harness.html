@@ -67,6 +67,10 @@
       }
       /* Stands in for the product gallery the adapters read. */
       #altImages, #imgTagWrapperId { display: none; }
+      /* The sizing fixture is markup to be scraped, not a page to be read. */
+      #sizing-fixture { display: none; }
+      .ok { color: #2E6B5E; }
+      .bad { color: #B03A21; font-weight: 700; }
     </style>
   </head>
   <body>
@@ -83,13 +87,78 @@
       <img id="landingImage" src="https://m.media-amazon.com/images/I/71QKQ9mwV7L._AC_SX679_.jpg" />
     </div>
 
+    <!-- ══ FIXTURE: the shapes a size picker and a size chart actually take ══
+         Four traps in here, each one something a real shop does:
+           · sold-out sizes marked on the <button>, not on the <li> around it
+           · a colour picker built exactly like the size picker
+           · a delivery table and a care table that are not size charts
+           · a chart written as ranges, in a section that says "to fit"      -->
+    <div id="sizing-fixture">
+      <div class="size-selector">
+        <ul>
+          <li><button>XS</button></li>
+          <li><button>S</button></li>
+          <li><button>M</button></li>
+          <li><button>L</button></li>
+          <li><button class="size-option sold-out" aria-disabled="true">XL</button></li>
+          <li><button disabled>XXL</button></li>
+        </ul>
+      </div>
+
+      <div class="colour-selector">
+        <ul>
+          <li><button>Indigo</button></li>
+          <li><button>Ecru</button></li>
+        </ul>
+      </div>
+
+      <section class="size-chart">
+        <h3>Size guide — to fit body measurements</h3>
+        <table>
+          <caption>All measurements in cm</caption>
+          <thead>
+            <tr><th>Size</th><th>Chest</th><th>Waist</th><th>Shoulder</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>XS</td><td>86-91</td><td>71-76</td><td>41</td></tr>
+            <tr><td>S</td><td>91-96</td><td>76-81</td><td>43</td></tr>
+            <tr><td>M</td><td>96-101</td><td>81-86</td><td>45</td></tr>
+            <tr><td>L</td><td>101-106</td><td>86-91</td><td>47</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <table>
+        <thead><tr><th>Region</th><th>Delivery</th><th>Cost</th></tr></thead>
+        <tbody>
+          <tr><td>Metro</td><td>2-3 days</td><td>Free</td></tr>
+          <tr><td>Rest of India</td><td>4-6 days</td><td>&#8377;49</td></tr>
+          <tr><td>International</td><td>9-14 days</td><td>&#8377;900</td></tr>
+        </tbody>
+      </table>
+
+      <table>
+        <thead><tr><th>Care</th><th>Instruction</th></tr></thead>
+        <tbody>
+          <tr><td>Wash</td><td>Machine wash cold</td></tr>
+          <tr><td>Iron</td><td>Medium heat</td></tr>
+          <tr><td>Bleach</td><td>Do not bleach</td></tr>
+        </tbody>
+      </table>
+
+      <div class="composition">97% Cotton, 3% Elastane</div>
+    </div>
+
     <div class="bar">
       <button data-run="detect">Run detect()</button>
+      <button data-run="sizing">Run sizing.read()</button>
       <button data-state="pick-2">State · pick body (2)</button>
       <button data-state="pick-3">State · pick body (3)</button>
       <button data-state="isolating">State · isolating</button>
       <button data-state="rendering">State · rendering</button>
       <button data-state="result">State · result</button>
+      <button data-state="result-fit">State · result + fit</button>
+      <button data-state="result-nofit">State · result, no measurements</button>
       <button data-state="unsupported">State · unsupported</button>
       <button data-state="needs">State · not paired</button>
       <button data-state="error">State · error</button>
@@ -116,6 +185,7 @@
     <script src="../src/lib/taxonomy.js"></script>
     <script src="../src/lib/sites.js"></script>
     <script src="../src/content/detect.js"></script>
+    <script src="../src/content/sizing.js"></script>
     <script src="../src/content/panel.js"></script>
 
     <script>
@@ -151,6 +221,86 @@
         const found = RZ.detect();
         log("RZ.detect()", found || "null — no garment recognised on this page");
       });
+
+      /**
+       * The sizing scrape, with its answers checked.
+       *
+       * This one asserts rather than just printing, because the interesting
+       * failures are all quiet: a colour chip read as a size, a delivery table
+       * read as a chart, a sold-out size offered anyway. Each of those looks
+       * completely fine in a dump and is wrong.
+       */
+      document.querySelector('[data-run="sizing"]').addEventListener("click", () => {
+        const out = RZ.sizing.read();
+        const sizes = out.sizes;
+        const label = (s) => sizes.find((x) => x.label === s);
+
+        const checks = [
+          ["found all six sizes", sizes.length === 6],
+          ["S is in stock", label("S")?.available === true],
+          // The <li> wrapper is matched before the <button disabled> inside
+          // it, so this is the check that catches every sold-out size being
+          // offered as available. It has failed for real.
+          ["XL is sold out (aria-disabled on the button)", label("XL")?.available === false],
+          ["XXL is sold out (disabled on the button)", label("XXL")?.available === false],
+          ["colour chips are not sizes", !sizes.some((s) => /indigo|ecru/i.test(s.label))],
+          ["exactly one table survived", out.tables.length === 1],
+          ["it is the size chart", /chest/i.test(out.tables[0]?.headers.join(" ") ?? "")],
+          ["the delivery table was rejected", !out.tables.some((t) => /delivery/i.test(t.headers.join(" ")))],
+          ["the care table was rejected", !out.tables.some((t) => /care/i.test(t.headers.join(" ")))],
+          ['"to fit" was captured as context', /to fit/i.test(out.tables[0]?.context ?? "")],
+          ["the composition was captured", /elastane/i.test(out.text)],
+        ];
+
+        const failed = checks.filter(([, ok]) => !ok);
+        log(
+          `RZ.sizing.read() — ${checks.length - failed.length}/${checks.length} checks passed`,
+          checks.map(([name, ok]) => `${ok ? "PASS" : "FAIL"}  ${name}`).join("\n") +
+            "\n\n" +
+            JSON.stringify(out, null, 2),
+        );
+        out_el().className = failed.length ? "bad" : "ok";
+      });
+
+      const out_el = () => document.getElementById("out");
+
+      /**
+       * A real reply from /api/extension/fit, copied verbatim rather than
+       * hand-written — so what the panel is drawn against is the shape the
+       * server actually sends, including `index`, which is what keeps the
+       * size scale in chart order instead of score order.
+       */
+      const FIT_ADVICE = {
+        advice: {
+          recommended: "M",
+          alternate: "L",
+          confidence: "high",
+          basis: "chart",
+          headline: "M — true to size",
+          detail:
+            "Lands on your chest almost exactly, according to this page's fit chart. L is close — take it if you want the looser one.",
+          missing: [],
+          sizes: [
+            { size: "M", score: 99, verdict: "true to size", index: 2, dims: [] },
+            { size: "L", score: 88, verdict: "roomy", index: 3, dims: [] },
+            { size: "S", score: 61, verdict: "snug", index: 1, dims: [] },
+            { size: "XS", score: 18, verdict: "too tight", index: 0, dims: [] },
+          ],
+        },
+        read: { cut: "slim", chartRows: 4, chartBasis: "body", offered: 4 },
+      };
+
+      const FIT_UNKNOWN = {
+        advice: {
+          confidence: "low",
+          basis: "none",
+          sizes: [],
+          headline: "Add your measurements",
+          detail:
+            "Chest, waist and hip — once, in your profile — and every product page gets a size.",
+          missing: ["Chest", "Waist", "Hip"],
+        },
+      };
 
       document.querySelectorAll("[data-state]").forEach((btn) =>
         btn.addEventListener("click", async () => {
@@ -213,13 +363,20 @@
             }, 1400);
           }
 
-          if (state === "result") {
+          if (state === "result" || state === "result-fit" || state === "result-nofit") {
             s.renderResult({
               renderUrl: "https://picsum.photos/seed/rz-render/600/800",
               name: "Levi's Men's Relaxed Fit Denim Trucker Jacket",
               specLine: "Outerwear · Amazon",
               dye: "#2f3d72",
-              mocked: true,
+              mocked: state === "result",
+              appBase: "http://localhost:3000",
+              fit:
+                state === "result-fit"
+                  ? FIT_ADVICE
+                  : state === "result-nofit"
+                    ? FIT_UNKNOWN
+                    : undefined,
             });
           }
 

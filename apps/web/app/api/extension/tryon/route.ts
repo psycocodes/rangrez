@@ -1,7 +1,9 @@
 import { cors, preflight } from "@/lib/cors";
+import { extractGarment } from "@/lib/cutout-server";
 import { pickAvatar } from "@/lib/db";
 import { userFromRequest } from "@/lib/ext-token";
 import { fetchImage } from "@/lib/fetch-image";
+import { storeBytes } from "@/lib/uploads";
 import { isVtoTarget, tryOnGarment } from "@/lib/youcam";
 
 export const OPTIONS = preflight;
@@ -30,6 +32,21 @@ interface Body {
 }
 
 const MAX_INLINE_BYTES = 8 * 1024 * 1024;
+
+/**
+ * Puts the isolated garment on our own disk, and never fails the try-on over
+ * it. A render that lands without its flat shot is a card with one picture
+ * instead of two; a render that didn't happen because a disk write failed is
+ * the feature not working.
+ */
+async function keep(bytes: Buffer, contentType: string): Promise<string | null> {
+  try {
+    return (await storeBytes(bytes, contentType)).url;
+  } catch (err) {
+    console.warn("[extension/tryon] couldn't keep the garment image:", err);
+    return null;
+  }
+}
 
 /** Base64 from the extension → bytes, with a size ceiling. */
 function decodeInline(base64: string, contentType = "image/jpeg") {
@@ -88,6 +105,28 @@ export async function POST(req: Request) {
         : fetchImage(body.imageUrl!),
     ]);
 
+    // Keep the garment on its own before rendering it onto anyone.
+    //
+    // The extension has already isolated the piece from the shop's gallery —
+    // cropped, flattened, the best of six candidates — and until now that
+    // picture was used once and thrown away. It is the only photograph of the
+    // garment *alone* that will ever exist for a shop save, so a piece saved
+    // off a product page used to hang in the wardrobe as a body shot with
+    // nothing to crossfade from. Storing it here costs one disk write on a
+    // request that is about to spend twenty seconds in a render queue.
+    //
+    // "The best of six candidates" is still, very often, a model wearing the
+    // thing — most shops photograph clothes on people. So it is cut out before
+    // it is stored: backdrop flooded away, head dropped, framed to the band
+    // the piece is worn on. What goes to YouCam is deliberately *not* this.
+    // The engine was tuned on whole reference photographs and does its own
+    // segmentation; handing it a pre-cut torso would be solving its problem
+    // for it, badly. The cutout is for the wardrobe card, and only that.
+    const cut = await extractGarment(garment.bytes, target);
+    const garmentUrl = cut
+      ? await keep(cut.bytes, cut.contentType)
+      : await keep(garment.bytes, garment.contentType);
+
     const result = await tryOnGarment(
       plate,
       garment,
@@ -100,6 +139,15 @@ export async function POST(req: Request) {
       // plate itself — the panel still shows a real body, clearly labelled.
       renderUrl:
         result.renderUrl || new URL(avatar.renderUrl, req.url).toString(),
+      /** The garment alone, cut out. Saved as the catalog's `imageUrl`. */
+      garmentUrl,
+      /**
+       * Read off the cutout rather than off the whole photograph, so a piece
+       * shot on a model is filed under its own colour and not under an average
+       * of the shirt, the model's arms and whatever they were standing in
+       * front of. The extension prefers this to its own measurement.
+       */
+      dominantColor: cut?.dominantColor,
       taskId: result.taskId,
       mocked: result.mocked,
       target,

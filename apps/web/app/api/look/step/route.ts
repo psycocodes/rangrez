@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth";
 import { getGarment, pickAvatar } from "@/lib/db";
 import { fetchImage } from "@/lib/fetch-image";
+import { outfitReference, type OutfitSlot } from "@/lib/cutout-server";
 import { SLOT_BY_ID } from "@/lib/look";
 import { storeBytes } from "@/lib/uploads";
 import { FRAMING, type SlotId } from "@/lib/types";
@@ -12,27 +13,39 @@ import { isVtoTarget, tryOnGarment } from "@/lib/youcam";
 export const maxDuration = 120;
 
 /**
- * POST /api/look/step — put the next layer on.
+ * POST /api/look/step — dress the body.
  *
- * A whole outfit is several of these in sequence, driven from the client:
- * the first call dresses the avatar, and every call after it dresses the
- * previous call's result. The client orchestrates rather than the server
- * looping, for two reasons — the user watches each layer land instead of
- * staring at one ninety-second spinner, and no single request has to survive
- * four YouCam renders back to back.
+ *   { pieces: [{ slot, garmentId }, …], target: "full_body", avatarId }
  *
- *   1st   { garmentId, slot }                    → renders onto the avatar
- *   next  { garmentId, slot, baseUrl: "/uploads/…" }
+ * One request, one render, however many pieces. This used to be a chain — a
+ * call per layer, each render becoming the next render's body — and the chain
+ * was the bug. Every call regenerates the whole photograph, so four layers
+ * meant four chances for the face to drift, and `upper_body` replaces the
+ * upper body rather than adding to it, so a jacket erased the tee under it and
+ * the engine painted in a white shirt.
  *
+ * Now the pieces are drawn onto one reference sheet (outfitReference in
+ * lib/garment-cut.ts) and worn in a single `full_body` call. Nothing renders
+ * twice, so nothing drifts — and a four-piece fit takes one render's time
+ * rather than four.
+ *
+ * `baseUrl` survives for the case where a look is added to rather than rebuilt.
  * Every result is mirrored onto our own origin before being returned, which is
- * what makes it safe to accept `baseUrl` back: the only value the client can
- * usefully send is one we minted, and anything that isn't an /uploads/ path is
- * refused outright rather than fetched.
+ * what makes accepting it back safe: the only value the client can usefully
+ * send is one we minted, and anything that isn't an /uploads/ path is refused
+ * rather than fetched.
  */
 
 interface Body {
-  garmentId?: string;
-  slot?: SlotId;
+  /**
+   * Everything being worn, in body order. Usually the whole outfit: they are
+   * drawn onto one reference sheet and go on in a single render, because
+   * rendering them one after another drifts the face and lets each layer
+   * paint over the one before it. See outfitReference in lib/garment-cut.ts.
+   */
+  pieces?: Array<{ slot?: SlotId; garmentId?: string }>;
+  /** Which category to ask for. Only `full_body` makes sense for a full sheet. */
+  target?: string;
   avatarId?: string;
   baseUrl?: string;
 }
@@ -47,12 +60,12 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Expected JSON." }, { status: 400 });
   }
 
-  const slot = body.slot && SLOT_BY_ID[body.slot];
-  if (!slot || !body.garmentId) {
-    return NextResponse.json(
-      { error: "Need a garment and a slot." },
-      { status: 400 },
-    );
+  const requested = (body.pieces ?? []).filter(
+    (p): p is { slot: SlotId; garmentId: string } =>
+      Boolean(p?.garmentId) && Boolean(p?.slot && SLOT_BY_ID[p.slot]),
+  );
+  if (!requested.length) {
+    return NextResponse.json({ error: "Need something to put on." }, { status: 400 });
   }
 
   const avatar = pickAvatar(user, body.avatarId);
@@ -66,7 +79,9 @@ export async function POST(req: Request) {
   // The body cannot wear what the camera never saw. Checked here and not only
   // in the UI — a disabled button is a courtesy, not a control.
   const allowed = FRAMING[avatar.framing ?? "full"].slots;
-  if (!allowed.includes(slot.id)) {
+  const unwearable = requested.find((p) => !allowed.includes(p.slot));
+  if (unwearable) {
+    const slot = SLOT_BY_ID[unwearable.slot];
     return NextResponse.json(
       {
         error: `"${avatar.customization.label}" is framed ${FRAMING[
@@ -78,17 +93,23 @@ export async function POST(req: Request) {
     );
   }
 
-  const garment = await getGarment(user.id, body.garmentId);
-  if (!garment) {
-    return NextResponse.json({ error: "That piece is gone." }, { status: 404 });
+  const garments = await Promise.all(
+    requested.map((p) => getGarment(user.id, p.garmentId)),
+  );
+  if (garments.some((g) => !g)) {
+    return NextResponse.json({ error: "One of those pieces is gone." }, { status: 404 });
   }
 
-  // The garment's own stored surface wins — a bag and a watch both live on the
-  // accessory rail but are different endpoints. The slot is the fallback.
+  // A lone piece keeps its own surface — the garment's stored one wins, since a
+  // bag and a watch both live on the accessory rail and are different
+  // endpoints. A whole outfit is always full_body: it is one sheet of clothes.
+  const single = garments.length === 1 ? garments[0] : undefined;
   const target =
-    garment.vtoTarget && isVtoTarget(garment.vtoTarget)
-      ? garment.vtoTarget
-      : slot.target;
+    single?.vtoTarget && isVtoTarget(single.vtoTarget)
+      ? single.vtoTarget
+      : isVtoTarget(body.target)
+        ? body.target
+        : SLOT_BY_ID[requested[0].slot].target;
 
   // Only ever a path we minted from a previous step.
   if (body.baseUrl && !body.baseUrl.startsWith("/uploads/")) {
@@ -100,10 +121,21 @@ export async function POST(req: Request) {
   const baseUrl = body.baseUrl || avatar.renderUrl;
 
   try {
-    const [base, piece] = await Promise.all([
+    const [base, ...images] = await Promise.all([
       fetchImage(baseUrl),
-      fetchImage(garment.imageUrl),
+      ...garments.map((g) => fetchImage(g!.imageUrl)),
     ]);
+
+    // One garment goes as itself; several are laid out as an outfit sheet.
+    const piece =
+      images.length === 1
+        ? images[0]
+        : await outfitReference(
+            images.map((image, i) => ({
+              slot: requested[i].slot as OutfitSlot,
+              bytes: image.bytes,
+            })),
+          );
 
     const result = await tryOnGarment(
       base,
@@ -118,7 +150,7 @@ export async function POST(req: Request) {
       return NextResponse.json({
         renderUrl: baseUrl,
         mocked: true,
-        slot: slot.id,
+        slots: requested.map((p) => p.slot),
       });
     }
 
@@ -131,7 +163,7 @@ export async function POST(req: Request) {
       renderUrl: stored.url,
       taskId: result.taskId,
       mocked: result.mocked,
-      slot: slot.id,
+      slots: requested.map((p) => p.slot),
     });
   } catch (err) {
     console.error("[look/step]", err);
@@ -141,7 +173,7 @@ export async function POST(req: Request) {
           err instanceof Error
             ? err.message
             : "The dye house couldn't render that layer.",
-        slot: slot.id,
+        slots: requested.map((p) => p.slot),
       },
       { status: 502 },
     );

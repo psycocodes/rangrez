@@ -165,6 +165,22 @@ export function GarmentCard({
           <p className="aside mb-2 text-[0.82rem] leading-tight text-ink-3">
             {garment.material}
           </p>
+
+          {/* The size, when the piece knows it. Printed rather than hidden in
+              a menu: "which of my three white shirts is the M" is the question
+              a wardrobe grid should be able to answer at a glance. */}
+          {(garment.sizeLabel || garment.fit?.cut) && (
+            <p className="spec-sm mb-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-ink-3">
+              {garment.sizeLabel && (
+                <span className="border border-ink/25 px-1.5 py-1 text-ink">
+                  {garment.sizeLabel.toUpperCase()}
+                </span>
+              )}
+              {garment.fit?.cut && <span>{garment.fit.cut.toUpperCase()} CUT</span>}
+              {garment.fit?.chart && <span title="This piece carries the shop's size chart">· CHARTED</span>}
+            </p>
+          )}
+
           <div className="flex items-center gap-2">
             <span className="relative h-px flex-1 bg-ink/15">
               <span

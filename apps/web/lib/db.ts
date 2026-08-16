@@ -2,6 +2,7 @@ import "server-only";
 
 import { randomUUID } from "node:crypto";
 
+import type { Measurements } from "./fit";
 import { isInPalette } from "./palette";
 import { seedCatalog } from "./seed";
 import { supabase } from "./supabase";
@@ -37,6 +38,25 @@ function toUser(row: Row): User {
   const activeAvatarId =
     (row.active_avatar_id as string | null) ?? avatars[0]?.id ?? undefined;
 
+  const preferences = {
+    fitPreference: "regular",
+    paletteFirst: true,
+    ...((row.preferences as object) ?? {}),
+  } as User["preferences"] & { heightCm?: number };
+
+  const measurements = {
+    unit: "cm",
+    ...((row.measurements as object) ?? {}),
+  } as Measurements;
+
+  // Height used to live on preferences, which meant a body number sat in the
+  // settings object while the rest of the body lived somewhere else. It moves
+  // here on read so the one people already entered isn't lost; the old key is
+  // left where it is rather than deleted, because nothing reads it any more.
+  if (measurements.heightCm === undefined && preferences.heightCm) {
+    measurements.heightCm = preferences.heightCm;
+  }
+
   return {
     id: row.id as string,
     email: row.email as string,
@@ -47,11 +67,8 @@ function toUser(row: Row): User {
     // The same object as the array entry, not a copy: `u.avatar.colorSeason = x`
     // inside an updateUser patch has to reach the row that gets written back.
     avatar: avatars.find((a) => a.id === activeAvatarId) ?? avatars[0],
-    preferences: {
-      fitPreference: "regular",
-      paletteFirst: true,
-      ...((row.preferences as object) ?? {}),
-    } as User["preferences"],
+    measurements,
+    preferences,
   };
 }
 
@@ -77,7 +94,10 @@ function toGarment(row: Row): Garment {
     imageUrl: row.image_url as string,
     tryOnUrl: (row.try_on_url as string) ?? undefined,
     tryOnAvatarId: (row.try_on_avatar_id as string) ?? undefined,
+    originalUrl: (row.original_url as string) ?? undefined,
     vtoTarget: (row.vto_target as string) ?? undefined,
+    fit: (row.fit as Garment["fit"]) ?? undefined,
+    sizeLabel: (row.size_label as string) ?? undefined,
     seed: (row.seed as string) ?? "",
     status: row.status as Garment["status"],
     taskId: (row.task_id as string) ?? undefined,
@@ -102,7 +122,10 @@ function fromGarment(g: Garment): Row {
     image_url: g.imageUrl,
     try_on_url: g.tryOnUrl ?? null,
     try_on_avatar_id: g.tryOnAvatarId ?? null,
+    original_url: g.originalUrl ?? null,
     vto_target: g.vtoTarget ?? null,
+    fit: g.fit ?? null,
+    size_label: g.sizeLabel ?? null,
     seed: g.seed,
     status: g.status,
     task_id: g.taskId ?? null,
@@ -160,14 +183,31 @@ function must(what: string, res: { error: unknown }): void {
   if (res.error) fail(what, res.error);
 }
 
-/** Cheap probe used by the setup gate. */
+/**
+ * Cheap probe used by the setup gate.
+ *
+ * Asks for every column the app actually writes, not just for the table —
+ * because a half-migrated database is the failure people really hit, and it
+ * is far more confusing than an empty one. The tables exist, sign-in works,
+ * the wardrobe lists, and then saving anything dies on a column nobody
+ * mentioned. PostgREST names the missing column in its error, so selecting
+ * them all here turns that into a setup step with a file name on it.
+ *
+ * Keep this list in step with `fromGarment` and `updateUser`: a column added
+ * to a write without being added here is a migration the gate can't see.
+ */
+const REQUIRED = {
+  rangrez_users: "id, avatars, active_avatar_id, measurements, preferences",
+  rangrez_garments:
+    "id, image_url, try_on_url, try_on_avatar_id, original_url, vto_target, fit, size_label",
+} as const;
+
 export async function dbReady(): Promise<true | string> {
   try {
-    const { error } = await supabase()
-      .from("rangrez_users")
-      .select("id")
-      .limit(1);
-    if (error) return error.message;
+    for (const [table, columns] of Object.entries(REQUIRED)) {
+      const { error } = await supabase().from(table).select(columns).limit(1);
+      if (error) return error.message;
+    }
     return true;
   } catch (err) {
     return err instanceof Error ? err.message : String(err);
@@ -217,6 +257,7 @@ export async function ensureProfile(input: {
     name: input.name,
     createdAt: new Date().toISOString(),
     avatars: [],
+    measurements: { unit: "cm" },
     preferences: { fitPreference: "regular", paletteFirst: true },
   };
 
@@ -234,6 +275,7 @@ export async function insertUser(user: User): Promise<User> {
       avatars: user.avatars,
       active_avatar_id: user.activeAvatarId ?? null,
       avatar: user.avatar ?? null,
+      measurements: user.measurements,
       preferences: user.preferences,
       created_at: user.createdAt,
     }),
@@ -271,20 +313,26 @@ export async function updateUser(
   user.activeAvatarId = active?.id;
   user.avatar = active;
 
-  must(
+  // Tolerant of a database still on 003: adding a plate has nothing to do with
+  // `measurements`, and dying on that column halfway through the avatar form
+  // is a worse outcome than saving the plate and losing a number nobody has
+  // typed yet. See `tolerant`.
+  await tolerant(
     "updateUser",
-    await supabase()
-      .from("rangrez_users")
-      .update({
+    "rangrez_users",
+    [
+      {
         name: user.name,
         avatars: user.avatars,
         active_avatar_id: user.activeAvatarId ?? null,
         // Still written, so anything reading the pre-migration column — an old
         // deploy mid-rollout, a SQL console — sees the plate that is in use.
         avatar: active ?? null,
+        measurements: user.measurements,
         preferences: user.preferences,
-      })
-      .eq("id", id),
+      },
+    ],
+    ([row]) => supabase().from("rangrez_users").update(row).eq("id", id),
   );
   return user;
 }
@@ -315,11 +363,71 @@ export async function getGarment(
   return data ? toGarment(data) : undefined;
 }
 
+/**
+ * Columns migration 004 adds, per table.
+ *
+ * Every one of them is optional detail hung off a row that is perfectly valid
+ * without it — which size you were looking at, the shop's own chart, the
+ * gallery shot a cutout came from, the measurements the fit engine reads.
+ */
+const MIGRATION_004: Record<string, readonly string[]> = {
+  rangrez_users: ["measurements"],
+  rangrez_garments: ["original_url", "fit", "size_label"],
+};
+
+/**
+ * A write that survives a database still on 003.
+ *
+ * PostgREST rejects the *whole* statement over a column it has never heard of,
+ * so before this the piece someone had just clicked save on was simply lost,
+ * and adding an avatar died on `measurements` with a schema-cache error in the
+ * middle of the form. Neither is worth three optional columns: drop them,
+ * complete the write, and leave the /setup gate saying the migration is
+ * outstanding.
+ *
+ * Matched on both spellings, because the two layers word it differently —
+ * PostgREST says «Could not find the 'fit' column of 'rangrez_garments' in the
+ * schema cache», Postgres itself says «column rangrez_garments.fit does not
+ * exist» — and against those shapes rather than as a bare substring, since
+ * "fit" is three letters that turn up inside plenty of unrelated failures.
+ */
+async function tolerant(
+  what: string,
+  table: keyof typeof MIGRATION_004,
+  rows: Row[],
+  send: (rows: Row[]) => PromiseLike<{ error: unknown }>,
+): Promise<void> {
+  const { error } = await send(rows);
+  if (!error) return;
+
+  const message = String((error as { message?: unknown }).message ?? error);
+  const columns = MIGRATION_004[table] ?? [];
+  const missing = columns.find(
+    (c) => message.includes(`'${c}' column`) || message.includes(`.${c} does not exist`),
+  );
+  if (!missing) fail(what, error);
+
+  console.warn(
+    `[db] ${table} has no "${missing}" column — writing without ${columns.join(", ")}. ` +
+      `Run apps/web/supabase/004-fit-and-two-images.sql.`,
+  );
+
+  must(
+    what,
+    await send(
+      rows.map((row) => {
+        const copy = { ...row };
+        for (const column of columns) delete copy[column];
+        return copy;
+      }),
+    ),
+  );
+}
+
 export async function insertGarments(items: Garment[]): Promise<Garment[]> {
   if (!items.length) return [];
-  must(
-    "insertGarments",
-    await supabase().from("rangrez_garments").insert(items.map(fromGarment)),
+  await tolerant("insertGarments", "rangrez_garments", items.map(fromGarment), (rows) =>
+    supabase().from("rangrez_garments").insert(rows),
   );
   return items;
 }
@@ -336,6 +444,7 @@ export async function patchGarment(
       Garment,
       | "name" | "zone" | "dye" | "season" | "material" | "wornCount"
       | "inPalette" | "status" | "tryOnUrl" | "tryOnAvatarId" | "taskId"
+      | "imageUrl" | "originalUrl" | "fit" | "sizeLabel"
     >
   >,
 ): Promise<Garment | undefined> {
@@ -349,6 +458,10 @@ export async function patchGarment(
   if (fields.inPalette !== undefined) row.in_palette = fields.inPalette;
   if (fields.status !== undefined) row.status = fields.status;
   if (fields.taskId !== undefined) row.task_id = fields.taskId;
+  if (fields.imageUrl !== undefined) row.image_url = fields.imageUrl;
+  if (fields.originalUrl !== undefined) row.original_url = fields.originalUrl ?? null;
+  if (fields.fit !== undefined) row.fit = fields.fit ?? null;
+  if (fields.sizeLabel !== undefined) row.size_label = fields.sizeLabel ?? null;
   // Nullable on purpose: clearing a render is how a failed retry resets.
   if (fields.tryOnUrl !== undefined) row.try_on_url = fields.tryOnUrl ?? null;
   if (fields.tryOnAvatarId !== undefined) {

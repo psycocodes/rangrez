@@ -176,6 +176,21 @@ const HANDLERS = {
     });
   },
 
+  /**
+   * Which size to order.
+   *
+   * The content script sends what it scraped off the page — size labels, any
+   * table that might be a chart, the title and fabric copy. It never sends,
+   * and never holds, the user's measurements: those stay on the server and a
+   * letter comes back. A shop page is therefore never in a position to learn
+   * the shape of the person browsing it.
+   */
+  FIT: ({ zone, sizes, tables, text }) =>
+    callRangrez("/api/extension/fit", {
+      method: "POST",
+      body: JSON.stringify({ zone, sizes, tables, text }),
+    }),
+
   SAVE: (msg) =>
     callRangrez("/api/extension/save", {
       method: "POST",
@@ -187,7 +202,13 @@ const HANDLERS = {
         dominantColor: msg.dominantColor,
         material: msg.material,
         renderUrl: msg.renderUrl,
+        // The garment on its own, as the try-on route kept it. Without this
+        // the wardrobe card has a body shot and nothing to crossfade from.
+        garmentUrl: msg.garmentUrl,
+        originalUrl: msg.originalUrl,
         sourceUrl: msg.sourceUrl,
+        sizeLabel: msg.sizeLabel,
+        fit: msg.fit,
       }),
     }),
 

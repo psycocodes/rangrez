@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 
 import {
@@ -6,9 +7,11 @@ import {
   setColorSeason,
 } from "@/app/actions/profile";
 import { AvatarMissing } from "@/components/AvatarPlate";
-import { AvatarShelf } from "@/components/AvatarShelf";
+import { MeasurementsForm } from "@/components/MeasurementsForm";
 import { PaletteStrip } from "@/components/PaletteStrip";
+import { Ground } from "@/components/Ornament";
 import { requireUser } from "@/lib/auth";
+import { INK } from "@/lib/ornament";
 import { listGarments } from "@/lib/db";
 import { SEASONS } from "@/lib/palette";
 import { MAX_AVATARS } from "@/lib/types";
@@ -22,7 +25,8 @@ export default async function ProfilePage() {
   const season = user.avatar?.colorSeason;
 
   return (
-    <section className="px-4 lg:px-6">
+    <Ground kind="phool" tone={INK.peacock} opacity={0.09} className="page">
+      <section className="min-h-0 flex-1 overflow-y-auto px-4 lg:px-6">
       <div className="flex items-baseline justify-between gap-4 border-b border-ink/15 py-3">
         <span className="spec text-ink-3">03 — Your file</span>
         <span className="spec-sm text-ink-3">{user.email.toUpperCase()}</span>
@@ -46,14 +50,66 @@ export default async function ProfilePage() {
         </p>
       </header>
 
-      {/* ── 3.1 · the plates ───────────────────────────────────────────── */}
+      {/* ── 3.1 · the plates, which live on their own page now ─────────── */}
       <Block
         index="3.1"
         title="Your plates"
         aside={`up to ${MAX_AVATARS} bodies, one in use`}
       >
         {user.avatars.length ? (
-          <AvatarShelf avatars={user.avatars} activeId={user.activeAvatarId} />
+          <div className="grid gap-8 lg:grid-cols-[1fr_1.1fr] lg:gap-14">
+            <div>
+              <p className="display display-md mb-4">
+                {user.avatars.length === 1 ? (
+                  <>
+                    One plate, <span className="aside">in use.</span>
+                  </>
+                ) : (
+                  <>
+                    {user.avatars.length} plates,{" "}
+                    <span className="aside">
+                      {user.avatar?.customization.label} in use.
+                    </span>
+                  </>
+                )}
+              </p>
+              <p className="mb-6 max-w-[46ch] text-[0.9rem] leading-relaxed text-ink-2">
+                Shooting, switching, retiring and borrowing a body all happen on
+                the avatars page — they stopped being a setting the moment there
+                could be three of them.
+              </p>
+              <Link href="/avatars" className="btn btn-ghost inline-flex">
+                <span className="spec">Manage your bodies</span>
+                <span aria-hidden className="spec">→</span>
+              </Link>
+            </div>
+
+            <div className="flex flex-wrap gap-px self-start bg-ink/15">
+              {user.avatars.map((a) => (
+                <div key={a.id} className="relative w-24 bg-paper p-2">
+                  <div className="relative aspect-[3/4] w-full overflow-hidden">
+                    <Image
+                      src={a.renderUrl}
+                      alt={a.customization.label}
+                      fill
+                      sizes="96px"
+                      className={`object-cover ${
+                        a.id === user.activeAvatarId ? "" : "opacity-60"
+                      }`}
+                    />
+                    {a.id === user.activeAvatarId && (
+                      <span className="spec-sm absolute left-0 top-0 bg-turmeric px-1 py-0.5 text-ink">
+                        IN USE
+                      </span>
+                    )}
+                  </div>
+                  <p className="spec-sm mt-1.5 truncate text-ink-3">
+                    {a.customization.label}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
         ) : (
           <div className="grid gap-6 sm:max-w-sm">
             <AvatarMissing />
@@ -134,18 +190,11 @@ export default async function ProfilePage() {
               <span className="spec-sm mb-2.5 block text-ink-3">NAME</span>
               <input name="name" defaultValue={user.name} className="field" />
             </label>
-            <label className="block">
-              <span className="spec-sm mb-2.5 block text-ink-3">HEIGHT · CM</span>
-              <input
-                name="heightCm"
-                type="number"
-                min={100}
-                max="230"
-                defaultValue={user.preferences.heightCm ?? ""}
-                placeholder="e.g. 174"
-                className="field"
-              />
-            </label>
+            <p className="max-w-[42ch] text-[0.78rem] leading-relaxed text-ink-3">
+              Preferred fit shifts every size we recommend by a few
+              centimetres of ease. Your actual measurements live in{" "}
+              <b className="text-ink">3.4</b>, below.
+            </p>
           </div>
 
           <div className="flex flex-col gap-7">
@@ -215,8 +264,17 @@ export default async function ProfilePage() {
         </form>
       </Block>
 
-      {/* ── 3.4 · the ledger ───────────────────────────────────────────── */}
-      <Block index="3.4" title="The ledger" aside="what is on file">
+      {/* ── 3.4 · the body ─────────────────────────────────────────────── */}
+      <Block
+        index="3.4"
+        title="Your measurements"
+        aside="the half a try-on can't answer"
+      >
+        <MeasurementsForm measurements={user.measurements} />
+      </Block>
+
+      {/* ── 3.5 · the ledger ───────────────────────────────────────────── */}
+      <Block index="3.5" title="The ledger" aside="what is on file">
         <div className="grid gap-8 lg:grid-cols-[1fr_1fr] lg:gap-14">
           <dl className="grid grid-cols-2 gap-px border border-ink/15 bg-ink/15 sm:grid-cols-3">
             {[
@@ -252,7 +310,8 @@ export default async function ProfilePage() {
           )}
         </div>
       </Block>
-    </section>
+      </section>
+    </Ground>
   );
 }
 

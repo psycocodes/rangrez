@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "Rangrez \u2014 try it on yourself",
+  "name": "Rangrez — try it on yourself",
   "version": "0.1.0",
   "description": "Finds the clothes on a shop page, works out what the piece is, and hangs it on your own avatar without leaving the tab.",
   "browser_specific_settings": {
@@ -75,6 +75,7 @@
         "src/lib/taxonomy.js",
         "src/lib/sites.js",
         "src/content/detect.js",
+        "src/content/sizing.js",
         "src/content/panel.js",
         "src/content/main.js"
       ],

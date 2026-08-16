@@ -2,6 +2,7 @@ import "server-only";
 
 import { constants, createHash, publicEncrypt, randomUUID } from "node:crypto";
 
+import { flattenForVto } from "./garment-cut";
 import { buildSeason, SEASON_NAMES } from "./palette";
 import type { ColorSeason } from "./types";
 
@@ -386,21 +387,45 @@ interface Surface {
   build(src: string, ref: string, gender: VtoGender): Record<string, unknown>;
 }
 
-const SURFACES: Record<VtoTarget, Surface> = {
-  upper_body: {
-    feature: "cloth",
-    build: (s, r) => ({ src_file_id: s, ref_file_id: r, garment_category: "upper_body" }),
-  },
-  lower_body: {
-    feature: "cloth",
-    build: (s, r) => ({ src_file_id: s, ref_file_id: r, garment_category: "lower_body" }),
-  },
-  full_body: {
-    feature: "cloth",
-    build: (s, r) => ({ src_file_id: s, ref_file_id: r, garment_category: "full_body" }),
-  },
+/**
+ * `change_shoes` is the difference between building an outfit and rebuilding a
+ * person four times.
+ *
+ * Every one of these calls regenerates the whole photograph — that is what a
+ * generative try-on does. Left to itself the cloth model treats footwear as
+ * fair game on every render, so putting a jacket on somebody silently replaced
+ * the trainers two steps earlier had put on them. Saying `false` on every
+ * garment that isn't shoes is what makes a chain of renders accumulate instead
+ * of overwrite.
+ *
+ * Verified against the live API on 2026-08-17: `garment_category` accepts
+ * exactly upper_body, lower_body, full_body, shoes and auto — there is no
+ * `outerwear` on v2.0, `ref_file_ids` is rejected in favour of a single
+ * `ref_file_id`, and v4.0 (which the marketing pages describe as having both)
+ * 404s on this account.
+ */
+const cloth = (category: string, changeShoes = false): Surface => ({
+  feature: "cloth",
+  build: (s, r) => ({
+    src_file_id: s,
+    ref_file_id: r,
+    garment_category: category,
+    change_shoes: changeShoes,
+  }),
+});
 
-  shoes: { feature: "shoes", build: (s, r, g) => ({ src_file_id: s, ref_file_id: r, gender: g }) },
+const SURFACES: Record<VtoTarget, Surface> = {
+  upper_body: cloth("upper_body"),
+  lower_body: cloth("lower_body"),
+  full_body: cloth("full_body"),
+
+  // Shoes go through the *cloth* model, not the standalone `/task/shoes`
+  // endpoint they used to. Both work; only one of them leaves the person
+  // alone. `/task/shoes` re-renders the figure and the room around it, so a
+  // fit that was three layers deep came back as somebody else standing
+  // somewhere else — which is precisely the bug this replaced.
+  shoes: cloth("shoes", true),
+
   bag: { feature: "bag", build: (s, r, g) => ({ src_file_id: s, ref_file_id: r, gender: g }) },
   hat: { feature: "hat", build: (s, r, g) => ({ src_file_id: s, ref_file_id: r, gender: g }) },
 
@@ -480,10 +505,19 @@ export async function tryOnGarment(
 
   const surface = SURFACES[target];
 
+  // Alpha out, white in, on both. Plates and garments are stored as cutouts
+  // now, and an engine handed a transparent PNG composites it against black —
+  // then dutifully transfers the black halo onto the body. This is the choke
+  // point every render passes through, so it is the one place to say it.
+  const [plateFile, pieceFile] = await Promise.all([
+    flattenForVto(avatar),
+    flattenForVto(garment),
+  ]);
+
   // Files must be registered against the same feature that will consume them.
   const [avatarId, garmentId] = await Promise.all([
-    uploadImage(surface.feature, avatar.bytes, avatar.contentType),
-    uploadImage(surface.feature, garment.bytes, garment.contentType),
+    uploadImage(surface.feature, plateFile.bytes, plateFile.contentType),
+    uploadImage(surface.feature, pieceFile.bytes, pieceFile.contentType),
   ]);
 
   const taskId = await runTask(

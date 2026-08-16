@@ -38,13 +38,25 @@ export function context2d(
 }
 
 export function toJpegBlob(canvas: AnyCanvas, quality = 0.92): Promise<Blob> {
+  return toBlob(canvas, "image/jpeg", quality);
+}
+
+/**
+ * PNG, for anything carrying an alpha channel. A cutout saved as JPEG is a
+ * cutout composited onto black, which is worse than not cutting it out.
+ */
+export function toPngBlob(canvas: AnyCanvas): Promise<Blob> {
+  return toBlob(canvas, "image/png");
+}
+
+function toBlob(canvas: AnyCanvas, type: string, quality?: number): Promise<Blob> {
   if ("convertToBlob" in canvas) {
-    return canvas.convertToBlob({ type: "image/jpeg", quality });
+    return canvas.convertToBlob({ type, quality });
   }
   return new Promise((resolve, reject) =>
     canvas.toBlob(
       (b) => (b ? resolve(b) : reject(new Error("Couldn't read that image."))),
-      "image/jpeg",
+      type,
       quality,
     ),
   );

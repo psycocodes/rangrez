@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { extractGarment } from "@/lib/extract";
+import { CUTS, type Cut } from "@/lib/fit";
 import { UPLOAD_KINDS } from "@/lib/garment-kind";
 import type { Avatar } from "@/lib/types";
 
@@ -40,6 +41,14 @@ interface Item {
   state: ItemState;
   name: string;
   kindId: string;
+  /**
+   * The size on the label, and how the piece is cut. Optional, and asked for
+   * here rather than later because this is the one moment the garment is in
+   * the user's hands — the label is right there. Everything the extension
+   * says about fit on a shop page is calibrated against what these hold.
+   */
+  sizeLabel: string;
+  cut: Cut;
   previewUrl?: string;
   blob?: Blob;
   dominantColor?: string;
@@ -121,6 +130,8 @@ export function UploadDock({
         state: "reading",
         name: "",
         kindId: "top",
+        sizeLabel: "",
+        cut: "regular",
       }));
       setItems((list) => [...list, ...fresh]);
 
@@ -138,7 +149,11 @@ export function UploadDock({
               dominantColor: out.dominantColor,
               name: out.suggestedName,
               kindId: out.suggestedKindId,
-              note: out.cropped ? "Cropped to the garment" : "Used the full frame",
+              note: out.matted
+                ? "Cut out of its background"
+                : out.cropped
+                  ? "Cropped to the garment — the background wouldn't matte"
+                  : "Used the full frame",
             });
           } catch (err) {
             patch(item.key, {
@@ -171,6 +186,8 @@ export function UploadDock({
         body.append("name", item.name.trim());
         body.append("kind", item.kindId);
         body.append("dominantColor", item.dominantColor ?? "");
+        body.append("sizeLabel", item.sizeLabel.trim());
+        body.append("cut", item.cut);
 
         try {
           const res = await fetch("/api/wardrobe/upload", {
@@ -284,6 +301,8 @@ export function UploadDock({
               <div className="flex flex-col gap-px bg-ink/15">
                 {items.map((item) => (
                   <Row
+                    onSize={(sizeLabel) => patch(item.key, { sizeLabel })}
+                    onCut={(cut) => patch(item.key, { cut })}
                     key={item.key}
                     item={item}
                     locked={phase !== "pick"}
@@ -496,12 +515,16 @@ function Row({
   locked,
   onName,
   onKind,
+  onSize,
+  onCut,
   onRemove,
 }: {
   item: Item;
   locked: boolean;
   onName: (v: string) => void;
   onKind: (v: string) => void;
+  onSize: (v: string) => void;
+  onCut: (v: Cut) => void;
   onRemove: () => void;
 }) {
   const shot = item.tryOnUrl ?? item.previewUrl;
@@ -591,6 +614,46 @@ function Row({
             />
           )}
         </div>
+
+        {/* The label, while the garment is still in your hands. Both optional
+            — an unsized piece is a perfectly good wardrobe entry — but they
+            are what every fit recommendation downstream is calibrated on, and
+            there is no later moment when the tag is this easy to read. */}
+        {!locked && (
+          <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5">
+            <label className="flex items-baseline gap-2">
+              <span className="spec-sm text-ink-3">SIZE</span>
+              <input
+                value={item.sizeLabel}
+                onChange={(e) => onSize(e.target.value)}
+                placeholder="M"
+                maxLength={12}
+                aria-label="Size on the label"
+                className="spec w-16 border-b border-ink/25 bg-transparent py-0.5 uppercase outline-none placeholder:text-ink-3/60 focus:border-ink"
+              />
+            </label>
+            <label className="flex items-baseline gap-2">
+              <span className="spec-sm text-ink-3">CUT</span>
+              <select
+                value={item.cut}
+                onChange={(e) => onCut(e.target.value as Cut)}
+                className="spec cursor-pointer border-b border-ink/25 bg-transparent py-0.5 pr-1 outline-none"
+              >
+                {CUTS.map((c) => (
+                  <option key={c} value={c}>
+                    {c.toUpperCase()}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+        )}
+
+        {locked && item.sizeLabel && (
+          <p className="spec-sm mt-1.5 text-ink-3">
+            SIZE {item.sizeLabel.toUpperCase()} · {item.cut.toUpperCase()}
+          </p>
+        )}
 
         {item.note && (
           <p

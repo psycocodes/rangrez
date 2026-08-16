@@ -24,18 +24,24 @@ Create a project, then in **SQL Editor** run, in order:
 1. [`apps/web/supabase/schema.sql`](apps/web/supabase/schema.sql) — tables
 2. [`apps/web/supabase/002-supabase-auth.sql`](apps/web/supabase/002-supabase-auth.sql) — ties
    profiles to `auth.users` and adds row policies
-3. [`apps/web/supabase/003-avatars-and-uploads.sql`](apps/web/supabase/003-avatars-and-uploads.sql)
-   — up to three avatar plates per account, and the second image a garment
-   carries (the piece worn, as opposed to the piece)
+3. [`apps/web/supabase/004-fit-and-two-images.sql`](apps/web/supabase/004-fit-and-two-images.sql)
+   — two images per garment, body measurements, garment size charts, and up to
+   three avatar plates per account
 
-All three are idempotent. **Migration 002 truncates the tables** — old accounts
-can't be carried across, because Supabase has to hash the passwords and we only
-ever stored a digest. **003 drops nothing** and backfills existing avatars into
-the new list, so it is safe to run on a database already in use.
+**Skip 003.** [`003-avatars-and-uploads.sql`](apps/web/supabase/003-avatars-and-uploads.sql)
+is kept for history only; 004 contains everything it did, so running 004 alone
+is enough on a fresh database and harmless on one where 003 already ran.
 
-Until 003 has run, the app still reads fine but every write that touches an
-avatar or an upload fails and routes you to `/setup` — the columns simply
-aren't there yet.
+All of them are idempotent. **Migration 002 truncates the tables** — old
+accounts can't be carried across, because Supabase has to hash the passwords
+and we only ever stored a digest. **004 drops nothing**: it backfills existing
+avatars into the new list, and moves shop-saved renders out of `image_url` into
+`try_on_url` so that `image_url` means "the garment" for every row.
+
+Until 004 has run, the app still reads fine but every write that touches an
+avatar, an upload or your measurements fails and routes you to `/setup`. That
+page names the exact missing column, so if you land there mid-project it will
+tell you which migration you skipped.
 
 Then, under **Authentication → Sign In / Providers**, turn **Confirm email**
 off for development. Left on, sign-up sends a link and creates no session, so

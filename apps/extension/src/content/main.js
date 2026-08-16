@@ -146,6 +146,23 @@ globalThis.RZ = globalThis.RZ || {};
     // re-thrown at the await below, where the panel can actually show it.
     isolating.catch(() => {});
 
+    // Which size, in parallel with everything else. The scrape is synchronous
+    // DOM work and the round trip is a few milliseconds of arithmetic, so this
+    // has always landed long before the twenty-second render it rides along
+    // with — and if it hasn't, or if it fails outright, the try-on is
+    // unaffected. Fit advice is the smaller half of the answer; it must never
+    // be able to cost anyone the render.
+    const scraped = RZ.sizing.read();
+    const fitting = ask("FIT", {
+      zone: category.zone,
+      sizes: scraped.sizes.filter((s) => s.available).map((s) => s.label),
+      tables: scraped.tables,
+      text: scraped.text,
+    }).catch((err) => {
+      console.debug("[rangrez] no fit advice", err);
+      return null;
+    });
+
     // ── which body ─────────────────────────────────────────────────────
     // Asked only when there is genuinely something to ask. One plate means one
     // answer, and confirming it every time would be a tax on the common case.
@@ -207,12 +224,19 @@ globalThis.RZ = globalThis.RZ || {};
       .filter(Boolean)
       .join(" · ");
 
+    // Settled by now in every realistic case; awaited rather than assumed so
+    // a slow shop can't produce a panel that pops a size in after you've read
+    // it. It cannot reject — the catch above turns failure into null.
+    const fit = await fitting;
+
     const view = surface.renderResult({
       renderUrl: result.renderUrl,
       name: product.title,
       specLine,
       dye: winner.dominantColor,
       mocked: result.mocked,
+      fit,
+      appBase: session.apiBase,
     });
 
     // If the shop's CSP refuses YouCam's S3 host, re-fetch through the service
@@ -245,10 +269,33 @@ globalThis.RZ = globalThis.RZ || {};
             // it no longer has.
             vtoTarget: category.vto,
             avatarId,
-            dominantColor: winner.dominantColor,
+            // Measured off the cutout where there is one, since that is the
+            // garment and nothing else. Ours is an average of the whole
+            // photograph — the piece, whoever is wearing it, and the studio
+            // floor — which files a black shirt on a pale model as grey.
+            dominantColor: result.dominantColor || winner.dominantColor,
             material: `${category.label} · ${product.brand || product.site.label}`,
             renderUrl: result.renderUrl,
+            // The garment on its own, kept by the try-on route. This is what
+            // gives a shop save the same two pictures an upload has: the
+            // piece, and the piece worn.
+            garmentUrl: result.garmentUrl,
+            originalUrl: winner.url,
             sourceUrl: product.sourceUrl,
+            // The size we recommended travels with the piece, so the wardrobe
+            // card can say which one you were looking at — and so a re-render
+            // later doesn't have to work it out again from a page that may
+            // not exist any more.
+            sizeLabel: fit?.advice?.recommended,
+            fit: {
+              cut: fit?.read?.cut ?? undefined,
+              sizeLabel: fit?.advice?.recommended,
+              // Only the shop's own chart is worth keeping. When the advice
+              // came off standard sizing there is nothing here the server
+              // couldn't reconstruct, and storing a copy of our own fallback
+              // on every garment would be storing noise.
+              chart: fit?.advice?.basis === "chart" ? fit?.chart : undefined,
+            },
           });
           btn.classList.add("btn--done");
           btn.querySelector(".spec").textContent = "In your wardrobe";

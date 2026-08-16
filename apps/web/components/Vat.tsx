@@ -2,7 +2,10 @@
 
 import { useEffect, useState } from "react";
 
+import Image from "next/image";
+
 import { Knot, Rangrez } from "./Wordmark";
+import { ajrakh, cornerMotif, rays } from "@/lib/ornament";
 
 /**
  * The vat: the deep colour field on the left of the door.
@@ -63,15 +66,41 @@ export function Vat({ children }: { children: React.ReactNode }) {
             "linear-gradient(100deg, rgba(0,0,0,.42) 0%, rgba(0,0,0,.28) 45%, rgba(0,0,0,.12) 100%)",
         }}
       />
-      {/* the weave, showing through the dye */}
+      {/* The label's own furniture, over the dye: a sunburst from behind the
+          wordmark and a jaali screen across the whole field. Rule 3 — the
+          field is never empty — and it is what turns a coloured panel into a
+          printed one. */}
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-0 -z-10 opacity-[0.14]"
+        className="pointer-events-none absolute inset-0 -z-10"
         style={{
-          backgroundImage:
-            "repeating-linear-gradient(90deg,#fff 0 1px,transparent 1px 4px),repeating-linear-gradient(0deg,#fff 0 1px,transparent 1px 4px)",
+          backgroundImage: `url("${rays("#FCF4E6", 0.09)}"), url("${ajrakh("#FCF4E6", 0.1, 78, "#D99B21")}")`,
+          backgroundSize: "cover, auto",
+          backgroundPosition: "center 22%, center",
+          backgroundRepeat: "no-repeat, repeat",
         }}
       />
+
+      {/* The double rule that closes a label, inset from the panel's edge. */}
+      <span
+        aria-hidden
+        className="pointer-events-none absolute inset-4 -z-10 border border-leaf/25 lg:inset-6"
+      />
+      {[0, 90, 180, 270].map((deg, n) => (
+        <span
+          key={deg}
+          aria-hidden
+          className="pointer-events-none absolute z-10 h-[34px] w-[34px] bg-[length:34px_34px] bg-no-repeat"
+          style={{
+            backgroundImage: `url("${cornerMotif("#FCF4E6", 0.55)}")`,
+            transform: `rotate(${deg}deg)`,
+            top: n < 2 ? "1rem" : undefined,
+            bottom: n >= 2 ? "1rem" : undefined,
+            left: n === 0 || n === 3 ? "1rem" : undefined,
+            right: n === 1 || n === 2 ? "1rem" : undefined,
+          }}
+        />
+      ))}
 
       {children}
 
@@ -117,9 +146,25 @@ export function VatMasthead() {
         <span className="spec-sm text-paper/80">EST. 2026 · HACKATHON BUILD</span>
       </div>
 
-      <div className="mt-10 lg:mt-14">
+      <div className="mt-8 lg:mt-10">
+        {/* The peacock, with its cream ground keyed out so it sits *in* the
+            dye rather than on a white card. `mix-blend-screen` was tried first
+            and is the wrong tool — screening a cream image over any colour
+            gives you cream. The alpha is baked into the file instead.
+
+            The glow is what makes one asset work against five dyes: the mark
+            is drawn in deep teal and gold, which has real contrast on Madder
+            and almost none on Indigo, so it carries its own light with it. */}
+        <Image
+          src="/brand/rangrez-mark.png"
+          alt="Rangrez"
+          width={900}
+          height={396}
+          priority
+          className="mb-4 w-full max-w-[23rem] drop-shadow-[0_0_18px_rgba(252,244,230,0.45)]"
+        />
         <p className="mb-6 flex items-center gap-4 text-paper/85">
-          <Rangrez className="block shrink-0 text-[2.9rem] leading-[0.75]" />
+          <Rangrez className="block shrink-0 text-[2.4rem] leading-[0.75]" />
           <span className="spec">the dyer of cloth</span>
         </p>
         <h1 className="display display-door">

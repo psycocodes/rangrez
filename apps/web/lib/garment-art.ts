@@ -61,12 +61,23 @@ function shapeFor(name: string, zone: Zone): Shape {
 }
 
 /* ── the drawings ─────────────────────────────────────────────────────────
- * One 400×500 frame each. `f` is the dye, `s` a darker line of the same, so
- * every garment is drawn in its own colour rather than outlined in black.
- * `BACK` is the frame's own ground, used to cut openings back out of a shape.
+ * One 400×500 frame each, drawn on transparency. `f` is the dye, `s` a darker
+ * line of the same, so every garment is drawn in its own colour rather than
+ * outlined in black. Openings — a jacket's open front — are cut as real holes
+ * with `fill-rule="evenodd"` rather than painted over in the backdrop colour,
+ * because there is no backdrop to paint: whatever the card is, shows through.
  * ---------------------------------------------------------------------- */
 
-const BACK = "#E4DCCA";
+/**
+ * The field these are composited onto when a *photograph* is wanted.
+ *
+ * Nothing in the drawing uses it. lib/rasterize.ts does, when it flattens a
+ * piece into the square JPEG Apparel VTO needs — and it letterboxes with this
+ * rather than white, because padding a flat-lay with a different colour puts a
+ * hard rectangle edge around the garment, which is exactly the kind of false
+ * contour a try-on picks up and transfers onto the body.
+ */
+export const ART_FIELD = "#E4DCCA";
 
 const DRAW: Record<Shape, (f: string, s: string) => string> = {
   shirt: (f, s) => `
@@ -113,16 +124,14 @@ const DRAW: Record<Shape, (f: string, s: string) => string> = {
   // two turned-back lapels. Drawn closed they were identical in silhouette to
   // a shirt, and both read as dresses on the card.
   jacket: (f, s) => `
-    <path d="M146 92 L200 146 L254 92 L308 112 L346 186 L300 210 L276 172 L276 428 L124 428 L124 172 L100 210 L54 186 L92 112 Z" fill="${f}"/>
-    <path d="M200 146 L236 428 L164 428 Z" fill="${BACK}"/>
+    <path fill-rule="evenodd" d="M146 92 L200 146 L254 92 L308 112 L346 186 L300 210 L276 172 L276 428 L124 428 L124 172 L100 210 L54 186 L92 112 Z M200 146 L236 428 L164 428 Z" fill="${f}"/>
     <path d="M146 92 L200 146 L182 250 L142 124 Z" fill="${s}" opacity=".55"/>
     <path d="M254 92 L200 146 L218 250 L258 124 Z" fill="${s}" opacity=".55"/>
     <path d="M276 172 L300 210 M124 172 L100 210" stroke="${s}" stroke-width="2" opacity=".4"/>
     <rect x="124" y="404" width="152" height="10" fill="${s}" opacity=".45"/>`,
 
   coat: (f, s) => `
-    <path d="M146 84 L200 140 L254 84 L310 106 L350 184 L304 208 L280 168 L280 456 L120 456 L120 168 L96 208 L50 184 L90 106 Z" fill="${f}"/>
-    <path d="M200 140 L240 456 L160 456 Z" fill="${BACK}"/>
+    <path fill-rule="evenodd" d="M146 84 L200 140 L254 84 L310 106 L350 184 L304 208 L280 168 L280 456 L120 456 L120 168 L96 208 L50 184 L90 106 Z M200 140 L240 456 L160 456 Z" fill="${f}"/>
     <path d="M146 84 L200 140 L180 258 L140 118 Z" fill="${s}" opacity=".55"/>
     <path d="M254 84 L200 140 L220 258 L260 118 Z" fill="${s}" opacity=".55"/>
     <rect x="120" y="292" width="160" height="12" fill="${s}" opacity=".5"/>
@@ -192,11 +201,13 @@ export function garmentArt(name: string, zone: Zone, dye: Dye): string {
   const shape = shapeFor(name, zone);
   const line = shade(dye.hex);
 
+  // No background rect. The garment is drawn on transparency so whatever it is
+  // laid on shows through — which is the entire point of a card that takes its
+  // colour from the piece: paint an opaque field here and the card's own colour
+  // is hidden behind it, and every card in the wardrobe comes out the same
+  // beige regardless of what is on it. The one place a field *is* wanted is the
+  // VTO reference, and lib/rasterize.ts composites ART_FIELD in at that point.
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 500" width="400" height="500">
-<rect width="400" height="500" fill="${BACK}"/>
-<g opacity=".5">${Array.from({ length: 13 }, (_, i) =>
-    `<path d="M0 ${i * 40} H400" stroke="#14120E" stroke-opacity=".05" stroke-width="1"/>`,
-  ).join("")}</g>
 ${DRAW[shape](dye.hex, line)}
 </svg>`;
 

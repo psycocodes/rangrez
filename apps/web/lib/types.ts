@@ -1,5 +1,7 @@
 /** Shared domain types. Kept free of any storage/transport concerns. */
 
+import type { GarmentFit, Measurements } from "./fit";
+
 /** Layer of the body a garment occupies. The swipe customizer cycles per zone. */
 export type Zone = "top" | "bottom" | "outerwear" | "shoes" | "accessory";
 
@@ -43,6 +45,19 @@ export interface Dye {
 }
 
 /**
+ * One photograph in the starter wardrobe, as scripts/seed-photos.mjs found it.
+ * `hex` is measured off the cutout, not off the original frame, which is why
+ * the dye on the card matches what you can see on it.
+ */
+export interface SeedPhoto {
+  /** Path under public/, e.g. `/seed/raw-denim-straight.png`. */
+  file: string;
+  hex: string;
+  /** The file in assets/clothes/ this was cut out of. */
+  source: string;
+}
+
+/**
  * Where a piece came from. This is the tag the wardrobe's source filter keys
  * off, so each value has to mean exactly one route into the catalog:
  *
@@ -73,17 +88,31 @@ export interface Garment {
   /** Free-text material note, shown on the spec line. */
   material: string;
   /**
-   * The garment as it hangs: for an upload, the extracted cutout on white; for
-   * a shop save, the VTO render itself; for a seed, placeholder photography.
+   * ── image one: the garment, alone ──
+   *
+   * The cutout — the piece on transparency or on white, nothing else in frame.
+   * This means the same thing for every origin, which it did not always: shop
+   * saves used to put the *render* here because there was nowhere else for it,
+   * and a card then crossfaded from a body shot to nothing. Migration 004
+   * moved those across.
    */
   imageUrl: string;
   /**
-   * The same piece worn by the avatar. Uploads carry both images, and the grid
-   * crossfades to this one on hover — the flat garment says *what it is*, this
-   * says *what it looks like on you*, which is the whole product in one card.
-   * Absent until the render lands (or if it failed).
+   * ── image two: the same garment, worn ──
+   *
+   * The grid crossfades from `imageUrl` to this on hover — the flat garment
+   * says *what it is*, this says *what it looks like on you*, which is the
+   * whole product in one gesture. Absent until the render lands, or if it
+   * failed, or if the piece has no YouCam surface at all (a belt, a scarf).
    */
   tryOnUrl?: string;
+  /**
+   * The untouched photograph both of those came from — the raw camera-roll
+   * shot, or the shop's original gallery image. Never shown; kept so the
+   * cutout can be redone when the extraction improves, without making the
+   * user find the file again.
+   */
+  originalUrl?: string;
   /** Which plate `tryOnUrl` was rendered against, so a switch can invalidate it. */
   tryOnAvatarId?: string;
   /**
@@ -104,6 +133,13 @@ export interface Garment {
   addedAt: string;
   /** Where a shop piece was found, so the card can link back to it. */
   sourceUrl?: string;
+  /**
+   * Whether it will actually fit — the half of the decision a render can't
+   * answer. Carries the cut, and the shop's size chart when the page had one.
+   */
+  fit?: GarmentFit;
+  /** The size owned, or the one being considered. Printed on the card. */
+  sizeLabel?: string;
   updatedAt?: string;
 }
 
@@ -180,8 +216,26 @@ export interface Avatar {
   id: string;
   /** Stored path of the uploaded base photo. */
   sourceUrl: string;
-  /** The processed/normalised avatar plate used as VTO `src`. */
+  /**
+   * The processed/normalised avatar plate used as VTO `src`.
+   *
+   * Always a real photograph with its background intact. YouCam is given this
+   * one and never the cutout — a matte that clipped a shoulder would be a
+   * matte the engine then fits a jacket to.
+   */
   renderUrl: string;
+  /**
+   * The same body with the background taken out, on transparency.
+   *
+   * Presentation only. It is what lets the figure stand *in* the look
+   * creator's gradient instead of on a rectangle of someone's bedroom, and it
+   * is never sent anywhere. Absent on plates shot before this existed, and on
+   * photographs too busy to matte cleanly — every surface falls back to
+   * `renderUrl`, so nothing depends on it existing.
+   */
+  cutoutUrl?: string;
+  /** Set when this plate came from a base model rather than a photograph. */
+  baseModelId?: string;
   status: RenderStatus;
   taskId?: string;
   colorSeason?: ColorSeason;
@@ -237,9 +291,19 @@ export interface User {
    * there being more than one.
    */
   avatar?: Avatar;
+  /**
+   * The body, in centimetres. Entered once and used on every product page the
+   * extension opens — which is the point: nobody measures themselves per
+   * purchase, so this has to be worth filling in exactly once.
+   */
+  measurements: Measurements;
   preferences: {
+    /**
+     * How the user likes things to sit, independent of any garment. Shifts
+     * every size recommendation by a few centimetres of ease — see
+     * PREFERENCE_SHIFT in lib/fit.ts.
+     */
     fitPreference: "relaxed" | "regular" | "tailored";
-    heightCm?: number;
     /** Rank palette-matching pieces first across the app. */
     paletteFirst: boolean;
     /**
