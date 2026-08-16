@@ -226,7 +226,7 @@ export function scorePixels(data, W, H, natural) {
  *  and a white backdrop are the same colour and guessing there ruins the item.
  * ═══════════════════════════════════════════════════════════════════════════ */
 
-async function prepareReference(url) {
+export async function prepareReference(url) {
   const res = await fetch(url, { credentials: "omit" });
   if (!res.ok) throw new Error(`reference fetch ${res.status}`);
   const bitmap = await createImageBitmap(await res.blob());

@@ -108,7 +108,16 @@ globalThis.RZ = globalThis.RZ || {};
       return;
     }
 
-    if (!session.avatar) {
+    // `avatars` arrives from the current app; `avatar` is what older builds
+    // sent. Normalising here means one shape for everything below.
+    const avatars =
+      session.avatars?.length
+        ? session.avatars
+        : session.avatar
+          ? [{ id: null, label: "Your avatar", renderUrl: session.avatar.renderUrl }]
+          : [];
+
+    if (!avatars.length) {
       wire(
         surface.renderNeeds({
           line: "No <em>body</em> on file.",
@@ -129,11 +138,49 @@ globalThis.RZ = globalThis.RZ || {};
       return;
     }
 
+    // Reading the gallery has nothing to do with which body you pick, so it
+    // starts now and runs behind the question. By the time anyone has chosen,
+    // the isolation pass is usually already finished.
+    const isolating = ask("ANALYSE", { candidates: product.candidates });
+    // A rejection here would be unhandled while the picker is up; it is
+    // re-thrown at the await below, where the panel can actually show it.
+    isolating.catch(() => {});
+
+    // Which size, in parallel with everything else. The scrape is synchronous
+    // DOM work and the round trip is a few milliseconds of arithmetic, so this
+    // has always landed long before the twenty-second render it rides along
+    // with — and if it hasn't, or if it fails outright, the try-on is
+    // unaffected. Fit advice is the smaller half of the answer; it must never
+    // be able to cost anyone the render.
+    const scraped = RZ.sizing.read();
+    const fitting = ask("FIT", {
+      zone: category.zone,
+      sizes: scraped.sizes.filter((s) => s.available).map((s) => s.label),
+      tables: scraped.tables,
+      text: scraped.text,
+    }).catch((err) => {
+      console.debug("[rangrez] no fit advice", err);
+      return null;
+    });
+
+    // ── which body ─────────────────────────────────────────────────────
+    // Asked only when there is genuinely something to ask. One plate means one
+    // answer, and confirming it every time would be a tax on the common case.
+    let avatarId = avatars[0].id;
+    if (avatars.length > 1) {
+      avatarId = await chooseAvatar(avatars, session.activeAvatarId);
+      if (avatarId === null) return; // panel closed mid-question
+    }
+    const plate = avatars.find((a) => a.id === avatarId) ?? avatars[0];
+
     // ── isolate ────────────────────────────────────────────────────────
     const strip = surface.renderIsolating(product.candidates);
-    const { scored, winner } = await ask("ANALYSE", {
-      candidates: product.candidates,
-    });
+    // The strip animates in over ~400ms; showing scores before it has finished
+    // arriving reads as a glitch rather than as a decision being made.
+    const [{ scored, winner }] = await Promise.all([
+      isolating,
+      new Promise((r) => setTimeout(r, 520)),
+    ]);
 
     if (!winner) throw new Error("Couldn't read any of the product photographs.");
 
@@ -143,7 +190,7 @@ globalThis.RZ = globalThis.RZ || {};
     await new Promise((r) => setTimeout(r, 420));
 
     // ── render ─────────────────────────────────────────────────────────
-    const steps = surface.renderRendering(session.avatar.renderUrl, RENDER_STEPS);
+    const steps = surface.renderRendering(plate.renderUrl, RENDER_STEPS);
     let step = 0;
     const advance = setInterval(() => {
       if (step < steps.length) {
@@ -157,15 +204,30 @@ globalThis.RZ = globalThis.RZ || {};
 
     let result;
     try {
-      result = await ask("TRYON", { imageUrl: winner.url, category: category.vto });
+      result = await ask("TRYON", {
+        imageUrl: winner.url,
+        category: category.vto,
+        avatarId,
+      });
     } finally {
       clearInterval(advance);
     }
 
     // ── done ───────────────────────────────────────────────────────────
-    const specLine = [category.label, product.site.label]
+    // The plate's name earns its place on the spec line only when there was a
+    // choice — otherwise it is a label for something nobody picked.
+    const specLine = [
+      category.label,
+      product.site.label,
+      avatars.length > 1 ? plate.label : null,
+    ]
       .filter(Boolean)
       .join(" · ");
+
+    // Settled by now in every realistic case; awaited rather than assumed so
+    // a slow shop can't produce a panel that pops a size in after you've read
+    // it. It cannot reject — the catch above turns failure into null.
+    const fit = await fitting;
 
     const view = surface.renderResult({
       renderUrl: result.renderUrl,
@@ -173,6 +235,8 @@ globalThis.RZ = globalThis.RZ || {};
       specLine,
       dye: winner.dominantColor,
       mocked: result.mocked,
+      fit,
+      appBase: session.apiBase,
     });
 
     // If the shop's CSP refuses YouCam's S3 host, re-fetch through the service
@@ -200,10 +264,38 @@ globalThis.RZ = globalThis.RZ || {};
           await ask("SAVE", {
             name: product.title,
             zone: category.zone,
-            dominantColor: winner.dominantColor,
+            // The surface this was actually rendered through. Stored so the
+            // wardrobe can re-render it later without re-classifying a title
+            // it no longer has.
+            vtoTarget: category.vto,
+            avatarId,
+            // Measured off the cutout where there is one, since that is the
+            // garment and nothing else. Ours is an average of the whole
+            // photograph — the piece, whoever is wearing it, and the studio
+            // floor — which files a black shirt on a pale model as grey.
+            dominantColor: result.dominantColor || winner.dominantColor,
             material: `${category.label} · ${product.brand || product.site.label}`,
             renderUrl: result.renderUrl,
+            // The garment on its own, kept by the try-on route. This is what
+            // gives a shop save the same two pictures an upload has: the
+            // piece, and the piece worn.
+            garmentUrl: result.garmentUrl,
+            originalUrl: winner.url,
             sourceUrl: product.sourceUrl,
+            // The size we recommended travels with the piece, so the wardrobe
+            // card can say which one you were looking at — and so a re-render
+            // later doesn't have to work it out again from a page that may
+            // not exist any more.
+            sizeLabel: fit?.advice?.recommended,
+            fit: {
+              cut: fit?.read?.cut ?? undefined,
+              sizeLabel: fit?.advice?.recommended,
+              // Only the shop's own chart is worth keeping. When the advice
+              // came off standard sizing there is nothing here the server
+              // couldn't reconstruct, and storing a copy of our own fallback
+              // on every garment would be storing noise.
+              chart: fit?.advice?.basis === "chart" ? fit?.chart : undefined,
+            },
           });
           btn.classList.add("btn--done");
           btn.querySelector(".spec").textContent = "In your wardrobe";
@@ -213,6 +305,37 @@ globalThis.RZ = globalThis.RZ || {};
           console.warn("[rangrez] save failed", err);
         }
       },
+    });
+  }
+
+  /**
+   * Puts the plates up and waits for one to be clicked.
+   *
+   * Resolves with `null` if the panel is closed instead of answered — without
+   * that, walking away from the question would leave `busy` stuck true and the
+   * trigger dead for the rest of the page's life.
+   */
+  function chooseAvatar(avatars, activeId) {
+    return new Promise((resolve) => {
+      const view = surface.renderAvatarPick(avatars, activeId);
+      const wasOnClose = surface.onClose;
+      let settled = false;
+
+      const settle = (value) => {
+        if (settled) return;
+        settled = true;
+        surface.onClose = wasOnClose;
+        resolve(value);
+      };
+
+      view.querySelectorAll("[data-avatar]").forEach((btn) => {
+        btn.addEventListener("click", () => settle(btn.dataset.avatar));
+      });
+
+      surface.onClose = () => {
+        wasOnClose?.();
+        settle(null);
+      };
     });
   }
 

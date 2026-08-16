@@ -28,8 +28,9 @@ const inter = Inter_Tight({
  *
  * AMS Kartik is a legacy Devanagari font: it carries no Unicode Devanagari at
  * all, only ~93 glyphs hung on ASCII slots, so the word is typed as the ASCII
- * string its keyboard layout produces rather than as रंगरेज़. See
- * `WORDMARK` in components/Vat.tsx — that string is not a typo.
+ * string its keyboard layout produces rather than as रंगरेज़. See `WORDMARK`
+ * in components/Wordmark.tsx — that string is not a typo. Use the `<Rangrez/>`
+ * component rather than the variable directly; it carries the accessible name.
  */
 const kartik = localFont({
   src: "./fonts/AMSKartik-Regular.ttf",

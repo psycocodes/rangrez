@@ -25,6 +25,22 @@
   --color-pomegranate: #7c2d3a;
   --color-myrobalan: #8a8a52;
 
+  /* ── the peacock: sampled from the wordmark itself ──────────────────────
+     Not chosen to go *with* the logo — taken out of it, so the identity and
+     the interface are demonstrably the same object. See lib/ornament.ts. */
+  --color-peacock: #0c535e;
+  --color-abyss: #0e2c39;
+  --color-brass: #b7772e;
+  --color-brass-light: #c7a46c;
+  --color-leaf: #fcf4e6;
+
+  /* ── the label inks ─────────────────────────────────────────────────────
+     The three spot colours a matchbox press could not afford to exceed. Fully
+     saturated on purpose: a tinted maximalism is just a busy pastel. */
+  --color-lac: #b5185e;
+  --color-aubergine: #3b1a4a;
+  --color-emerald: #1f7a4c;
+
   /* ── type ──────────────────────────────────────────────────────────────── */
   --font-display: var(--font-instrument), "Times New Roman", serif;
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
@@ -33,6 +49,12 @@
   /* ── motion: fabric settles, it does not bounce ────────────────────────── */
   --ease-cloth: cubic-bezier(0.22, 1, 0.36, 1);
   --ease-drape: cubic-bezier(0.65, 0, 0.35, 1);
+
+  /* ── the shell ─────────────────────────────────────────────────────────── */
+  /* Height of the sticky top bar. Anything that sticks *below* it offsets by
+     this, so the two can never disagree — they did, by 8px, and the page
+     showed through the seam on every scroll. One number, two consumers. */
+  --spacing-shell-top: 3rem;
 }
 
 /* ── base ─────────────────────────────────────────────────────────────────── */
@@ -154,6 +176,32 @@ body {
   font-weight: 500;
 }
 
+/* ── the look creator's room ──────────────────────────────────────────────
+   Three colours the whole page is lit by. Registered as real typed custom
+   properties so the browser can *interpolate* them — a plain `--x: #abc` is a
+   string to CSS and jumps between values, which is why the gradient could
+   never crossfade before. With @property it transitions like any colour. */
+@property --look-a {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #e4dcca;
+}
+@property --look-b {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #d8cfba;
+}
+@property --look-c {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #ede7da;
+}
+@property --look-d {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #e4dcca;
+}
+
 /* Rotated spine text down the left edge of the shell. */
 .spine {
   writing-mode: vertical-rl;
@@ -166,7 +214,7 @@ body {
   border-top: 1px solid color-mix(in oklab, var(--color-ink) 18%, transparent);
 }
 .rule-heavy {
-  border-top: 2px solid var(--color-ink);
+  border-top: 2px solid var(--color-abyss);
 }
 /* Registration/crop marks at the corners of a plate. */
 .plate {
@@ -261,7 +309,7 @@ body {
   width: 100%;
   background: transparent;
   border: 0;
-  border-bottom: 1px solid color-mix(in oklab, var(--color-ink) 28%, transparent);
+  border-bottom: 1.5px solid color-mix(in oklab, var(--color-abyss) 32%, transparent);
   padding: 0.625rem 0 0.5rem;
   font-family: var(--font-sans);
   font-size: 1.0625rem;
@@ -274,7 +322,7 @@ body {
   color: color-mix(in oklab, var(--color-ink) 34%, transparent);
 }
 .field:focus {
-  border-bottom-color: var(--color-madder);
+  border-bottom-color: var(--color-brass);
 }
 .field-invert {
   color: var(--color-paper);
@@ -296,12 +344,15 @@ body {
   justify-content: space-between;
   gap: 1.5rem;
   padding: 0.9rem 1.15rem;
-  border: 1px solid var(--color-ink);
-  background: var(--color-ink);
-  color: var(--color-paper);
+  border: 2px solid var(--color-abyss);
+  background: var(--color-abyss);
+  color: var(--color-leaf);
   overflow: hidden;
   cursor: pointer;
   isolation: isolate;
+  /* The keyline a label's brand block always has: the rule, a gap, a hairline. */
+  outline: 1px solid var(--color-abyss);
+  outline-offset: 2px;
   transition: color 320ms var(--ease-cloth);
 }
 .btn::before {
@@ -326,19 +377,20 @@ body {
 
 .btn-ghost {
   background: transparent;
-  color: var(--color-ink);
+  color: var(--color-abyss);
 }
 .btn-ghost:hover {
   color: var(--color-paper);
 }
 
 .btn-invert {
-  border-color: var(--color-paper);
-  background: var(--color-paper);
-  color: var(--color-ink);
+  border-color: var(--color-leaf);
+  outline-color: var(--color-leaf);
+  background: var(--color-leaf);
+  color: var(--color-abyss);
 }
 .btn-invert::before {
-  background: var(--color-turmeric);
+  background: var(--color-brass);
 }
 
 /* Filter chip. */
@@ -347,20 +399,20 @@ body {
   align-items: baseline;
   gap: 0.5rem;
   padding: 0.45rem 0.7rem;
-  border: 1px solid color-mix(in oklab, var(--color-ink) 20%, transparent);
-  color: color-mix(in oklab, var(--color-ink) 62%, transparent);
+  border: 1.5px solid color-mix(in oklab, var(--color-abyss) 30%, transparent);
+  color: color-mix(in oklab, var(--color-abyss) 66%, transparent);
   cursor: pointer;
   white-space: nowrap;
   transition: all 260ms var(--ease-cloth);
 }
 .chip:hover {
-  border-color: var(--color-ink);
-  color: var(--color-ink);
+  border-color: var(--color-abyss);
+  color: var(--color-abyss);
 }
 .chip[data-on="true"] {
-  background: var(--color-ink);
-  border-color: var(--color-ink);
-  color: var(--color-paper);
+  background: var(--color-brass);
+  border-color: var(--color-abyss);
+  color: var(--color-abyss);
 }
 
 /* ═══ MOTION ═════════════════════════════════════════════════════════════ */
@@ -418,6 +470,130 @@ body {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+  }
+}
+
+/* ═══ THE LABEL ══════════════════════════════════════════════════════════
+   Structure for the matchbox language. The *patterns* are generated in
+   lib/ornament.ts and arrive as inline custom properties, because they take
+   arguments (colour, opacity, scale) and CSS cannot call a function. What
+   lives here is everything that does not vary: the frames, the rules, the
+   registration drift, and the page shell that never scrolls.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* A page that owns exactly one viewport and has nothing below it. Every
+   surface in the redesign is one of these — scrolling is a thing the racks
+   and the wheels do, never the document. */
+/* Under the masthead, not over it: one number feeds both, so the header and
+   the viewport arithmetic cannot drift apart. */
+.page {
+  height: calc(100dvh - var(--spacing-shell-top));
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+/* Below `sm` a phone genuinely cannot hold a masthead, two racks and a rail
+   at once, so the rule relaxes rather than crushing the content. */
+@media (max-width: 640px) {
+  .page {
+    height: auto;
+    min-height: 100dvh;
+    overflow: visible;
+  }
+}
+
+/* Off-register printing. Two ghosts of the same glyphs a hair either side —
+   on a real label the plates drifted, and reproducing that is the single
+   cheapest way to stop flat colour reading as a CSS fill. One pixel; past
+   two it stops looking printed and starts looking broken. */
+.mis {
+  text-shadow: 1px 0 0 rgb(12 83 94 / 0.3), -1px 0 0 rgb(181 24 94 / 0.22);
+}
+.mis-dark {
+  text-shadow: 1px 0 0 rgb(217 155 33 / 0.38), -1px 0 0 rgb(176 58 33 / 0.32);
+}
+
+/* The double rule that closes a label: heavy line, gap, hairline. Content
+   never simply stops — it is enclosed. */
+.frame {
+  position: relative;
+  border: 2px solid var(--frame-ink, var(--color-abyss));
+  outline: 1px solid var(--frame-ink, var(--color-abyss));
+  outline-offset: 3px;
+}
+
+/* Corner ornaments. One motif, rotated into all four corners, so a frame
+   costs one data URI and four transforms. */
+.frame-corner {
+  position: absolute;
+  width: 34px;
+  height: 34px;
+  background-image: var(--corner);
+  background-repeat: no-repeat;
+  pointer-events: none;
+  z-index: 2;
+}
+.frame-corner:nth-of-type(1) {
+  top: 0;
+  left: 0;
+}
+.frame-corner:nth-of-type(2) {
+  top: 0;
+  right: 0;
+  transform: rotate(90deg);
+}
+.frame-corner:nth-of-type(3) {
+  bottom: 0;
+  right: 0;
+  transform: rotate(180deg);
+}
+.frame-corner:nth-of-type(4) {
+  bottom: 0;
+  left: 0;
+  transform: rotate(270deg);
+}
+
+/* Display type with a keyline around it, the way a label's brand name is set:
+   heavy, tight, and outlined so it survives sitting on a busy field. */
+.brandmark {
+  font-family: var(--font-display);
+  font-weight: 400;
+  letter-spacing: -0.03em;
+  line-height: 0.86;
+  paint-order: stroke fill;
+  -webkit-text-stroke: 3px var(--brand-keyline, var(--color-abyss));
+}
+
+/* ═══ THE CLOSET ═════════════════════════════════════════════════════════ */
+
+/* The rod garments hang from. A brass cylinder — three stops read as the
+   specular highlight along the top of a turned bar. */
+.rod {
+  background: linear-gradient(
+    180deg,
+    color-mix(in oklab, var(--color-brass-light) 88%, white) 0%,
+    var(--color-brass) 38%,
+    color-mix(in oklab, var(--color-brass) 62%, black) 100%
+  );
+  box-shadow: 0 2px 6px rgb(20 18 14 / 0.35);
+}
+
+/* A hanger hook. Drawn rather than imported: it is two arcs and a stem, and
+   an SVG file for that would be three requests and a colour we can't theme. */
+.hook {
+  width: 18px;
+  height: 26px;
+  border: 2.5px solid var(--color-brass);
+  border-bottom: 0;
+  border-radius: 50% 50% 0 0 / 70% 70% 0 0;
+  transform: rotate(0deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* The swing is decoration; the rack must still work without it. */
+  .rod {
+    box-shadow: none;
   }
 }
 

@@ -1,11 +1,22 @@
 import { AvatarStudio } from "@/components/AvatarStudio";
 import { requireUser } from "@/lib/auth";
 import { isMock } from "@/lib/youcam";
+import { MAX_AVATARS } from "@/lib/types";
 
 export const metadata = { title: "Studio — Rangrez" };
 
-export default async function AtelierPage() {
-  const user = await requireUser();
+export default async function AtelierPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ replace?: string }>;
+}) {
+  const [user, params] = await Promise.all([requireUser(), searchParams]);
+
+  // ?replace=<id> comes from the profile shelf's "Re-shoot": same slot, same
+  // crop and grade, new photograph.
+  const replacing = params.replace
+    ? user.avatars.find((a) => a.id === params.replace)
+    : undefined;
 
   return (
     <section className="px-4 lg:px-6">
@@ -17,7 +28,13 @@ export default async function AtelierPage() {
       </div>
 
       <div className="py-10 lg:py-14">
-        <AvatarStudio existing={user.avatar} mocked={isMock()} />
+        <AvatarStudio
+          avatars={user.avatars}
+          replacing={replacing}
+          userName={user.name}
+          full={!replacing && user.avatars.length >= MAX_AVATARS}
+          mocked={isMock()}
+        />
       </div>
     </section>
   );

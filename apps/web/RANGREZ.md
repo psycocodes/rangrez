@@ -72,8 +72,18 @@ instead of a folder of screenshots.
 - Wardrobe items and swipe suggestions ranked/highlighted when inside the user's flattering palette
 - "Surprise me" weighted toward colour-season-matching combinations first
 
-### 4.5 General / supporting
+### 4.5 Fit & sizing — the half a try-on can't answer
+- Body measurements captured once on the profile; stored in cm, displayed in cm or inches
+- Each wardrobe entry carries its size, its cut, and the shop's size chart when the page published one
+- On a product page the extension scrapes the size options and any size table, and Rangrez answers with
+  a size, a verdict in plain words, and the measurement that decided it
+- The body never leaves the server: the extension sends a chart that was already public on the page and
+  gets a letter back, so a shop page is never in a position to learn the shape of the person browsing it
+
+### 4.6 General / supporting
 - Onboarding flow to capture a clean, front-facing base avatar photo (lighting/pose guidance)
+- **Base models** — a stock body to borrow instead of uploading one, for anyone who wants to see the
+  product work before putting their own photograph into it
 - Outfit history log (tried / saved / worn-on-date)
 - Basic auth + per-user private catalog storage
 
@@ -213,26 +223,96 @@ minimal SaaS dashboard.
 ## 12 · Build state
 
 **Done**
-- Dummy auth (sign up / sign in / sign out) — HMAC-signed httpOnly cookie, JSON user store
-- Dashboard — editorial wardrobe grid, filters by zone/colour, saved fits rail, placeholder catalog
-- Avatar studio (`/atelier`) — photo upload, capture guidance, YouCam call, colour-season result
-- Profile — avatar retake, colour season override, stage/backdrop customization, preferences
+- **Auth** — Supabase Auth (accounts live in the Authentication tab), email + password and Sign in with
+  Google, sessions as Supabase cookies so "stay logged in" isn't ours to implement
+- **Storage** — Supabase Postgres, RLS on with no anon policies; every query in `lib/db.ts` scopes by
+  `user_id` and the server holds the secret key
+- Dashboard — editorial wardrobe grid, filters by rail / colour / **source**, full CRUD behind the ⋯ menu
+- **Up to three avatar plates** per account, one active. Shelf in the profile (`AvatarShelf`), compact
+  switcher on the wardrobe (`PlateSwitcher`), and each plate carries its own colour season — switching
+  re-ranks the wardrobe, which is our maths and costs no API credit.
+- **Upload from your own photos** (`UploadDock`) — the garment is cut out **in the browser**
+  (`lib/extract.ts`: subject box off the corner colour, cropped, centred on white), so the server only
+  ever sees a ~200KB square. Rows land in the grid immediately as "queued"; the VTO renders follow
+  three at a time. The grid shows the piece, and hover crossfades to the piece **worn**.
+- Avatar studio (`/atelier`) — photo upload, capture guidance, YouCam call, colour-season result,
+  `?replace=<id>` to re-shoot a plate in place
 - `lib/youcam.ts` — S2S auth + task-poll client with a **mock mode** so the app runs before the key lands
-- **Chrome extension (`apps/extension`)** — PRD §4.3 / Flow D. Detects garments on Amazon, Myntra,
-  Flipkart, Ajio, Zara and H&M (plus a JSON-LD/OpenGraph fallback for everything else), classifies the
-  piece, scores every gallery photograph to pick the one that isolates the garment best, renders it onto
-  the saved avatar, and saves the result into the same catalog.
+- **Chrome + Firefox extension (`apps/extension`)** — PRD §4.3 / Flow D. Detects garments on Amazon,
+  Myntra, Flipkart, Ajio, Zara and H&M (plus a JSON-LD/OpenGraph fallback for everything else),
+  classifies the piece, scores every gallery photograph to pick the one that isolates the garment best,
+  renders it onto the chosen avatar, and saves the result into the same catalog. Shoes, bags, hats and
+  the jewellery family all have surfaces; only eyewear is honestly refused.
+- **The extension asks which body — only when there is more than one.** The gallery read starts before
+  the question so the two overlap.
 - **Extension API** — `/api/extension/{session,tryon,save}`, bearer-token auth (`lib/ext-token.ts`),
   CORS confined to those routes, SSRF-guarded remote image fetch (`lib/fetch-image.ts`)
 - **`/connect`** — pairing page. The extension lifts its token off the page; nothing to copy.
 
+- **Look creator (`/look`)** — PRD §4.2, the Sims-mode feature, and the one page in the product that is
+  a *room* rather than a spec sheet. It owns exactly one viewport and never scrolls (the colophon hides
+  itself there); the whole page is lit by three colours in `--look-a/b/c`, registered with `@property`
+  so the browser interpolates them and the light **drifts** between moods instead of cutting. Idle, it
+  cycles the vat's own dyes; with clothes on the body it takes their colours.
+  Hierarchy is the design: the body is centre, the slot rail sits above it, and the two card wheels are
+  hubbed below the bottom corners — `rotate(θ) translateY(-R)` puts each card on the rim standing
+  radially, so turning really does carry one side up and over the top. Scrolling over a wheel spins it.
+  Cards are CSS 3D rather than WebGL: every card stays a real DOM node, so images lazy-load and the
+  wheels are keyboard-reachable.
+  Rim z-order is **monotonic**, not peaked at the front. Peaking it put one card on top of both its
+  neighbours, and pointer sampling showed it owning ~100× its share of the wheel's hit area — which is
+  what made hover feel stuck on a single card. Monotonic ordering brings that ratio to ~1.3×.
+  "Build the fit" chains one YouCam render per layer, innermost first, outerwear last, each render
+  becoming the next one's body. The client drives the chain (`/api/look/step`) so the body updates as
+  each layer lands instead of showing one ninety-second spinner.
+- **Avatar framing** — a plate records how much of the body is in shot (`bust` / `knee` / `full`),
+  guessed from head-height-to-frame at upload and confirmed by the user. Slots the body can't carry are
+  struck out in the look creator and refused by the API, so nobody spends a render fitting trousers to a
+  head-and-shoulders photograph.
+
+- **Two images per wardrobe entry, and each column means one thing.** `image_url` is the garment alone;
+  `try_on_url` is the same garment worn. Shop saves used to put the *render* in `image_url` because
+  there was nowhere else for it, so a card crossfaded from a body shot to nothing — the extension's
+  isolated garment is now kept by `/api/extension/tryon` and travels with the save. Migration 004 moves
+  the existing rows across.
+- **Real cutouts** (`lib/matte.ts` + `lib/cutout.ts`). The backdrop is flooded in from the frame's edge
+  and the subject matted out of it. Connectivity is what makes this safe where a colour threshold isn't:
+  a white shirt on a white sweep is the same colour as its background, but the sweep touches the frame
+  edge and the shirt doesn't, so the shirt's interior is never reached and survives. An enclosed pocket
+  of backdrop — the triangle between an arm and a torso — is taken out by a second pass, gated on being
+  both small and a closer colour match than the main fill, so it can't punch a hole through a pale
+  garment. The matte reports when it has failed and every caller falls back.
+  Garments land on white (VTO composites transparency against something undefined); the **avatar keeps
+  its alpha**, which is what lets the look creator stand the figure *in* its gradient rather than on a
+  rectangle of someone's hallway. YouCam is always given the untouched photograph.
+- **Fit** (`lib/fit.ts`) — measurements on the person, size charts on the garment, and the ease between
+  them. Ease *is* the calculation: a shirt measuring exactly your chest is a compression top, and ~8cm
+  of ease is slim where ~30cm is the oversized silhouette people buy on purpose. Too tight is scored
+  harder than equally too loose, because that is the failure people return things over.
+  The subtle half is the **chart basis**. Shops publish "to fit chest 96-101" and "garment chest 110"
+  and almost never label which; read a garment chart as a body chart and you confidently recommend two
+  sizes too small. It's inferred by comparing against standard sizing, and a body chart then has the
+  cut and the stretch *already priced in* — applying our own ease on top double-counted the shop's
+  homework and reported a dead-centre M as 3cm roomy. 27 tests cover it.
+- **The extension says what fits** — `content/sizing.js` scrapes size options and candidate tables,
+  `/api/extension/fit` interprets. The body never goes down to the content script.
+- **Base models** (`lib/base-models.ts`) — six stock bodies. Each has a *poster* (a generated
+  silhouette, drawn from three proportions) and a *plate* (a real photograph). The poster is what you
+  choose from and is the slot a 3D model drops into later; the plate is the only thing ever submitted to
+  VTO, because the engine fits garments to anatomy it can see and an illustration is not anatomy.
+  `listBaseModels()` checks the disk, so adding a body is copying a JPEG into `public/base-models/` —
+  no code change and no redeploy.
+- **`/avatars`** — bodies got their own page. They stopped being a setting the moment there could be
+  three of them and a catalog to choose from.
+
 **Next**
-- Real garment segmentation on upload (currently manual category assign)
-- Swipe-to-Style customizer ("Sims mode")
-- Extension: shoes and jewellery (needs YouCam surfaces beyond Apparel VTO — currently detected and
-  honestly refused)
-- Swap dummy auth → Sign in with Google (see `lib/auth.ts` — one function)
-- Swap JSON store → Postgres (see `lib/db.ts`)
+- Move `public/uploads/` to Supabase Storage — it is ephemeral on Vercel, so uploads and mirrored
+  renders do not survive a deploy
+- Photographs for the base models. Four of six slots are empty; the cards say so and stay disabled
+  rather than pretending and failing at the first render.
+- A learned matte for the photographs the flood fill can't do: a patterned wall, a subject filling the
+  frame. It knows when it has failed and falls back to the plain crop, which is the right behaviour and
+  still a worse picture.
 
 **Live-verified 2026-08-05:** detection fires correctly on a real Amazon India product page, and a full
 try-on has been rendered end to end against the real YouCam API (`mocked: false`, ~19s, garment
@@ -243,6 +323,17 @@ transferred onto the user's own avatar with pose and background preserved).
   `YOUCAM_SKIN_FEATURE` and falls back to a deterministic local derivation, so onboarding never breaks.
 - Myntra, Flipkart, Ajio, Zara and H&M selectors in `apps/extension/src/lib/sites.js` are unit-tested
   for their URL rewrites but haven't met a live page yet. Amazon has.
+- The garment classifier exists **twice** — `apps/extension/src/lib/taxonomy.js` (content script, plain
+  JS) and `apps/web/lib/garment-kind.ts` (server + upload dock). Neither can import the other.
+  `apps/extension/test/taxonomy-twin.test.mjs` parses both rule tables and fails if they drift.
+- `/api/extension/tryon` and `/api/look/step` declare `maxDuration = 120`, above Vercel Hobby's 60s
+  ceiling. Each *look* step is one render, so the chain never needs a single long request — but one
+  render can still exceed 60s on a slow day.
+- The avatar on the pedestal is a photograph, not a 3D model, and can't be one: YouCam returns 2D
+  renders. The pedestal, its cast shadow and the colour-reactive backdrop are what give it dimension.
+- `tsconfig.json` sets `incremental: true`. A stale `tsconfig.tsbuildinfo` will happily report a clean
+  typecheck over files it has already seen — `lib/extract.ts` carried five real errors behind one. If a
+  check matters, delete `tsconfig.tsbuildinfo` and `.next/cache/.tsbuildinfo` first.
 
 **Env** — see `.env.example`. `YOUCAM_API_KEY` / `YOUCAM_SECRET_KEY` go in `.env.local`; until then the app
 runs in `YOUCAM_MOCK=1` mode and fabricates plausible task responses so every flow stays clickable.

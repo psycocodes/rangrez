@@ -43,6 +43,16 @@ function isPrivateHost(hostname: string): boolean {
   return false;
 }
 
+/**
+ * Own-origin paths we will read off disk rather than over HTTP.
+ *
+ * `/uploads/` is what the user put there; `/seed/` is the starter wardrobe's
+ * photography, which has to be readable for the same reason — those pieces are
+ * meant to be tried on, and a try-on begins by reading the garment's bytes.
+ * Anything outside these two is refused before the path is resolved.
+ */
+const LOCAL_PREFIXES = ["/uploads/", "/seed/"];
+
 async function readLocalUpload(url: string): Promise<ImagePayload> {
   // Resolve inside public/ and confirm we stayed there — `..` in a stored path
   // must not become an arbitrary file read.
@@ -60,8 +70,45 @@ async function readLocalUpload(url: string): Promise<ImagePayload> {
   return { bytes, contentType };
 }
 
+/**
+ * A `data:` URI carries its bytes rather than an address.
+ *
+ * Raster ones are decoded and used. An SVG is refused with the reason, because
+ * that is the one case that actually turns up: the starter wardrobe is drawn
+ * artwork, and the engine cannot decode a drawing. The browser rasterises those
+ * to a real file before any render is requested (lib/rasterize.ts), so reaching
+ * here with one means that step was skipped — and "Only http(s) image URLs are
+ * accepted" told nobody anything about why.
+ */
+function readDataUri(url: string): ImagePayload {
+  const comma = url.indexOf(",");
+  const header = url.slice(5, comma < 0 ? undefined : comma);
+  const contentType = header.split(";")[0].trim().toLowerCase() || "image/jpeg";
+
+  if (contentType === "image/svg+xml") {
+    throw new Error(
+      "That piece is a drawing, not a photograph — it has to be rasterised before it can go on a body.",
+    );
+  }
+  if (!ALLOWED.has(contentType)) {
+    throw new Error(`That isn't an image we can use (${contentType}).`);
+  }
+  if (comma < 0) throw new Error("That image data is malformed.");
+
+  const body = url.slice(comma + 1);
+  const bytes = header.includes(";base64")
+    ? Buffer.from(body, "base64")
+    : Buffer.from(decodeURIComponent(body), "binary");
+
+  if (!bytes.byteLength) throw new Error("That image was empty.");
+  if (bytes.byteLength > MAX_BYTES) throw new Error("That image is too large.");
+
+  return { bytes, contentType };
+}
+
 export async function fetchImage(url: string): Promise<ImagePayload> {
-  if (url.startsWith("/uploads/")) return readLocalUpload(url);
+  if (LOCAL_PREFIXES.some((p) => url.startsWith(p))) return readLocalUpload(url);
+  if (url.startsWith("data:")) return readDataUri(url);
 
   let parsed: URL;
   try {

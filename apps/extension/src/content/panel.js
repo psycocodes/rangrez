@@ -129,6 +129,24 @@ globalThis.RZ = globalThis.RZ || {};
 .cand__flag{position:absolute;left:0;right:0;bottom:0;background:var(--turmeric);color:var(--ink);padding:3px 4px;text-align:center;opacity:0;transform:translateY(100%);transition:all .45s var(--cloth)}
 .cand[data-win="1"] .cand__flag{opacity:1;transform:none}
 
+/* ── choosing a body ────────────────────────────────────────────────── */
+.plates{display:flex;gap:6px;margin-top:12px}
+.plate-pick{
+  flex:1;min-width:0;padding:0;cursor:pointer;font:inherit;text-align:left;
+  background:transparent;border:0;animation:rise .4s var(--cloth) both;
+}
+.plate-pick__shot{position:relative;aspect-ratio:3/4;overflow:hidden;background:var(--vat);border:1px solid rgba(20,18,14,.2);transition:border-color .3s var(--cloth)}
+.plate-pick__shot img{width:100%;height:100%;object-fit:cover;display:block;opacity:.72;filter:grayscale(.5);transition:all .4s var(--cloth)}
+.plate-pick:hover .plate-pick__shot{border-color:var(--ink)}
+.plate-pick:hover .plate-pick__shot img{opacity:1;filter:none}
+.plate-pick__rule{position:absolute;top:0;left:0;right:0;height:3px;background:var(--madder);opacity:0;transition:opacity .3s}
+.plate-pick[data-on="1"] .plate-pick__shot{border-color:var(--ink)}
+.plate-pick[data-on="1"] .plate-pick__shot img{opacity:1;filter:none}
+.plate-pick[data-on="1"] .plate-pick__rule{opacity:1}
+.plate-pick__name{display:block;margin-top:5px;color:var(--ink-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.plate-pick[data-on="1"] .plate-pick__name{color:var(--ink)}
+.plate-pick__tag{position:absolute;bottom:0;left:0;right:0;background:var(--turmeric);color:var(--ink);padding:3px 4px;text-align:center}
+
 /* ── steps ──────────────────────────────────────────────────────────── */
 .steps{list-style:none;margin-top:12px;display:flex;flex-direction:column;gap:7px}
 .steps li{display:flex;align-items:center;gap:8px;color:var(--ink-3);transition:color .4s}
@@ -141,6 +159,24 @@ globalThis.RZ = globalThis.RZ || {};
 .result__name{font-family:RangrezSerif,Georgia,serif;font-size:19px;line-height:1.15;letter-spacing:-.02em;margin-top:11px}
 .result__spec{color:var(--ink-3);margin-top:7px}
 .swatch{display:inline-block;width:8px;height:8px;vertical-align:-1px;margin-right:5px;border:1px solid rgba(20,18,14,.25)}
+
+/* ── fit: which size, and why ───────────────────────────────────────── */
+.fit{margin-top:12px;border-top:1px solid rgba(20,18,14,.18);padding-top:10px}
+.fit__top{display:flex;align-items:baseline;gap:8px}
+.fit__size{font-family:RangrezSerif,Georgia,serif;font-size:26px;line-height:.9;letter-spacing:-.02em}
+.fit__verdict{color:var(--ink-2)}
+.fit__conf{margin-left:auto;color:var(--ink-3)}
+.fit__why{font-size:11px;line-height:1.5;color:var(--ink-3);margin-top:7px}
+.fit__scale{display:flex;gap:3px;margin-top:9px}
+.fit__step{flex:1;min-width:0;text-align:center;padding-bottom:3px;border-bottom:2px solid rgba(20,18,14,.14)}
+.fit__step b{display:block;font-family:RangrezMono,ui-monospace,monospace;font-size:9px;letter-spacing:.14em;font-weight:500;color:var(--ink-3);padding:4px 0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fit__step[data-pick="1"]{border-bottom-color:var(--madder)}
+.fit__step[data-pick="1"] b{color:var(--ink)}
+.fit__step[data-alt="1"]{border-bottom-color:var(--turmeric)}
+/* Verdict, as a colour, at a glance: too tight and too loose both read as a
+   warning; snug and roomy are wearable; true to size is the one you want. */
+.fit__step[data-v="too tight"] b,.fit__step[data-v="too loose"] b{color:rgba(176,58,33,.7)}
+.fit__step[data-pick="1"][data-v="too tight"] b,.fit__step[data-pick="1"][data-v="too loose"] b{color:var(--madder)}
 
 /* ── actions ────────────────────────────────────────────────────────── */
 .actions{display:flex;gap:5px;margin-top:13px}
@@ -178,6 +214,68 @@ globalThis.RZ = globalThis.RZ || {};
     String(s ?? "").replace(/[&<>"']/g, (c) => ({
       "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
     })[c]);
+
+  /**
+   * The size, under the render.
+   *
+   * The render answers "do I like it" and this answers "which one do I order",
+   * and the two only earn their place together — a size with no picture is a
+   * spreadsheet, and a picture with no size is a decision you still can't make.
+   *
+   * Three states, and the empty one matters most: someone who hasn't entered
+   * their measurements should be told exactly what they'd get if they did,
+   * once, quietly, and not be nagged about it on every product page.
+   */
+  function fitBlock(fit, appBase) {
+    if (!fit) return "";
+
+    const advice = fit.advice ?? fit;
+    if (!advice?.headline) return "";
+
+    if (!advice.recommended) {
+      // Nothing to recommend. Only worth a line if it is a line they can act
+      // on — "no size to pick" on a scarf is noise, a missing chest
+      // measurement is a link.
+      if (!advice.missing?.length) return "";
+      return `
+        <div class="fit">
+          <p class="spec-sm" style="color:var(--ink-3)">Fit</p>
+          <p class="fit__why" style="margin-top:6px">
+            ${esc(advice.detail)}
+            <button class="fit__link" type="button" data-act="open"
+                    data-href="${esc(`${appBase ?? ""}/profile`)}"
+                    style="background:none;border:0;padding:0;font:inherit;color:var(--ink);
+                           text-decoration:underline;text-underline-offset:3px;cursor:pointer">
+              Add them
+            </button>
+          </p>
+        </div>`;
+    }
+
+    // Chart order, not score order: a size scale reads left to right as sizes,
+    // and re-sorting it by how well each fits makes it unreadable as a scale.
+    const scale = [...(advice.sizes ?? [])]
+      .sort((a, b) => (a.index ?? 0) - (b.index ?? 0))
+      .map(
+        (s) => `<span class="fit__step"
+                      data-v="${esc(s.verdict)}"
+                      data-pick="${s.size === advice.recommended ? 1 : 0}"
+                      data-alt="${s.size === advice.alternate ? 1 : 0}"
+                      title="${esc(`${s.size} — ${s.verdict}`)}"><b>${esc(s.size)}</b></span>`,
+      )
+      .join("");
+
+    return `
+      <div class="fit">
+        <div class="fit__top">
+          <span class="fit__size">${esc(advice.recommended)}</span>
+          <span class="spec fit__verdict">${esc(advice.sizes[0]?.verdict ?? "")}</span>
+          <span class="spec-sm fit__conf">${esc(advice.confidence)} confidence</span>
+        </div>
+        ${scale ? `<div class="fit__scale">${scale}</div>` : ""}
+        <p class="fit__why">${esc(advice.detail)}</p>
+      </div>`;
+  }
 
   class Surface {
     constructor() {
@@ -313,6 +411,42 @@ globalThis.RZ = globalThis.RZ || {};
       });
     }
 
+    /**
+     * Which body?
+     *
+     * Only ever reached when the account holds more than one plate — see
+     * main.js. A question with one answer is not a question, and making
+     * everybody confirm their only avatar before every try-on would be a tax
+     * on the common case to serve the rare one.
+     *
+     * Photographs, not a list: these are bodies, and the user recognises them
+     * faster than they read "Plate 02".
+     */
+    renderAvatarPick(avatars, activeId) {
+      this.body.innerHTML = `
+        <p class="spec kicker">Which body?</p>
+        <p class="note">You keep more than one plate. Pick the one to hang this on.</p>
+        <div class="plates"></div>`;
+
+      const row = this.body.querySelector(".plates");
+      avatars.forEach((a, i) => {
+        const on = a.id === activeId;
+        const card = el(`<button class="plate-pick" type="button"
+            data-on="${on ? "1" : ""}" data-avatar="${esc(a.id)}"
+            style="animation-delay:${i * 70}ms">
+          <span class="plate-pick__shot">
+            <span class="plate-pick__rule"></span>
+            <img src="${esc(a.renderUrl)}" alt="" referrerpolicy="no-referrer">
+            ${on ? `<span class="spec-sm plate-pick__tag">In use</span>` : ""}
+          </span>
+          <span class="spec-sm plate-pick__name">${esc(a.label)}</span>
+        </button>`);
+        row.appendChild(card);
+      });
+
+      return this.body;
+    }
+
     /** The VTO call itself. */
     renderRendering(avatarUrl, steps) {
       this.body.innerHTML = `
@@ -337,7 +471,7 @@ globalThis.RZ = globalThis.RZ || {};
     }
 
     /** Done. The render is the interface; everything else gets out of its way. */
-    renderResult({ renderUrl, name, specLine, dye, mocked }) {
+    renderResult({ renderUrl, name, specLine, dye, mocked, fit, appBase }) {
       this.body.innerHTML = `
         <div class="plate">
           <span class="spec-sm plate__tag">On you</span>
@@ -347,6 +481,7 @@ globalThis.RZ = globalThis.RZ || {};
         <p class="spec-sm result__spec">
           ${dye ? `<span class="swatch" style="background:${esc(dye)}"></span>` : ""}${esc(specLine)}
         </p>
+        ${fitBlock(fit, appBase)}
         ${mocked ? `<div class="flag flag--mock" style="margin-top:11px">
           <b class="spec-sm">Mock mode</b> — set <code>YOUCAM_MOCK=0</code> in
           apps/web/.env.local to render for real.</div>` : ""}

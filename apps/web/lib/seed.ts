@@ -1,64 +1,27 @@
-import { hexToHsl } from "./palette";
+import { DYES, nearestDye } from "./dyes";
+import { garmentArt } from "./garment-art";
+import { SEED_PHOTOS } from "./seed-photos";
 import type { Dye, Garment, SeasonTag, Zone } from "./types";
+
+// Both used to live here, and half the app imports them from here. Re-exported
+// rather than chased through twenty files.
+export { DYES, nearestDye };
 
 /**
  * Starter wardrobe.
  *
- * Placeholder photography is pulled from picsum by seed, then dipped in each
- * garment's own dye by the card treatment (see `.dip` in globals.css), so a
- * bag of unrelated stock photos still reads as one coherent lookbook. Replace
- * `imageUrl` with the Apparel VTO result URL once the pipeline is live.
- */
-
-export const DYES = {
-  indigo: { name: "Indigo", hex: "#26356E" },
-  vat: { name: "Vat Blue", hex: "#161D3D" },
-  paleIndigo: { name: "Pale Indigo", hex: "#6C7FB8" },
-  madder: { name: "Madder", hex: "#B03A21" },
-  turmeric: { name: "Turmeric", hex: "#D99B21" },
-  pomegranate: { name: "Pomegranate", hex: "#7C2D3A" },
-  myrobalan: { name: "Myrobalan", hex: "#8A8A52" },
-  catechu: { name: "Catechu", hex: "#6E4326" },
-  henna: { name: "Henna", hex: "#8E4B2E" },
-  iron: { name: "Iron Black", hex: "#1F1D1A" },
-  ecru: { name: "Ecru", hex: "#CFC3AA" },
-  verdigris: { name: "Verdigris", hex: "#2E6B5E" },
-  lac: { name: "Lac Rose", hex: "#B5607E" },
-} as const satisfies Record<string, Dye>;
-
-/**
- * Names an arbitrary colour as one of the house dyes.
+ * Every piece is a real photograph, cut out of a real product shot by the same
+ * pipeline a shop page goes through — see scripts/seed-photos.mjs, which
+ * fetches them, and lib/seed-photos.ts, which it writes.
  *
- * A garment digitised off a shop page arrives with a measured average colour,
- * not a dye name. Rather than storing `#7B3F2A` and printing a hex on the
- * card — which would break the language of the catalog — we snap it to the
- * nearest dye on the card. Distance is weighted toward hue: an off-black and a
- * navy differ far more meaningfully than two navies of different lightness.
+ * It used to be drawn: SVG flat-lays in each item's catalogued dye. That was
+ * right when the alternative was deterministic stock photography, which was
+ * coherent as grid texture and put a typewriter on a card reading "Raw Denim
+ * Straight". It became wrong the moment you wanted to *try one on* — Apparel
+ * VTO cannot decode a drawing, so every starter piece was a piece the whole
+ * point of the product couldn't be tested with. The drawings remain as the
+ * fallback for any item without a photograph yet.
  */
-export function nearestDye(hex: string): Dye {
-  const target = hexToHsl(hex);
-  let best: Dye = DYES.iron;
-  let bestScore = Infinity;
-
-  for (const dye of Object.values(DYES) as Dye[]) {
-    const d = hexToHsl(dye.hex);
-    // Hue is circular; a 350° and a 10° red are 20° apart, not 340°.
-    const hueGap = Math.min(Math.abs(d.h - target.h), 360 - Math.abs(d.h - target.h));
-    // Hue barely matters on greys, so fade its weight out with saturation.
-    const chroma = Math.min(d.s, target.s);
-    const score =
-      (hueGap / 180) * 1.6 * chroma +
-      Math.abs(d.s - target.s) * 0.7 +
-      Math.abs(d.l - target.l) * 1.1;
-
-    if (score < bestScore) {
-      bestScore = score;
-      best = dye;
-    }
-  }
-
-  return best;
-}
 
 interface SeedItem {
   name: string;
@@ -107,16 +70,16 @@ const ITEMS: SeedItem[] = [
   { name: "Structured Tote", zone: "accessory", dye: DYES.pomegranate, season: "yearround", material: "Saddle leather", worn: 30 },
 ];
 
-/**
- * Deterministic photo seeds. Picsum returns the same image for the same seed,
- * so the grid does not reshuffle between renders (which would be maddening).
- */
 const slug = (s: string) =>
   s
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-|-$/g, "");
 
+/**
+ * Still exported for the editorial furniture that wants a photograph rather
+ * than a garment — the grid interstitials. Starter *pieces* are drawn now.
+ */
 export function placeholderPhoto(seed: string, w = 900, h = 1200) {
   return `https://picsum.photos/seed/rangrez-${seed}/${w}/${h}`;
 }
@@ -127,6 +90,7 @@ export function seedCatalog(userId: string): Garment[] {
 
   return ITEMS.map((item, i) => {
     const seed = slug(item.name);
+    const photo = SEED_PHOTOS[seed];
     return {
       // Must be a real UUID: the garments table types `id` as uuid. A readable
       // synthetic id ("seed-0c50c0fd-00") was rejected by Postgres, which took
@@ -136,11 +100,14 @@ export function seedCatalog(userId: string): Garment[] {
       name: item.name,
       origin: "seed",
       zone: item.zone,
-      dye: item.dye,
+      // The photograph's own colour wins, because the card is tinted from the
+      // dye and the photograph is what's printed on it. A card in Turmeric
+      // holding a picture of a black boot is worse than either alone.
+      dye: photo ? nearestDye(photo.hex) : item.dye,
       season: item.season,
       material: item.material,
       seed,
-      imageUrl: placeholderPhoto(seed),
+      imageUrl: photo ? photo.file : garmentArt(item.name, item.zone, item.dye),
       status: "rendered",
       // Recomputed against the real colour season the moment the avatar's
       // skin-tone analysis returns — see app/api/avatar/route.ts.
