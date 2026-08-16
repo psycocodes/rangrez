@@ -46,6 +46,14 @@
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-jetbrains), ui-monospace, monospace;
 
+  /* The garment card's own three, and nothing else's — see the note in
+     app/layout.tsx. No fallback stack on the two local faces: half the design
+     is that the letters are drawn oversized, and any substitute would size
+     itself sanely and silently ruin the layout rather than fail visibly. */
+  --font-fingerprint: var(--font-identity);
+  --font-block: var(--font-scholar);
+  --font-label: var(--font-smokum), var(--font-jetbrains), monospace;
+
   /* ── motion: fabric settles, it does not bounce ────────────────────────── */
   --ease-cloth: cubic-bezier(0.22, 1, 0.36, 1);
   --ease-drape: cubic-bezier(0.65, 0, 0.35, 1);

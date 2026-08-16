@@ -959,9 +959,10 @@ function Card({
         transition: "box-shadow 640ms var(--ease-cloth)",
       }}
     >
-      <span className="absolute inset-x-0 top-0 z-[4] h-[3px] bg-madder" />
-
-      <div className="relative aspect-[4/5]">
+      {/* The plate carries the design's own 1063 × 1752 now, so the box it
+          sits in has to be that shape too — a 4/5 well would let the card
+          overflow it and land on the action bar below. */}
+      <div className="relative aspect-[1063/1752]">
         <GarmentPlate garment={garment} />
         {blocked && (
           <span className="absolute inset-0 z-[4] flex items-end bg-abyss/65 p-2">
