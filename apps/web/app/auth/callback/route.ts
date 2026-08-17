@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { ensureProfile } from "@/lib/db";
 import { authClient } from "@/lib/supabase-auth";
+import { landingFor } from "@/lib/onboarding";
 
 /**
  * Where Google sends people back to.
@@ -57,6 +58,6 @@ export async function GET(req: Request) {
   }
 
   return NextResponse.redirect(
-    new URL(profile.avatar ? "/wardrobe" : "/atelier", url.origin),
+    new URL(landingFor(profile), url.origin),
   );
 }

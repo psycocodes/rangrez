@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { endSession } from "@/lib/auth";
 import { DbNotReadyError, ensureProfile } from "@/lib/db";
 import { authClient } from "@/lib/supabase-auth";
+import { landingFor } from "@/lib/onboarding";
 
 export interface AuthState {
   error?: string;
@@ -110,7 +111,7 @@ export async function signIn(
     throw err;
   }
 
-  redirect(profile.avatar ? "/wardrobe" : "/atelier");
+  redirect(landingFor(profile));
 }
 
 /**

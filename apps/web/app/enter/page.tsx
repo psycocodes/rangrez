@@ -4,6 +4,7 @@ import { AuthDoor } from "@/components/AuthDoor";
 import { Vat, VatMasthead } from "@/components/Vat";
 import { getCurrentUser } from "@/lib/auth";
 import { hasGoogle } from "@/lib/providers";
+import { landingFor } from "@/lib/onboarding";
 
 export const metadata = { title: "Enter — Rangrez" };
 
@@ -13,7 +14,7 @@ export default async function EnterPage({
   searchParams: Promise<{ error?: string }>;
 }) {
   const user = await getCurrentUser();
-  if (user) redirect(user.avatar ? "/wardrobe" : "/atelier");
+  if (user) redirect(landingFor(user));
 
   // Google and the OAuth callback report failures by bouncing back here.
   const { error } = await searchParams;

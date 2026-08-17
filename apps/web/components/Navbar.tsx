@@ -7,6 +7,7 @@ import { useState, useSyncExternalStore, useTransition, useRef, useEffect } from
 import { motion, AnimatePresence } from "framer-motion";
 
 import { signOut } from "@/app/actions/auth";
+import { profilePhoto } from "@/lib/profile-photo";
 import type { Avatar, User } from "@/lib/types";
 
 const HANDSHAKE_NODE_ID = "rangrez-ext-handshake";
@@ -57,12 +58,8 @@ export function Navbar({
   const isExtPaired = useSyncExternalStore(subscribeExtension, checkIsPaired, () => false);
 
   const activeAvatar = user.avatars.find((a) => a.id === user.activeAvatarId) ?? user.avatars[0];
-  const googleAvatarUrl = `https://api.dicebear.com/7.x/notionists/svg?seed=${encodeURIComponent(
-    user.name || "User",
-  )}&backgroundColor=b6e3f4,c0aede,d1d4f9,ffd5dc,ffdfbf`;
-  const displayProfilePhoto = user.useGooglePhoto !== false
-    ? googleAvatarUrl
-    : user.profilePhotoUrl || googleAvatarUrl;
+  // One decision, shared with the profile page — see lib/profile-photo.ts.
+  const displayProfilePhoto = profilePhoto(user);
 
   const isAvatarPage = pathname.startsWith("/avatar");
   const isProfilePage = pathname.startsWith("/profile");

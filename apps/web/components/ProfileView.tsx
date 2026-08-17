@@ -10,6 +10,7 @@ import { signOut } from "@/app/actions/auth";
 import { saveMeasurements, updateProfilePhoto } from "@/app/actions/profile";
 import { Navbar } from "./Navbar";
 import type { Avatar, Garment, User, Zone } from "@/lib/types";
+import { hasGooglePhoto, profilePhoto } from "@/lib/profile-photo";
 
 const ESTIMATED_ZONE_PRICES: Record<Zone, number> = {
   top: 2490,
@@ -52,13 +53,11 @@ export function ProfileView({
     maximumFractionDigits: 0,
   }).format(totalPrice);
 
-  const googleAvatarUrl = `https://api.dicebear.com/7.x/notionists/svg?seed=${encodeURIComponent(
-    user.name || "User",
-  )}&backgroundColor=b6e3f4,c0aede,d1d4f9,ffd5dc,ffdfbf`;
-
-  const displayProfilePhoto = isGooglePhoto
-    ? googleAvatarUrl
-    : user.profilePhotoUrl || googleAvatarUrl;
+  /* The real picture off the Google account, not a drawing seeded from the
+     name. `isGooglePhoto` is local so the toggle responds before the server
+     action lands, hence the override rather than calling profilePhoto(user). */
+  const displayProfilePhoto = profilePhoto({ ...user, useGooglePhoto: isGooglePhoto });
+  const googleAvailable = hasGooglePhoto(user);
 
   const handleToggleGoogle = () => {
     const nextVal = !isGooglePhoto;
@@ -109,10 +108,17 @@ export function ProfileView({
               <button
                 type="button"
                 onClick={handleToggleGoogle}
-                title="Toggle Google / Custom Avatar Photo"
-                className="rounded-xl border-2 border-[#12100d] bg-[#FAF6EF] px-2 py-0.5 font-mono text-[0.65rem] font-bold text-[#12100d] shadow-[1px_1px_0px_#12100d] hover:bg-[#FFDE59] cursor-pointer"
+                disabled={!googleAvailable}
+                title={
+                  googleAvailable
+                    ? "Switch between your Google picture and your own"
+                    : "This account did not sign in with Google, so there is no picture to use"
+                }
+                className="rounded-xl border-2 border-[#12100d] bg-[#FAF6EF] px-2 py-0.5 font-mono text-[0.65rem] font-bold text-[#12100d] shadow-[1px_1px_0px_#12100d] hover:bg-[#FFDE59] cursor-pointer disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:bg-[#FAF6EF]"
               >
-                {isGooglePhoto ? "Photo: Notionist G" : "Photo: Custom"}
+                {/* It used to say "Notionist G", which was the drawing style's
+                    own name — an accurate label for the wrong picture. */}
+                {!googleAvailable ? "Photo: Custom" : isGooglePhoto ? "Photo: Google" : "Photo: Custom"}
               </button>
             </div>
 

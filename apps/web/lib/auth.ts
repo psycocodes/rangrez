@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { DbNotReadyError, ensureProfile, findUserById } from "./db";
 import { authClient } from "./supabase-auth";
 import type { User } from "./types";
+import { googlePhotoFromMetadata } from "./profile-photo";
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -46,7 +47,7 @@ export async function getCurrentUser(): Promise<User | null> {
   if (!authUser) return null;
 
   try {
-    return (
+    const user =
       (await findUserById(authUser.id)) ??
       (await ensureProfile({
         id: authUser.id,
@@ -55,8 +56,14 @@ export async function getCurrentUser(): Promise<User | null> {
           (authUser.user_metadata?.name as string | undefined) ??
           authUser.email?.split("@")[0] ??
           "You",
-      }))
-    );
+      }));
+
+    /* The Google picture rides along from the session rather than being read
+       back out of our table. It is not our data — the user can change it on
+       Google's side at any moment — so storing it would only ever give us a
+       stale copy of someone's face. Attached here, at the one place that has
+       both the profile and the session in hand. */
+    return { ...user, googlePhotoUrl: googlePhotoFromMetadata(authUser.user_metadata) };
   } catch (err) {
     // Nothing works before the schema exists. Send people somewhere that says
     // so rather than letting a Postgres error surface as a broken page.

@@ -149,3 +149,24 @@ export async function updateProfilePhoto(form: FormData): Promise<void> {
 
   refresh();
 }
+
+/**
+ * The display name, set during first run.
+ *
+ * Trimmed and capped rather than validated into submission — it is printed on
+ * the masthead and under the avatar plate, and a name long enough to break
+ * that layout is the only failure mode worth guarding. An empty submission is
+ * ignored rather than rejected: the field is optional, and blanking it would
+ * leave the app with nobody to address.
+ */
+export async function saveDisplayName(form: FormData): Promise<void> {
+  const user = await requireUser();
+  const name = String(form.get("name") ?? "").trim().slice(0, 60);
+  if (!name) return;
+
+  await updateUser(user.id, (u) => {
+    u.name = name;
+  });
+
+  refresh();
+}

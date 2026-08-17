@@ -17,9 +17,11 @@
       }
 
       :root {
-        --paper: #ede7da; --paper-3: #d8cfba;
-        --ink: #14120e; --ink-2: #3a352b; --ink-3: #6d6555;
-        --madder: #b03a21; --turmeric: #d99b21; --vat: #161d3d;
+        /* Same names, the app's neubrutalist values — see panel.js. */
+        --paper: #f4efe6; --paper-3: #e0d6c4;
+        --ink: #12100d; --ink-2: #12100d; --ink-3: #5c574c;
+        --madder: #ff5252; --turmeric: #ffde59; --vat: #12100d;
+        --brut: 4px 4px 0 #12100d;
         --cloth: cubic-bezier(0.22, 1, 0.36, 1);
       }
       * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -36,7 +38,7 @@
       .display { font-family: RangrezSerif, Georgia, serif; font-size: 27px; line-height: .95; letter-spacing: -.03em; }
       .display em { font-style: italic; }
 
-      header { display: flex; align-items: center; gap: 8px; padding: 11px 12px; border-bottom: 1px solid var(--ink); }
+      header { display: flex; align-items: center; gap: 8px; padding: 11px 12px; border-bottom: 3px solid var(--ink); background: var(--turmeric); }
       header svg { width: 13px; height: 13px; }
       main { padding: 14px 12px 12px; }
 
@@ -55,7 +57,8 @@
       .btn {
         width: 100%; display: flex; align-items: center; justify-content: space-between;
         gap: 10px; padding: 9px 10px; cursor: pointer; font: inherit;
-        background: var(--ink); color: var(--paper); border: 1px solid var(--ink);
+        background: var(--ink); color: var(--paper); border: 3px solid var(--ink);
+        border-radius: 8px; box-shadow: var(--brut);
         position: relative; overflow: hidden; isolation: isolate;
         transition: color .3s var(--cloth);
       }
@@ -65,7 +68,7 @@
       .btn--ghost { background: transparent; color: var(--ink); }
       .btn--ghost:hover { color: var(--paper); }
 
-      .rule { border-top: 1px solid rgba(20,18,14,.18); margin-top: 13px; padding-top: 11px; }
+      .rule { border-top: 3px solid var(--ink); margin-top: 13px; padding-top: 11px; }
       .kv { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
       .kv + .kv { margin-top: 7px; }
       .kv span:last-child { color: var(--ink-3); font-family: RangrezMono, monospace; font-size: 9px; letter-spacing: .06em; text-align: right; word-break: break-all; }

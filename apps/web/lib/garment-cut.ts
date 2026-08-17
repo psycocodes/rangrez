@@ -10,6 +10,7 @@ import {
   subjectBox,
   type GarmentBand,
 } from "./matte.ts";
+import { SEGMENT_SIDE, segment } from "./segment.ts";
 import type { VtoTarget } from "./youcam";
 
 /**
@@ -258,6 +259,66 @@ export async function outfitReference(
   return { bytes, contentType: "image/jpeg" };
 }
 
+/**
+ * A background mask from BiRefNet, in the same shape the flood fill returns:
+ * one byte per pixel at the working size, 1 for background.
+ *
+ * Returns null on anything unexpected, and "unexpected" deliberately includes
+ * *implausible* — a mask that keeps 1% of the frame or 99% of it is a model
+ * that has been fed the wrong thing, and it is better to fall back than to
+ * hand a garment card an empty rectangle. Everything downstream of here was
+ * written against the flood fill's output and cannot tell the two apart.
+ *
+ * *Anything* includes a throw. The weights are 213MB and are not in the
+ * repository, so the ordinary case on a fresh checkout is that this whole path
+ * is unavailable — that must cost a garment its sharper outline, never its
+ * cutout. The one call the caller makes is the one place that can guarantee it,
+ * so the body is wrapped rather than each step being made individually safe.
+ */
+async function modelMask(
+  rgb: Buffer,
+  W: number,
+  H: number,
+  mw: number,
+  mh: number,
+): Promise<Uint8Array | null> {
+  try {
+    const side = await sharp(rgb, { raw: { width: W, height: H, channels: 3 } })
+      .resize(SEGMENT_SIDE, SEGMENT_SIDE, { fit: "fill" })
+      .raw()
+      .toBuffer();
+
+    const found = await segment(new Uint8Array(side));
+    if (!found) return null;
+
+    // The model works at its own square; the rest of the pipeline works at the
+    // postage stamp. Scale, and invert — it returns subject, we want background.
+    const at = await sharp(Buffer.from(found.alpha), {
+      raw: { width: found.width, height: found.height, channels: 1 },
+    })
+      .resize(mw, mh, { fit: "fill" })
+      .toColourspace("b-w")
+      .raw()
+      .toBuffer();
+
+    if (at.length !== mw * mh) return null;
+
+    const mask = new Uint8Array(mw * mh);
+    let kept = 0;
+    for (let i = 0; i < mask.length; i++) {
+      const subject = at[i] > 127;
+      mask[i] = subject ? 0 : 1;
+      if (subject) kept++;
+    }
+
+    const share = kept / mask.length;
+    if (share < 0.02 || share > 0.97) return null;
+    return mask;
+  } catch {
+    return null;
+  }
+}
+
 async function cut(input: Buffer, band: GarmentBand): Promise<GarmentCutout | null> {
   // One decode, at working size, with EXIF orientation applied. Everything
   // downstream is raw pixels over this buffer, so a 4000px phone photograph
@@ -290,7 +351,10 @@ async function cut(input: Buffer, band: GarmentBand): Promise<GarmentCutout | nu
     .toBuffer();
   const px = new Uint8ClampedArray(probe.buffer, probe.byteOffset, probe.length);
 
-  const mask = floodBackground(px, mw, mh);
+  // The model first, the hand-written matte if it isn't there. See
+  // lib/segment.ts for why it might not be — in short, it is 213MB of weights
+  // and a native runtime, and neither is guaranteed to exist.
+  const mask = (await modelMask(work, W, H, mw, mh)) ?? floodBackground(px, mw, mh);
 
   /* ── 2 · did it work? ───────────────────────────────────────────────── */
   let removed = 0;
