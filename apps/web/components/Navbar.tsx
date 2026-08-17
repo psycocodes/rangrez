@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState, useSyncExternalStore, useTransition, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { Loader2, Sparkles, Check, Layers } from "lucide-react";
 
 import { signOut } from "@/app/actions/auth";
 import type { Avatar, User } from "@/lib/types";
@@ -34,6 +35,8 @@ export interface NavbarProps {
   onSearchClick?: () => void;
   tab?: "bought" | "wishlist";
   onTabChange?: (tab: "bought" | "wishlist") => void;
+  trialroomBusy?: boolean;
+  trialroomReady?: boolean;
 }
 
 export function Navbar({
@@ -46,12 +49,16 @@ export function Navbar({
   onSearchClick,
   tab,
   onTabChange,
+  trialroomBusy: propBusy,
+  trialroomReady: propReady,
 }: NavbarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [logoutModalOpen, setLogoutModalOpen] = useState(false);
   const [extPopupOpen, setExtPopupOpen] = useState(false);
+  const [isBusy, setIsBusy] = useState(propBusy ?? false);
+  const [isReady, setIsReady] = useState(propReady ?? false);
   const [isPending, startTransition] = useTransition();
 
   const isExtPaired = useSyncExternalStore(subscribeExtension, checkIsPaired, () => false);
@@ -66,9 +73,31 @@ export function Navbar({
 
   const isAvatarPage = pathname.startsWith("/avatar");
   const isProfilePage = pathname.startsWith("/profile");
+  const isArtifactsPage = pathname.startsWith("/artifacts");
 
   const extRef = useRef<HTMLDivElement>(null);
   const profileRef = useRef<HTMLDivElement>(null);
+
+  // Sync prop changes
+  useEffect(() => {
+    if (propBusy !== undefined) setIsBusy(propBusy);
+  }, [propBusy]);
+
+  useEffect(() => {
+    if (propReady !== undefined) setIsReady(propReady);
+  }, [propReady]);
+
+  // Global trialroom state listener
+  useEffect(() => {
+    const handleStatus = (e: CustomEvent<{ busy?: boolean; ready?: boolean }>) => {
+      if (e.detail) {
+        if (e.detail.busy !== undefined) setIsBusy(e.detail.busy);
+        if (e.detail.ready !== undefined) setIsReady(e.detail.ready);
+      }
+    };
+    window.addEventListener("rangrez-trialroom-status" as any, handleStatus);
+    return () => window.removeEventListener("rangrez-trialroom-status" as any, handleStatus);
+  }, []);
 
   // Close popup on click outside
   useEffect(() => {
@@ -143,9 +172,22 @@ export function Navbar({
             )}
           </div>
 
-          {/* ── Center: If back button is on left, Logo is in the middle. Otherwise search/toggle. ── */}
+          {/* ── Center: If back button is on left, Logo is in the middle. Otherwise search/toggle/status. ── */}
           <div className="flex flex-1 items-center justify-center min-w-0 px-2">
-            {centerElement ? (
+            {isBusy ? (
+              <div className="flex items-center gap-2 rounded-xl border-2 border-[#12100d] bg-[#FF5A5F] px-3.5 py-1.5 font-friday text-xs uppercase tracking-wider text-white shadow-[2px_2px_0px_#12100d] animate-pulse">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                <span>TRIALROOM BUSY...</span>
+              </div>
+            ) : isReady ? (
+              <Link
+                href="/artifacts"
+                className="flex items-center gap-2 rounded-xl border-2 border-[#12100d] bg-[#7FE06E] px-3.5 py-1.5 font-friday text-xs uppercase tracking-wider text-[#12100d] shadow-[2px_2px_0px_#12100d] hover:bg-[#92E883] transition-all cursor-pointer"
+              >
+                <Check className="h-4 w-4 stroke-[3]" />
+                <span>FIT READY! (VIEW)</span>
+              </Link>
+            ) : centerElement ? (
               centerElement
             ) : leftElement ? (
               /* When there's a back button on the left, Rangrez logo sits in the middle */
@@ -209,8 +251,21 @@ export function Navbar({
             ) : null}
           </div>
 
-          {/* ── Right Side: Extension Status Button + Avatar/Profile Badges ── */}
+          {/* ── Right Side: Artifacts + Extension + Avatar + Profile ── */}
           <div className="flex items-center gap-2.5 shrink-0">
+            {/* Artifacts Link */}
+            <Link
+              href="/artifacts"
+              title="Minted Artifacts Gallery"
+              className={`flex h-10 items-center gap-1.5 rounded-xl border-[2.5px] border-[#12100d] px-3 font-friday text-[0.72rem] uppercase tracking-wider shadow-[2px_2px_0px_#12100d] transition-all active:translate-x-[1px] active:translate-y-[1px] cursor-pointer ${
+                isArtifactsPage
+                  ? "bg-[#12100d] text-[#FFDE59]"
+                  : "bg-[#FFDE59] text-[#12100d] hover:bg-[#FFE57F]"
+              }`}
+            >
+              <Layers className="h-4 w-4" />
+              <span className="hidden sm:inline">ARTIFACTS</span>
+            </Link>
             {/* Extension Pairing Button (Color represents status: Gray=Disconnected, Green=Connected, Yellow=Connecting) */}
             <div ref={extRef} className="relative">
               <button

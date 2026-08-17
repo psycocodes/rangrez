@@ -57,7 +57,14 @@ export default async function TrialRoomPage() {
   }
 
   return (
-    <div className="relative flex h-full min-h-0 flex-col overflow-hidden bg-[#F4EFE6] text-[#12100d]">
+    <div
+      className="relative flex h-full min-h-0 flex-col overflow-hidden bg-[#F4EFE6] text-[#12100d]"
+      style={{
+        backgroundImage: "url('/assets/backgrounds/trialroom-background.png')",
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+      }}
+    >
       {/* Floating Navbar directly over the trial room */}
       <div className="absolute top-0 inset-x-0 z-50 pointer-events-auto">
         <Navbar

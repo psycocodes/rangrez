@@ -196,22 +196,38 @@ export const FRAMING: Record<
   bust: {
     label: "Head & shoulders",
     note: "Tops and jackets only — there are no legs in the frame to dress.",
-    slots: ["torso", "layer"],
+    slots: ["torso", "layer", "accessory"],
   },
   knee: {
     label: "Waist or knee up",
     note: "Tops, jackets and bottoms. Shoes need the whole body in shot.",
-    slots: ["torso", "layer", "bottom"],
+    slots: ["torso", "layer", "bottom", "accessory"],
   },
   full: {
     label: "Full length",
-    note: "Everything: tops, jackets, bottoms and shoes.",
-    slots: ["torso", "layer", "bottom", "shoes"],
+    note: "Everything: tops, jackets, bottoms, shoes and accessories.",
+    slots: ["torso", "layer", "bottom", "shoes", "accessory"],
   },
 };
 
-/** The four layers a look is built from, innermost first. */
-export type SlotId = "torso" | "layer" | "bottom" | "shoes";
+/** The five layers a look is built from. */
+export type SlotId = "torso" | "layer" | "bottom" | "shoes" | "accessory";
+
+/** A minted artifact generated from a trial room try-on. */
+export interface ArtifactItem {
+  id: string;
+  userId: string;
+  name: string;
+  renderUrl: string;
+  avatarId: string;
+  avatarLabel?: string;
+  garments: Garment[];
+  slotGarments?: Partial<Record<SlotId, Garment>>;
+  totalPrice: number;
+  wishlistCount: number;
+  createdAt: string;
+  note?: string;
+}
 
 export interface Avatar {
   id: string;
