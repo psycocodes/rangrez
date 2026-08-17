@@ -1,29 +1,27 @@
+import { DYES, nearestDye } from "./dyes";
+import { garmentArt } from "./garment-art";
+import { SEED_PHOTOS } from "./seed-photos";
 import type { Dye, Garment, SeasonTag, Zone } from "./types";
+
+// Both used to live here, and half the app imports them from here. Re-exported
+// rather than chased through twenty files.
+export { DYES, nearestDye };
 
 /**
  * Starter wardrobe.
  *
- * Placeholder photography is pulled from picsum by seed, then dipped in each
- * garment's own dye by the card treatment (see `.dip` in globals.css), so a
- * bag of unrelated stock photos still reads as one coherent lookbook. Replace
- * `imageUrl` with the Apparel VTO result URL once the pipeline is live.
+ * Every piece is a real photograph, cut out of a real product shot by the same
+ * pipeline a shop page goes through — see scripts/seed-photos.mjs, which
+ * fetches them, and lib/seed-photos.ts, which it writes.
+ *
+ * It used to be drawn: SVG flat-lays in each item's catalogued dye. That was
+ * right when the alternative was deterministic stock photography, which was
+ * coherent as grid texture and put a typewriter on a card reading "Raw Denim
+ * Straight". It became wrong the moment you wanted to *try one on* — Apparel
+ * VTO cannot decode a drawing, so every starter piece was a piece the whole
+ * point of the product couldn't be tested with. The drawings remain as the
+ * fallback for any item without a photograph yet.
  */
-
-export const DYES = {
-  indigo: { name: "Indigo", hex: "#26356E" },
-  vat: { name: "Vat Blue", hex: "#161D3D" },
-  paleIndigo: { name: "Pale Indigo", hex: "#6C7FB8" },
-  madder: { name: "Madder", hex: "#B03A21" },
-  turmeric: { name: "Turmeric", hex: "#D99B21" },
-  pomegranate: { name: "Pomegranate", hex: "#7C2D3A" },
-  myrobalan: { name: "Myrobalan", hex: "#8A8A52" },
-  catechu: { name: "Catechu", hex: "#6E4326" },
-  henna: { name: "Henna", hex: "#8E4B2E" },
-  iron: { name: "Iron Black", hex: "#1F1D1A" },
-  ecru: { name: "Ecru", hex: "#CFC3AA" },
-  verdigris: { name: "Verdigris", hex: "#2E6B5E" },
-  lac: { name: "Lac Rose", hex: "#B5607E" },
-} as const satisfies Record<string, Dye>;
 
 interface SeedItem {
   name: string;
@@ -36,52 +34,69 @@ interface SeedItem {
 
 const ITEMS: SeedItem[] = [
   // ── tops ────────────────────────────────────────────────────────────────
-  { name: "Oversized Poplin Shirt", zone: "top", dye: DYES.ecru, season: "yearround", material: "Cotton poplin, 120gsm", worn: 14 },
-  { name: "Khadi Camp Collar", zone: "top", dye: DYES.indigo, season: "summer", material: "Handloom khadi", worn: 9 },
-  { name: "Ribbed Merino Tank", zone: "top", dye: DYES.iron, season: "yearround", material: "Merino rib, 18.5µ", worn: 21 },
-  { name: "Boxy Heavyweight Tee", zone: "top", dye: DYES.madder, season: "summer", material: "Loopwheel cotton, 240gsm", worn: 32 },
-  { name: "Silk Wrap Blouse", zone: "top", dye: DYES.lac, season: "spring", material: "Sandwashed silk", worn: 4 },
-  { name: "Cable Knit Crewneck", zone: "top", dye: DYES.myrobalan, season: "winter", material: "Lambswool, 5gg", worn: 11 },
-  { name: "Breton Long-Sleeve", zone: "top", dye: DYES.vat, season: "autumn", material: "Combed cotton jersey", worn: 18 },
-
-  // ── bottoms ─────────────────────────────────────────────────────────────
-  { name: "Wide-Leg Pleated Trouser", zone: "bottom", dye: DYES.catechu, season: "autumn", material: "Wool-linen twill", worn: 12 },
-  { name: "Raw Denim Straight", zone: "bottom", dye: DYES.indigo, season: "yearround", material: "14oz selvedge, unwashed", worn: 47 },
-  { name: "Linen Drawstring Short", zone: "bottom", dye: DYES.ecru, season: "summer", material: "Washed linen", worn: 8 },
-  { name: "Bias-Cut Midi Skirt", zone: "bottom", dye: DYES.pomegranate, season: "spring", material: "Cupro satin", worn: 6 },
-  { name: "Cargo Utility Pant", zone: "bottom", dye: DYES.myrobalan, season: "yearround", material: "Ripstop cotton", worn: 23 },
-  { name: "Tailored Wool Trouser", zone: "bottom", dye: DYES.iron, season: "winter", material: "Super 110s worsted", worn: 15 },
+  { name: "Poplin Shirt", zone: "top", dye: DYES.ecru, season: "yearround", material: "Cotton poplin, 120gsm", worn: 14 },
+  { name: "Camp Collar", zone: "top", dye: DYES.indigo, season: "summer", material: "Handloom khadi", worn: 9 },
+  { name: "Merino Tank", zone: "top", dye: DYES.iron, season: "yearround", material: "Merino rib, 18.5µ", worn: 21 },
+  { name: "Heavy Tee", zone: "top", dye: DYES.madder, season: "summer", material: "Loopwheel cotton, 240gsm", worn: 32 },
+  { name: "Silk Blouse", zone: "top", dye: DYES.lac, season: "spring", material: "Sandwashed silk", worn: 4 },
+  { name: "Cable Knit", zone: "top", dye: DYES.myrobalan, season: "winter", material: "Lambswool, 5gg", worn: 11 },
+  { name: "Breton Top", zone: "top", dye: DYES.vat, season: "autumn", material: "Combed cotton jersey", worn: 18 },
+  { name: "Overshirt", zone: "top", dye: DYES.indigo, season: "autumn", material: "Japanese selvedge chambray", worn: 16 },
+  { name: "Linen Kurta", zone: "top", dye: DYES.ecru, season: "summer", material: "Handspun Bengal linen", worn: 8 },
+  { name: "Thermal Crew", zone: "top", dye: DYES.pomegranate, season: "winter", material: "Heavyweight thermal cotton", worn: 25 },
+  { name: "Silk Shirt", zone: "top", dye: DYES.turmeric, season: "spring", material: "Matka raw silk", worn: 7 },
+  { name: "Rollneck", zone: "top", dye: DYES.catechu, season: "winter", material: "2-ply Mongolian cashmere", worn: 19 },
+  { name: "Polo Shirt", zone: "top", dye: DYES.verdigris, season: "summer", material: "Open-knit pima cotton", worn: 13 },
+  { name: "Band Collar", zone: "top", dye: DYES.henna, season: "spring", material: "Washed Egyptian cotton", worn: 10 },
 
   // ── outerwear ───────────────────────────────────────────────────────────
-  { name: "Quilted Bomber", zone: "outerwear", dye: DYES.verdigris, season: "autumn", material: "Diamond-quilted nylon", worn: 10 },
-  { name: "Unstructured Linen Blazer", zone: "outerwear", dye: DYES.ecru, season: "spring", material: "Irish linen, unlined", worn: 7 },
-  { name: "Cropped Trench", zone: "outerwear", dye: DYES.turmeric, season: "spring", material: "Waxed cotton gabardine", worn: 5 },
-  { name: "Shearling Chore Coat", zone: "outerwear", dye: DYES.henna, season: "winter", material: "Suede + shearling lining", worn: 13 },
-  { name: "Nehru Collar Jacket", zone: "outerwear", dye: DYES.vat, season: "autumn", material: "Cotton-silk matka", worn: 3 },
+  { name: "Bomber", zone: "outerwear", dye: DYES.verdigris, season: "autumn", material: "Diamond-quilted nylon", worn: 10 },
+  { name: "Linen Blazer", zone: "outerwear", dye: DYES.ecru, season: "spring", material: "Irish linen, unlined", worn: 7 },
+  { name: "Trench Coat", zone: "outerwear", dye: DYES.turmeric, season: "spring", material: "Waxed cotton gabardine", worn: 5 },
+  { name: "Chore Coat", zone: "outerwear", dye: DYES.henna, season: "winter", material: "Suede + shearling lining", worn: 13 },
+  { name: "Nehru Coat", zone: "outerwear", dye: DYES.vat, season: "autumn", material: "Cotton-silk matka", worn: 3 },
+  { name: "Field Jacket", zone: "outerwear", dye: DYES.myrobalan, season: "autumn", material: "8oz British waxed cotton", worn: 22 },
+  { name: "Harrington", zone: "outerwear", dye: DYES.catechu, season: "spring", material: "Goat suede leather", worn: 15 },
+  { name: "Duster Coat", zone: "outerwear", dye: DYES.iron, season: "winter", material: "Double-faced melton wool", worn: 8 },
+  { name: "Noragi", zone: "outerwear", dye: DYES.indigo, season: "yearround", material: "Sashiko stitched cotton", worn: 17 },
+
+  // ── bottoms ─────────────────────────────────────────────────────────────
+  { name: "Pleat Pant", zone: "bottom", dye: DYES.catechu, season: "autumn", material: "Wool-linen twill", worn: 12 },
+  { name: "Raw Denim", zone: "bottom", dye: DYES.indigo, season: "yearround", material: "14oz selvedge, unwashed", worn: 47 },
+  { name: "Linen Short", zone: "bottom", dye: DYES.ecru, season: "summer", material: "Washed linen", worn: 8 },
+  { name: "Midi Skirt", zone: "bottom", dye: DYES.pomegranate, season: "spring", material: "Cupro satin", worn: 6 },
+  { name: "Cargo Pant", zone: "bottom", dye: DYES.myrobalan, season: "yearround", material: "Ripstop cotton", worn: 23 },
+  { name: "Wool Trouser", zone: "bottom", dye: DYES.iron, season: "winter", material: "Super 110s worsted", worn: 15 },
+  { name: "Corduroy", zone: "bottom", dye: DYES.henna, season: "autumn", material: "8-wale cotton corduroy", worn: 18 },
+  { name: "Chino Pant", zone: "bottom", dye: DYES.turmeric, season: "spring", material: "High-density cotton twill", worn: 14 },
+  { name: "Selvedge", zone: "bottom", dye: DYES.vat, season: "yearround", material: "15.5oz dark indigo denim", worn: 39 },
+  { name: "Silk Pant", zone: "bottom", dye: DYES.lac, season: "summer", material: "Washed mulberry silk", worn: 5 },
+  { name: "Fatigue Pant", zone: "bottom", dye: DYES.verdigris, season: "yearround", material: "Reverse sateen cotton", worn: 27 },
+  { name: "Linen Pant", zone: "bottom", dye: DYES.ecru, season: "summer", material: "Belgian linen canvas", worn: 11 },
 
   // ── shoes ───────────────────────────────────────────────────────────────
-  { name: "Leather Derby", zone: "shoes", dye: DYES.catechu, season: "yearround", material: "Vegetable-tanned calf", worn: 29 },
-  { name: "Canvas Low-Top", zone: "shoes", dye: DYES.ecru, season: "summer", material: "Cotton canvas, gum sole", worn: 41 },
-  { name: "Suede Chelsea Boot", zone: "shoes", dye: DYES.iron, season: "winter", material: "Calf suede", worn: 19 },
-  { name: "Woven Slide", zone: "shoes", dye: DYES.henna, season: "summer", material: "Hand-woven leather", worn: 16 },
+  { name: "Derby Shoe", zone: "shoes", dye: DYES.catechu, season: "yearround", material: "Vegetable-tanned calf", worn: 29 },
+  { name: "Low-Top", zone: "shoes", dye: DYES.ecru, season: "summer", material: "Cotton canvas, gum sole", worn: 41 },
+  { name: "Chelsea Boot", zone: "shoes", dye: DYES.iron, season: "winter", material: "Calf suede", worn: 19 },
+  { name: "Slide", zone: "shoes", dye: DYES.henna, season: "summer", material: "Hand-woven leather", worn: 16 },
 
   // ── accessories ─────────────────────────────────────────────────────────
-  { name: "Ajrakh Silk Scarf", zone: "accessory", dye: DYES.madder, season: "yearround", material: "Block-printed mulberry silk", worn: 22 },
-  { name: "Woven Leather Belt", zone: "accessory", dye: DYES.catechu, season: "yearround", material: "Braided bridle leather", worn: 35 },
-  { name: "Wire-Frame Sunglasses", zone: "accessory", dye: DYES.turmeric, season: "summer", material: "Titanium, G15 lens", worn: 26 },
-  { name: "Structured Tote", zone: "accessory", dye: DYES.pomegranate, season: "yearround", material: "Saddle leather", worn: 30 },
+  { name: "Silk Scarf", zone: "accessory", dye: DYES.madder, season: "yearround", material: "Block-printed mulberry silk", worn: 22 },
+  { name: "Leather Belt", zone: "accessory", dye: DYES.catechu, season: "yearround", material: "Braided bridle leather", worn: 35 },
+  { name: "Sunglasses", zone: "accessory", dye: DYES.turmeric, season: "summer", material: "Titanium, G15 lens", worn: 26 },
+  { name: "Tote Bag", zone: "accessory", dye: DYES.pomegranate, season: "yearround", material: "Saddle leather", worn: 30 },
 ];
 
-/**
- * Deterministic photo seeds. Picsum returns the same image for the same seed,
- * so the grid does not reshuffle between renders (which would be maddening).
- */
 const slug = (s: string) =>
   s
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-|-$/g, "");
 
+/**
+ * Still exported for the editorial furniture that wants a photograph rather
+ * than a garment — the grid interstitials. Starter *pieces* are drawn now.
+ */
 export function placeholderPhoto(seed: string, w = 900, h = 1200) {
   return `https://picsum.photos/seed/rangrez-${seed}/${w}/${h}`;
 }
@@ -91,24 +106,26 @@ export function seedCatalog(userId: string): Garment[] {
   const day = 86_400_000;
 
   return ITEMS.map((item, i) => {
-    const seed = slug(item.name);
+    const s = slug(item.name);
+    const photo = SEED_PHOTOS[s];
+    const dye: Dye = photo ? { name: item.dye.name, hex: photo.hex } : item.dye;
+    const imageUrl = photo?.file ?? (s === "pink-shirt" ? "/seed/Pink Shirt.png" : garmentArt(item.name, item.zone, dye));
+
     return {
-      id: `seed-${userId.slice(0, 8)}-${i.toString().padStart(2, "0")}`,
+      id: crypto.randomUUID(),
       userId,
       name: item.name,
       origin: "seed",
       zone: item.zone,
-      dye: item.dye,
+      dye,
       season: item.season,
       material: item.material,
-      seed,
-      imageUrl: placeholderPhoto(seed),
+      seed: s,
+      imageUrl,
       status: "rendered",
-      // Recomputed against the real colour season the moment the avatar's
-      // skin-tone analysis returns — see app/api/avatar/route.ts.
-      inPalette: i % 3 !== 1,
+      inPalette: (i % 3) !== 0,
       wornCount: item.worn,
-      addedAt: new Date(now - (ITEMS.length - i) * day * 3.5).toISOString(),
+      addedAt: new Date(now - (ITEMS.length - i) * day * 2).toISOString(),
     } satisfies Garment;
   });
 }

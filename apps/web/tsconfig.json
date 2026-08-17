@@ -20,7 +20,11 @@
     ],
     "paths": {
       "@/*": ["./*"]
-    }
+    },
+    // lib/garment-cut.ts reaches lib/matte.ts by full path so the seed-photo
+    // script can import the same pipeline under plain node, where extensionless
+    // relative specifiers do not resolve.
+    "allowImportingTsExtensions": true
   },
   "include": [
     "next-env.d.ts",

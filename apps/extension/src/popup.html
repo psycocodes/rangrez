@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      @font-face {
+        font-family: RangrezSerif; font-style: normal; font-weight: 400;
+        src: url("../assets/fonts/instrument-serif-normal.woff2") format("woff2");
+      }
+      @font-face {
+        font-family: RangrezSerif; font-style: italic; font-weight: 400;
+        src: url("../assets/fonts/instrument-serif-italic.woff2") format("woff2");
+      }
+      @font-face {
+        font-family: RangrezMono; font-style: normal; font-weight: 500;
+        src: url("../assets/fonts/jetbrains-mono-500.woff2") format("woff2");
+      }
+
+      :root {
+        /* Same names, the app's neubrutalist values — see panel.js. */
+        --paper: #f4efe6; --paper-3: #e0d6c4;
+        --ink: #12100d; --ink-2: #12100d; --ink-3: #5c574c;
+        --madder: #ff5252; --turmeric: #ffde59; --vat: #12100d;
+        --brut: 4px 4px 0 #12100d;
+        --cloth: cubic-bezier(0.22, 1, 0.36, 1);
+      }
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      body {
+        width: 286px; background: var(--paper); color: var(--ink);
+        font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
+        line-height: 1.45;
+        background-image:
+          repeating-linear-gradient(90deg, rgba(20,18,14,.035) 0 1px, transparent 1px 3px),
+          repeating-linear-gradient(0deg, rgba(20,18,14,.035) 0 1px, transparent 1px 3px);
+      }
+      .spec { font-family: RangrezMono, monospace; font-size: 9.5px; letter-spacing: .2em; text-transform: uppercase; font-weight: 500; line-height: 1; }
+      .spec-sm { font-family: RangrezMono, monospace; font-size: 8.5px; letter-spacing: .24em; text-transform: uppercase; font-weight: 500; line-height: 1; }
+      .display { font-family: RangrezSerif, Georgia, serif; font-size: 27px; line-height: .95; letter-spacing: -.03em; }
+      .display em { font-style: italic; }
+
+      header { display: flex; align-items: center; gap: 8px; padding: 11px 12px; border-bottom: 3px solid var(--ink); background: var(--turmeric); }
+      header svg { width: 13px; height: 13px; }
+      main { padding: 14px 12px 12px; }
+
+      .status { display: flex; align-items: center; gap: 8px; margin-bottom: 13px; }
+      .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--madder); flex: none; }
+      .dot[data-on="1"] { background: var(--turmeric); }
+
+      .plate { position: relative; width: 74px; aspect-ratio: 3/4; overflow: hidden; background: var(--vat); flex: none; }
+      .plate img { width: 100%; height: 100%; object-fit: cover; display: block; }
+      .who { display: flex; gap: 11px; align-items: flex-start; margin-bottom: 14px; }
+      .who p + p { margin-top: 6px; }
+      .name { font-family: RangrezSerif, Georgia, serif; font-size: 17px; letter-spacing: -.02em; line-height: 1.1; }
+
+      .note { font-size: 11px; line-height: 1.55; color: var(--ink-3); }
+
+      .btn {
+        width: 100%; display: flex; align-items: center; justify-content: space-between;
+        gap: 10px; padding: 9px 10px; cursor: pointer; font: inherit;
+        background: var(--ink); color: var(--paper); border: 3px solid var(--ink);
+        border-radius: 8px; box-shadow: var(--brut);
+        position: relative; overflow: hidden; isolation: isolate;
+        transition: color .3s var(--cloth);
+      }
+      .btn::before { content: ""; position: absolute; inset: 0; z-index: -1; background: var(--madder); transform: translateY(101%); transition: transform .42s var(--cloth); }
+      .btn:hover::before { transform: translateY(0); }
+      .btn + .btn { margin-top: 5px; }
+      .btn--ghost { background: transparent; color: var(--ink); }
+      .btn--ghost:hover { color: var(--paper); }
+
+      .rule { border-top: 3px solid var(--ink); margin-top: 13px; padding-top: 11px; }
+      .kv { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
+      .kv + .kv { margin-top: 7px; }
+      .kv span:last-child { color: var(--ink-3); font-family: RangrezMono, monospace; font-size: 9px; letter-spacing: .06em; text-align: right; word-break: break-all; }
+      .flag { border-left: 2px solid var(--turmeric); background: rgba(217,155,33,.14); padding: 7px 9px; font-size: 10.5px; line-height: 1.5; color: var(--ink-2); margin-bottom: 12px; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <svg viewBox="0 0 14 14" fill="none" aria-hidden="true">
+        <path d="M1 3.5h12M1 7h12M1 10.5h12" stroke="currentColor" stroke-width="1" />
+        <path d="M4.5 1v12M9.5 1v12" stroke="currentColor" stroke-width="1" opacity=".45" />
+        <circle cx="7" cy="7" r="2.1" fill="currentColor" />
+      </svg>
+      <span class="spec">Rangrez</span>
+      <span class="spec-sm" style="margin-left: auto; color: var(--ink-3)">v0.1</span>
+    </header>
+
+    <main id="view"></main>
+
+    <script type="module" src="popup.js"></script>
+  </body>
+</html>

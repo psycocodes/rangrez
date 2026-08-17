@@ -39,7 +39,21 @@ export async function storeUpload(file: File): Promise<StoredFile> {
     throw new Error("That image is over 12 MB — shrink it and try again.");
   }
 
-  const bytes = Buffer.from(await file.arrayBuffer());
+  return storeBytes(Buffer.from(await file.arrayBuffer()), contentType);
+}
+
+/**
+ * The same thing for bytes we already hold — a finished VTO render being
+ * copied onto our own origin, rather than a file the user chose.
+ *
+ * Callers that already validated the type get it back unchecked; an unknown
+ * content type lands as a .jpg, which is what every one of these actually is.
+ */
+export async function storeBytes(
+  bytes: Buffer,
+  contentType: string,
+): Promise<StoredFile> {
+  const ext = EXT[contentType] ?? "jpg";
   const name = `${randomUUID()}.${ext}`;
 
   await fs.mkdir(DIR, { recursive: true });

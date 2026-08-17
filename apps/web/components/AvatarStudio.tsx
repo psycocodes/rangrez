@@ -5,7 +5,14 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { PaletteStrip } from "./PaletteStrip";
-import type { Avatar } from "@/lib/types";
+import { guessFraming } from "@/lib/avatar-framing";
+import { cutout } from "@/lib/cutout";
+import {
+  FRAMING,
+  MAX_AVATARS,
+  type Avatar,
+  type AvatarFraming,
+} from "@/lib/types";
 
 type Phase = "idle" | "chosen" | "working" | "done" | "error";
 
@@ -18,22 +25,45 @@ const STEPS = [
 ] as const;
 
 export function AvatarStudio({
-  existing,
+  avatars,
+  replacing,
+  userName,
+  full,
   mocked,
 }: {
-  existing?: Avatar;
+  avatars: Avatar[];
+  /** Set when re-shooting an existing plate rather than adding one. */
+  replacing?: Avatar;
+  userName: string;
+  /** All MAX_AVATARS slots are taken and this isn't a re-shoot. */
+  full: boolean;
   mocked: boolean;
 }) {
   const router = useRouter();
   const input = useRef<HTMLInputElement>(null);
 
+  const slot = replacing
+    ? avatars.findIndex((a) => a.id === replacing.id) + 1
+    : avatars.length + 1;
+
   const [phase, setPhase] = useState<Phase>("idle");
   const [preview, setPreview] = useState<string | null>(null);
   const [file, setFile] = useState<File | null>(null);
+  const [label, setLabel] = useState(
+    replacing?.customization.label ??
+      (avatars.length === 0
+        ? userName
+        : `Plate ${String(slot).padStart(2, "0")}`),
+  );
   const [step, setStep] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<Avatar | null>(null);
   const [dragging, setDragging] = useState(false);
+  const [framing, setFraming] = useState<AvatarFraming>(
+    replacing?.framing ?? "full",
+  );
+  /** Whether the framing on screen is our guess or the user's own choice. */
+  const [framingGuessed, setFramingGuessed] = useState(false);
 
   // Object URLs leak if you don't revoke them.
   useEffect(() => {
@@ -68,6 +98,19 @@ export function AvatarStudio({
         return URL.createObjectURL(f);
       });
       setPhase("chosen");
+
+      // Read the framing off the photograph so the question below it arrives
+      // already answered. It is only ever a default — the control stays live.
+      void guessFraming(f)
+        .then((guess) => {
+          setFraming(guess.framing);
+          setFramingGuessed(true);
+        })
+        .catch(() => {
+          // A photo we can't read is not a reason to block the upload; the
+          // user answers the question themselves.
+          setFramingGuessed(false);
+        });
     },
     [],
   );
@@ -80,6 +123,27 @@ export function AvatarStudio({
 
     const body = new FormData();
     body.append("photo", file);
+    body.append("label", label.trim());
+    body.append("framing", framing);
+    if (replacing) body.append("replace", replacing.id);
+
+    // Cut the figure out of its backdrop, here, before anything is sent.
+    //
+    // Presentation only — YouCam gets the untouched photograph, because a
+    // matte that clipped a shoulder is a matte it would fit a jacket to. This
+    // is what lets the look creator stand you *in* its gradient instead of on
+    // a rectangle of your hallway, and a photograph too busy to matte simply
+    // doesn't send one: `confident` is false, nothing is attached, and every
+    // surface falls back to the plate.
+    try {
+      const matte = await cutout(file, { square: false, pad: 0.02, maxSize: 1400 });
+      if (matte.confident) {
+        body.append("cutout", matte.blob, "cutout.png");
+      }
+      URL.revokeObjectURL(matte.previewUrl);
+    } catch (err) {
+      console.warn("[atelier] couldn't matte the plate:", err);
+    }
 
     try {
       const res = await fetch("/api/avatar", { method: "POST", body });
@@ -107,26 +171,57 @@ export function AvatarStudio({
     setPreview(null);
   }
 
-  const shown = preview ?? existing?.renderUrl ?? null;
+  const shown = preview ?? replacing?.renderUrl ?? null;
 
   return (
     <div className="grid gap-10 lg:grid-cols-[1fr_1.05fr] lg:gap-16">
       {/* ── left: the brief ─────────────────────────────────────────────── */}
       <div>
         <p className="spec mb-6 text-madder">
-          {existing ? "Re-shoot" : "One photograph, once"}
+          {replacing
+            ? `Re-shooting ${replacing.customization.label}`
+            : avatars.length === 0
+              ? "One photograph, once"
+              : `Plate ${String(slot).padStart(2, "0")} of ${MAX_AVATARS}`}
         </p>
         <h1 className="display display-lg">
           Give us
           <br />
-          <span className="aside">a body.</span>
+          <span className="aside">
+            {avatars.length === 0 || replacing ? "a body." : "another."}
+          </span>
         </h1>
         <p className="mt-7 max-w-[46ch] text-[0.98rem] leading-relaxed text-ink-2">
-          This is the only photo Rangrez needs. Every garment you ever catalogue
-          or try on gets composited onto it — so the shirt from your closet and
-          the coat from a shop page hang on the same shoulders. Get this one
-          right and you never think about it again.
+          {avatars.length === 0 ? (
+            <>
+              This is the only photo Rangrez needs. Every garment you ever
+              catalogue or try on gets composited onto it — so the shirt from
+              your closet and the coat from a shop page hang on the same
+              shoulders. Get this one right and you never think about it again.
+            </>
+          ) : (
+            <>
+              A second body is for a different context, not a better photograph
+              — a full length next to a studio crop, or the light you actually
+              dress in. Keep up to {MAX_AVATARS}; whichever is in use is what the
+              wardrobe renders against.
+            </>
+          )}
         </p>
+
+        {full && (
+          <p className="mt-6 border-l-2 border-madder bg-madder/8 py-2.5 pl-3 text-[0.85rem] leading-relaxed text-ink-2">
+            <span className="spec-sm mr-2 text-madder">SHELF FULL</span>
+            All {MAX_AVATARS} plates are taken. Retire one in{" "}
+            <a
+              href="/profile"
+              className="text-ink underline decoration-madder underline-offset-4"
+            >
+              your profile
+            </a>
+            , or re-shoot a plate you already have.
+          </p>
+        )}
 
         <div className="mt-10 border-t-2 border-ink">
           {[
@@ -166,7 +261,8 @@ export function AvatarStudio({
       <div className="lg:sticky lg:top-28 lg:self-start">
         <div className="mb-3 flex items-baseline justify-between">
           <span className="spec-sm text-ink-3">
-            {phase === "done" ? "PLATE 01 · SET" : "PLATE 01 · UNSET"}
+            PLATE {String(slot).padStart(2, "0")} ·{" "}
+            {phase === "done" ? "SET" : replacing ? "RE-SHOOT" : "UNSET"}
           </span>
           <span className="spec-sm text-ink-3">3 : 4</span>
         </div>
@@ -265,6 +361,80 @@ export function AvatarStudio({
 
         {/* ── the actions under the plate ──────────────────────────────── */}
         <div className="mt-5">
+          {/* Only asked for once a shelf exists — naming your one and only
+              plate is a question with no purpose. */}
+          {(avatars.length > 0 || replacing) && phase !== "done" && (
+            <label className="mb-5 block">
+              <span className="spec-sm mb-2.5 block text-ink-3">
+                CALL THIS PLATE
+              </span>
+              <input
+                value={label}
+                onChange={(e) => setLabel(e.target.value)}
+                maxLength={40}
+                placeholder="Studio, full length, summer…"
+                className="field"
+              />
+              <span className="mt-2 block text-[0.78rem] leading-relaxed text-ink-3">
+                This is the name the browser extension offers when it asks which
+                body to render on.
+              </span>
+            </label>
+          )}
+
+          {/* Asked as soon as there is a photograph to ask about, and before
+              the render — this decides what the look creator will let them
+              build, so it must not be a thing they discover afterwards. */}
+          {phase !== "done" && (file || replacing) && (
+            <fieldset className="mb-5">
+              <legend className="spec-sm mb-2.5 text-ink-3">
+                HOW MUCH OF YOU IS IN SHOT
+              </legend>
+
+              <div className="flex flex-col gap-px bg-ink/15">
+                {(Object.keys(FRAMING) as AvatarFraming[]).map((key) => (
+                  <label
+                    key={key}
+                    className="flex cursor-pointer items-start gap-3 bg-paper p-3 transition-colors duration-300 hover:bg-paper-2 has-checked:bg-ink has-checked:text-paper"
+                  >
+                    <input
+                      type="radio"
+                      name="framing"
+                      value={key}
+                      checked={framing === key}
+                      onChange={() => {
+                        setFraming(key);
+                        setFramingGuessed(false);
+                      }}
+                      className="mt-0.5 h-3.5 w-3.5 shrink-0 accent-madder"
+                    />
+                    <span className="min-w-0">
+                      <span className="spec block">{FRAMING[key].label}</span>
+                      <span className="mt-1.5 block text-[0.78rem] leading-relaxed opacity-70">
+                        {FRAMING[key].note}
+                      </span>
+                    </span>
+                  </label>
+                ))}
+              </div>
+
+              <p className="mt-2.5 max-w-[46ch] text-[0.78rem] leading-relaxed text-ink-3">
+                {framingGuessed ? (
+                  <>
+                    <span className="spec-sm mr-2 text-madder">READ FROM YOUR PHOTO</span>
+                    Measured off the size of your head in the frame. Change it if
+                    that&apos;s wrong.
+                  </>
+                ) : (
+                  <>
+                    A try-on can only dress what the camera can see. Trousers on a
+                    head-and-shoulders plate spend a render to produce a guess.
+                  </>
+                )}
+              </p>
+            </fieldset>
+          )}
+
           {error && (
             <p
               role="alert"
@@ -284,15 +454,19 @@ export function AvatarStudio({
                 </p>
                 {result.colorSeason && <PaletteStrip season={result.colorSeason} />}
               </div>
+              <p className="mt-5 text-[0.85rem] leading-relaxed text-ink-2">
+                <b className="tight">{result.customization.label}</b> is now the
+                plate in use. Everything you try on from here lands on this body.
+              </p>
               <div className="mt-6 flex flex-wrap gap-2.5">
                 <a href="/wardrobe" className="btn">
                   <span className="spec">Open the wardrobe</span>
                   <span aria-hidden className="spec">→</span>
                 </a>
-                <button type="button" onClick={reset} className="btn btn-ghost">
-                  <span className="spec">Shoot another</span>
-                  <span aria-hidden className="spec">↺</span>
-                </button>
+                <a href="/profile" className="btn btn-ghost">
+                  <span className="spec">Manage plates</span>
+                  <span aria-hidden className="spec">◐</span>
+                </a>
               </div>
             </div>
           ) : (
@@ -300,11 +474,17 @@ export function AvatarStudio({
               <button
                 type="button"
                 onClick={submit}
-                disabled={!file || phase === "working"}
+                disabled={!file || phase === "working" || full}
                 className="btn"
               >
                 <span className="spec">
-                  {phase === "working" ? "In the vat" : "Make my avatar"}
+                  {phase === "working"
+                    ? "In the vat"
+                    : replacing
+                      ? "Replace this plate"
+                      : avatars.length === 0
+                        ? "Make my avatar"
+                        : "Add this plate"}
                 </span>
                 <span aria-hidden className="spec">
                   {phase === "working" ? "···" : "→"}
@@ -316,7 +496,7 @@ export function AvatarStudio({
                   <span aria-hidden className="spec">×</span>
                 </button>
               )}
-              {!file && existing && (
+              {!file && avatars.length > 0 && (
                 <a href="/wardrobe" className="btn btn-ghost">
                   <span className="spec">Keep the current plate</span>
                   <span aria-hidden className="spec">→</span>
