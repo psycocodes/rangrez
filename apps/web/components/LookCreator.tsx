@@ -346,18 +346,6 @@ export function LookCreator({
         </div>
       </div>
 
-<<<<<<< HEAD
-      {/* ── the way back to the wardrobe ──────────────────────────────────
-          Embedded, it slides the track. Standalone at /look there is no track
-          to slide, so the same tab is a link to the page. */}
-      <RoomTab
-        side="right"
-        tone="brass"
-        label="Wardrobe"
-        title={onBackToWardrobe ? "Slide back to the wardrobe" : "Go to the wardrobe"}
-        {...(onBackToWardrobe ? { onClick: onBackToWardrobe } : { href: "/wardrobe" })}
-      />
-=======
       {/* ── Main Stage: 3-Panel Split ── */}
       <div className="relative z-10 flex flex-1 min-h-0 items-center justify-between px-3 sm:px-6 gap-3 sm:gap-6">
         {/* ── Left Deck: Wishlist / Online Shops ── */}
