@@ -1,9 +1,9 @@
 # Rangrez
 
-**One body. Every garment you own, rendered on it — and everything you're about
+**One body. Every garment you own, rendered on it and everything you're about
 to buy, on the same body, before you buy it.**
 
-Rangrez — *रंगरेज़*, the dyer of cloth — is a wardrobe that knows what you own and
+Rangrez — *रंगरेज़*, the dyer of cloth, is a wardrobe that knows what you own and
 a fitting room that follows you onto every shop page on the internet.
 
 Built by **Gantavya Rohilla** and **Mohikshit Ghorai**.
