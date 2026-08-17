@@ -42,12 +42,20 @@ export const SLOTS: Slot[] = [
     order: 0,
   },
   {
+    id: "layer",
+    label: "Layer",
+    hint: "Jacket, coat, overshirt",
+    target: "upper_body",
+    zones: ["outerwear"],
+    order: 1,
+  },
+  {
     id: "bottom",
     label: "Bottom",
     hint: "Trousers, skirt",
     target: "lower_body",
     zones: ["bottom"],
-    order: 1,
+    order: 2,
   },
   {
     id: "shoes",
@@ -55,16 +63,15 @@ export const SLOTS: Slot[] = [
     hint: "Anything with a sole",
     target: "shoes",
     zones: ["shoes"],
-    order: 2,
+    order: 3,
   },
   {
-    id: "layer",
-    label: "Layer",
-    hint: "Jacket, coat, overshirt",
+    id: "accessory",
+    label: "Acc",
+    hint: "Bag, watch, cap",
     target: "upper_body",
-    zones: ["outerwear"],
-    // Last on purpose: it is worn over everything chosen above it.
-    order: 3,
+    zones: ["accessory"],
+    order: 4,
   },
 ];
 

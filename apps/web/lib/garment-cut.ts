@@ -139,7 +139,7 @@ export async function flattenForVto(image: {
   }
 }
 
-export type OutfitSlot = "torso" | "layer" | "bottom" | "shoes";
+export type OutfitSlot = "torso" | "layer" | "bottom" | "shoes" | "accessory";
 
 export interface OutfitPiece {
   slot: OutfitSlot;
@@ -184,19 +184,6 @@ export async function outfitReference(
   const W = 900;
   const H = 1400;
 
-  // Where each garment sits on the sheet, as fractions of the canvas. Read
-  // top to bottom, these are the proportions of a dressed body — which is
-  // what makes the sheet legible to a model trained on dressed bodies.
-  //
-  // The layer is laid *across* the top rather than squarely on it — smaller,
-  // lower, and pushed to one side, the way a catalogue lays a jacket over the
-  // shirt it is sold with. Centred and similarly sized it hides the shirt
-  // completely, which is what "the blue tee still isn't there" looked like:
-  // a closed biker jacket is opaque and there is nothing to see through.
-  //
-  // Offset, the shirt keeps a shoulder, a sleeve and its hem, and the sheet
-  // reads unambiguously as two garments worn together rather than one garment
-  // photographed twice.
   const PLACE: Record<
     OutfitSlot,
     { w: number; h: number; top: number; left?: number }
@@ -205,10 +192,10 @@ export async function outfitReference(
     layer: { w: 0.6, h: 0.3, top: 0.09, left: 0.09 },
     bottom: { w: 0.52, h: 0.44, top: 0.46 },
     shoes: { w: 0.4, h: 0.15, top: 0.85 },
+    accessory: { w: 0.3, h: 0.22, top: 0.28, left: 0.34 },
   };
-  // Drawing order, not body order: the layer goes on last so it lies over the
-  // top rather than under it.
-  const ORDER: OutfitSlot[] = ["torso", "bottom", "shoes", "layer"];
+  // Drawing order, not body order: the layer and accessory go on last
+  const ORDER: OutfitSlot[] = ["torso", "bottom", "shoes", "layer", "accessory"];
 
   const laid = await Promise.all(
     ORDER.filter((slot) => pieces.some((p) => p.slot === slot)).map(async (slot) => {

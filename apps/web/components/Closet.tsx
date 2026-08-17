@@ -494,7 +494,7 @@ function ShelfHandle({
           ▲
         </span>
         <span className="font-black text-[0.82rem] tracking-widest uppercase">
-          {open ? "CLOSE SHOE DRAWER" : "DRAG / PULL SHOES"}
+          {open ? "CLOSE SHOE DRAWER" : "OPEN DRAWER"}
         </span>
         <span className="border-2 border-[#12100d] bg-white px-2 py-0.5 font-mono text-[0.68rem] font-black text-[#12100d]">
           {String(count).padStart(2, "0")}
