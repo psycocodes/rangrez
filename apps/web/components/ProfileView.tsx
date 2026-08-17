@@ -132,7 +132,7 @@ export function ProfileView({
                   fill
                   priority
                   className="object-cover"
-                  unoptimized={displayProfilePhoto.startsWith("https://unavatar.io") || displayProfilePhoto.includes("googleusercontent")}
+                  unoptimized={displayProfilePhoto.startsWith("https://unavatar.io") || displayProfilePhoto.includes("googleusercontent") || displayProfilePhoto.includes("dicebear.com")}
                 />
               </div>
 

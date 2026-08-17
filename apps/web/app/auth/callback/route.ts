@@ -43,6 +43,17 @@ export async function GET(req: Request) {
 
   const meta = data.user.user_metadata ?? {};
   const googlePhoto = extractGooglePhoto(data.user);
+
+  console.log("[auth/callback] user id:", data.user.id);
+  console.log("[auth/callback] email:", data.user.email);
+  console.log("[auth/callback] user_metadata:", JSON.stringify(meta));
+  console.log("[auth/callback] identities:", JSON.stringify(data.user.identities?.map(i => ({
+    provider: i.provider,
+    avatar_url: i.identity_data?.avatar_url,
+    picture: i.identity_data?.picture,
+  }))));
+  console.log("[auth/callback] extractGooglePhoto result:", googlePhoto);
+
   let profile;
   try {
     profile = await ensureProfile({
@@ -57,10 +68,7 @@ export async function GET(req: Request) {
     });
   } catch (err) {
     console.error("[auth/callback] profile failed:", err);
-    return NextResponse.redirect(new URL("/setup", url.origin));
   }
 
-  return NextResponse.redirect(
-    new URL(landingFor(profile), url.origin),
-  );
+  return NextResponse.redirect(new URL("/avatar", url.origin));
 }

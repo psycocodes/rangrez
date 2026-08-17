@@ -1,10 +1,25 @@
 import type { Avatar, User } from "./types";
 
+/** Helper to resolve Google / OAuth photo URL from user object or email. */
+export function resolveGooglePhotoUrl(user: { email?: string; googlePhotoUrl?: string }): string | undefined {
+  if (user.googlePhotoUrl && isValidPhotoUrl(user.googlePhotoUrl)) {
+    return user.googlePhotoUrl;
+  }
+  if (user.email && typeof user.email === "string" && user.email.includes("@")) {
+    const clean = user.email.trim().toLowerCase();
+    if (clean.endsWith("@gmail.com") || clean.endsWith(".google.com")) {
+      return `https://unavatar.io/google/${encodeURIComponent(clean)}`;
+    }
+    return `https://unavatar.io/${encodeURIComponent(clean)}`;
+  }
+  return undefined;
+}
+
 /**
  * Which face to show for a person, and in what order to prefer them.
  *
  * 1. A photo the user explicitly uploaded/set if they turned off Google photo
- * 2. The user's real Google profile photo (from OAuth session or user metadata)
+ * 2. The user's real Google profile photo (from OAuth session, metadata, or email)
  * 3. A stored custom photo
  * 4. The user's active avatar plate photo (their actual body/face photo uploaded)
  * 5. A clean styled illustration fallback
@@ -19,13 +34,14 @@ export function profilePhoto(user: {
   avatars?: Avatar[];
 }): string {
   const wantsGoogle = user.useGooglePhoto ?? true;
+  const gPhoto = resolveGooglePhotoUrl(user);
 
   // 1. Real Google photo if available and user wants it
-  if (wantsGoogle && user.googlePhotoUrl && isRealPhotoUrl(user.googlePhotoUrl)) {
-    return user.googlePhotoUrl;
+  if (wantsGoogle && gPhoto) {
+    return gPhoto;
   }
 
-  // 2. Custom profile photo
+  // 2. Custom profile photo (exclude unavatar.io — those are generated/external)
   if (user.profilePhotoUrl && isRealPhotoUrl(user.profilePhotoUrl)) {
     return user.profilePhotoUrl;
   }
@@ -40,13 +56,14 @@ export function profilePhoto(user: {
   }
 
   // 4. Any google photo URL
-  if (user.googlePhotoUrl && isRealPhotoUrl(user.googlePhotoUrl)) {
-    return user.googlePhotoUrl;
+  if (gPhoto) {
+    return gPhoto;
   }
 
   return generatedPhoto(user.name);
 }
 
+/** Whether a URL points at a real photograph (excludes unavatar.io). */
 function isRealPhotoUrl(url?: string): boolean {
   if (!url || typeof url !== "string") return false;
   if (!url.startsWith("http://") && !url.startsWith("https://") && !url.startsWith("/")) return false;
@@ -54,9 +71,16 @@ function isRealPhotoUrl(url?: string): boolean {
   return true;
 }
 
+/** Whether a URL is a valid photo source (allows unavatar.io as a resolver). */
+function isValidPhotoUrl(url?: string): boolean {
+  if (!url || typeof url !== "string") return false;
+  if (!url.startsWith("http://") && !url.startsWith("https://") && !url.startsWith("/")) return false;
+  return true;
+}
+
 /** Whether there is a real Google picture to offer, rather than a drawing. */
-export function hasGooglePhoto(user: { googlePhotoUrl?: string }): boolean {
-  return Boolean(user.googlePhotoUrl && isRealPhotoUrl(user.googlePhotoUrl));
+export function hasGooglePhoto(user: { email?: string; googlePhotoUrl?: string }): boolean {
+  return Boolean(resolveGooglePhotoUrl(user));
 }
 
 /**
