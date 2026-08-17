@@ -59,38 +59,22 @@ export function Landing() {
 
   return (
     <main
-      className="relative min-h-dvh overflow-hidden bg-[#f0ede5]"
+      className="relative overflow-x-hidden bg-white"
       style={{
-        /* How much of the window one canvas pixel occupies — the *smaller* of
-           what the width allows and what the height allows, so the poster is
-           never taller than the screen it is on. Fitting width alone made a
-           1440-wide window 1778 tall, which is a landing page you have to
-           scroll to see, and a collage only reads whole.
-           The height is measured against CONTENT rather than the frame: the
-           last 284px of the frame is an empty band, and paying for it in the
-           fit would shrink everything that matters to make room for nothing.
-           The `px` on each divisor is load-bearing — length ÷ length is a
-           *number*, which is what `scale()` takes, whereas `100vw / 1440` is a
-           length and `scale()` rejects it, silently leaving the canvas at 1:1. */
-        ["--s" as string]: `min(calc(100vw / ${W}px), calc(100dvh / ${CONTENT_H}px))`,
-        height: `max(100dvh, calc(${H}px * var(--s)))`,
+        /* Fit the WIDTH, and let the page scroll. Fitting the height as well
+           made the whole poster shrink to whatever the shortest window could
+           hold, which is legible but tiny — the collage is meant to be walked
+           down, not squinted at. The `px` on the divisor is load-bearing:
+           length ÷ length is a *number*, which is what `scale()` takes,
+           whereas `100vw / 1440` is a length and `scale()` rejects it
+           outright, silently leaving the canvas at 1:1. */
+        ["--s" as string]: `calc(100vw / ${W}px)`,
+        height: `calc(${H}px * var(--s))`,
       }}
     >
-      {/* Centred rather than pinned left: once the height is the constraint
-          there is width to spare, and a poster floating against one edge reads
-          as a mistake. `transform-origin: top center` is what keeps it centred
-          as it scales — translating by a percentage would use the *unscaled*
-          width and drift. */}
       <div
-        className="absolute top-0"
-        style={{
-          width: W,
-          height: H,
-          left: "50%",
-          marginLeft: -W / 2,
-          transformOrigin: "top center",
-          transform: "scale(var(--s))",
-        }}
+        className="absolute left-0 top-0 origin-top-left"
+        style={{ width: W, height: H, transform: "scale(var(--s))" }}
       >
         {/* ── the ground ──────────────────────────────────────────────────
             One image, laid twice and turned on its side, exactly as drawn. */}
@@ -108,7 +92,47 @@ export function Landing() {
             </div>
           </div>
         </div>
-        <div className="absolute left-0 top-[1494px] h-[284px] w-[1440px] bg-[#f0ede5]" />
+        {/* ── the foot ────────────────────────────────────────────────────
+            The frame ends on 284px of empty #f0ede5. The footer goes there
+            rather than below the canvas, so it scales with everything else and
+            the page still ends exactly where the design says it does. */}
+        <footer className="absolute left-0 top-[1494px] h-[284px] w-[1440px] bg-[#f0ede5]">
+          <div className="absolute inset-x-[77px] top-0 h-[3px] bg-black" />
+
+          <div className="absolute left-[77px] top-[46px]">
+            <p className="instrument text-[64px] italic leading-none text-[#12197e]">rangrez</p>
+            <p className="clash mt-[10px] text-[15px] tracking-[1.2px] text-black/55">
+              THE STYLIST EVERYONE NEEDS
+            </p>
+          </div>
+
+          <nav className="absolute right-[77px] top-[52px] flex gap-[54px]" aria-label="Footer">
+            <FootCol
+              head="START"
+              links={[
+                { label: "Start styling", href: "/auth" },
+                { label: "Sign in", href: "/auth" },
+              ]}
+            />
+            <FootCol
+              head="THE APP"
+              links={[
+                { label: "Your wardrobe", href: "/wardrobe" },
+                { label: "Trial room", href: "/look" },
+                { label: "Extension", href: "/connect" },
+              ]}
+            />
+          </nav>
+
+          <div className="absolute inset-x-[77px] bottom-[38px] flex items-end justify-between">
+            <p className="clash text-[14px] tracking-[1.1px] text-black/45">
+              © {new Date().getFullYear()} RANGREZ — RANGREZ WASNT BUILT IN A DAY
+            </p>
+            <p className="clash text-[14px] tracking-[1.1px] text-black/45">
+              GANTAVYA ROHILLA &nbsp;·&nbsp; MOHIKSHIT GHORAI
+            </p>
+          </div>
+        </footer>
 
         {/* ── see it in action ───────────────────────────────────────────── */}
         <Rot left={74} top={63} w={302.623} h={59.643} deg={-4.99}>
@@ -191,8 +215,12 @@ export function Landing() {
         </Rot>
 
         {/* ── start styling ──────────────────────────────────────────────── */}
+        {/* `/auth` rather than `/enter`: /enter is now nothing but a redirect
+            to it, and sending the front door's one call-to-action through a
+            hop costs a round trip for no reason. From there the flow is
+            auth → verify → onboarding → the wardrobe. */}
         <Link
-          href="/enter"
+          href="/auth"
           className="group absolute left-[784px] top-[433px] flex h-[108.721px] w-[559.977px] items-center justify-center"
           aria-label="Start styling — sign in"
         >
@@ -602,5 +630,32 @@ function Member({
         </div>
       </Rot>
     </>
+  );
+}
+
+/** One column of footer links, under a spec-line heading. */
+function FootCol({
+  head,
+  links,
+}: {
+  head: string;
+  links: Array<{ label: string; href: string }>;
+}) {
+  return (
+    <div>
+      <p className="clash text-[13px] tracking-[1.6px] text-black/40">{head}</p>
+      <ul className="mt-[14px] space-y-[9px]">
+        {links.map((l) => (
+          <li key={l.label + l.href}>
+            <Link
+              href={l.href}
+              className="clash text-[17px] text-black underline-offset-[5px] transition-colors hover:text-[#12197e] hover:underline"
+            >
+              {l.label}
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
