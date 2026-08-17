@@ -48,15 +48,16 @@ import type { Garment, Zone } from "@/lib/types";
  * ═══════════════════════════════════════════════════════════════════════════
  */
 
-/** How far a garment may be pulled off the hook before it refuses. */
-const PULL = 46;
+/** How far a garment may be pulled off the hook before it resists. */
+const PULL = 70;
 /** Degrees of tilt at full rail velocity. */
-const MAX_SWING = 13;
-/** Rail velocity that counts as "full". Measured, not guessed — a hard flick
- *  on a trackpad peaks around 2500px/s. */
-const FULL_TILT_VELOCITY = 2200;
+const MAX_SWING = 20;
+/** Rail velocity that counts as "full" (px/s). */
+const FULL_TILT_VELOCITY = 1800;
 
-const SWING_SPRING = { stiffness: 90, damping: 11, mass: 0.9 } as const;
+// High-fidelity spring for pure hanger hook pendulum oscillation
+const PENDULUM_SPRING = { stiffness: 95, damping: 10, mass: 0.85 } as const;
+const TILT_SPRING = { stiffness: 220, damping: 28, mass: 0.8 } as const;
 
 export interface Rack {
   id: string;
@@ -83,7 +84,7 @@ export function Closet({
   const spare = garments.filter((g) => g.zone === "accessory");
 
   return (
-    <div className="relative flex min-h-0 flex-1 flex-col">
+    <div className="relative flex min-h-0 flex-1 flex-col select-none">
       {RACKS.map((rack, i) => {
         const items = garments.filter((g) => rack.zones.includes(g.zone));
         return (
@@ -132,18 +133,19 @@ function Rail({
   onOpen?: (garment: Garment) => void;
 }) {
   const scroller = useRef<HTMLDivElement>(null);
+  const [hoveredId, setHoveredId] = useState<string | null>(null);
 
   /**
    * Rail velocity, in px/s, as a motion value the hanging cards read.
-   *
-   * Measured off real scroll events rather than motion's `useVelocity`,
-   * because the scroll here is the browser's and not a motion value — which
-   * is the point: we get the platform's momentum and still get to watch it.
    */
   const velocity = useMotionValue(0);
-  const swing = useSpring(velocity, SWING_SPRING);
+  const swing = useSpring(velocity, PENDULUM_SPRING);
   const last = useRef({ x: 0, t: 0 });
   const settle = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const isDraggingRail = useRef(false);
+  const dragStartX = useRef(0);
+  const scrollStartX = useRef(0);
 
   const onScroll = useCallback(() => {
     const node = scroller.current;
@@ -156,10 +158,9 @@ function Rail({
       velocity.set(Math.max(-1, Math.min(1, (dx / dt) * 1000 / FULL_TILT_VELOCITY)));
       last.current = { x: node.scrollLeft, t: now };
     }
-    // Scroll events stop firing when the rail stops, and the last one we saw
-    // was at full speed — without this the rack would hang tilted forever.
+    // Settle back to upright
     if (settle.current) clearTimeout(settle.current);
-    settle.current = setTimeout(() => velocity.set(0), 90);
+    settle.current = setTimeout(() => velocity.set(0), 80);
   }, [velocity]);
 
   useEffect(() => {
@@ -172,15 +173,37 @@ function Rail({
   const onWheel = useCallback((e: React.WheelEvent) => {
     const node = scroller.current;
     if (!node) return;
-    if (Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return; // already horizontal
-    node.scrollLeft += e.deltaY;
+    if (Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return;
+    node.scrollLeft += e.deltaY * 0.9;
   }, []);
 
   const nudge = (dir: 1 | -1) => {
     const node = scroller.current;
     if (!node) return;
-    node.scrollBy({ left: dir * node.clientWidth * 0.7, behavior: "smooth" });
+    node.scrollBy({ left: dir * 260, behavior: "smooth" });
   };
+
+  // Rail background pan support
+  const handlePointerDown = (e: React.PointerEvent) => {
+    if ((e.target as HTMLElement).closest('[role="listitem"]')) return;
+    isDraggingRail.current = true;
+    dragStartX.current = e.clientX;
+    if (scroller.current) {
+      scrollStartX.current = scroller.current.scrollLeft;
+    }
+  };
+
+  const handlePointerMove = (e: React.PointerEvent) => {
+    if (!isDraggingRail.current || !scroller.current) return;
+    const dx = e.clientX - dragStartX.current;
+    scroller.current.scrollLeft = scrollStartX.current - dx;
+  };
+
+  const handlePointerUp = () => {
+    isDraggingRail.current = false;
+  };
+
+  const hoveredIndex = garments.findIndex((g) => g.id === hoveredId);
 
   return (
     <section
@@ -188,19 +211,24 @@ function Rail({
       style={{ flex: `${grow} 1 0%` }}
       aria-label={rack.label}
     >
-      {/* ── the rod ───────────────────────────────────────────────────── */}
-      <div className="relative z-[2] shrink-0 px-4 pt-3 lg:px-8">
-        <div className="mb-2 flex items-baseline justify-between gap-4">
+      {/* ── header label ─────────────────────────────────────────────────── */}
+      <div className="relative z-[2] shrink-0 px-4 pt-3 pb-1 lg:px-8">
+        <div className="flex items-baseline justify-between gap-4">
           <span className="spec text-abyss/75">{rack.label}</span>
           <span className="spec-sm text-abyss/40">
             {String(garments.length).padStart(2, "0")} HANGING
           </span>
         </div>
-        <div className="rod h-[7px] w-full rounded-full" />
       </div>
 
-      {/* ── the rail ──────────────────────────────────────────────────── */}
-      <div className="relative min-h-0 flex-1">
+      {/* ── the rail with continuous rod ───────────────────────────────── */}
+      <div className="relative min-h-0 flex-1 overflow-hidden">
+        {/* Continuous brass rod running across the entire rail viewport */}
+        <div
+          aria-hidden
+          className="rod pointer-events-none absolute inset-x-0 top-[3px] z-[3] h-[7px]"
+        />
+
         {garments.length === 0 ? (
           <p className="aside flex h-full items-center justify-center text-[1.1rem] text-abyss/35">
             This rail is empty.
@@ -211,11 +239,25 @@ function Rail({
               ref={scroller}
               onScroll={onScroll}
               onWheel={onWheel}
+              onPointerDown={handlePointerDown}
+              onPointerMove={handlePointerMove}
+              onPointerUp={handlePointerUp}
+              onPointerLeave={() => {
+                handlePointerUp();
+                setHoveredId(null);
+              }}
               tabIndex={0}
               role="list"
               aria-label={`${rack.label} rail`}
-              className="no-scrollbar -mt-[18px] flex h-[calc(100%+18px)] items-start gap-4 overflow-x-auto overflow-y-hidden px-4 focus-visible:outline-none lg:gap-6 lg:px-8"
-              style={{ scrollbarWidth: "none" }}
+              className="no-scrollbar flex h-full items-start overflow-x-auto overflow-y-hidden px-6 pt-0 focus-visible:outline-none lg:px-10"
+              style={{
+                scrollbarWidth: "none",
+                scrollSnapType: "x proximity",
+                scrollPaddingLeft: "2.5rem",
+                scrollPaddingRight: "2.5rem",
+                perspective: 1200,
+                transformStyle: "preserve-3d",
+              }}
             >
               {garments.map((g, i) => (
                 <Hanging
@@ -223,12 +265,15 @@ function Rail({
                   garment={g}
                   swing={swing}
                   index={i}
+                  isHovered={hoveredId === g.id}
+                  isAnyHovered={hoveredId !== null}
+                  relativeIndex={hoveredIndex !== -1 ? i - hoveredIndex : 0}
+                  onHover={(h) => setHoveredId(h ? g.id : null)}
                   onOpen={onOpen}
                 />
               ))}
-              {/* Air at the end, so the last garment can reach the middle of
-                  the rail instead of being pinned against the edge. */}
-              <span aria-hidden className="block w-[22vw] shrink-0" />
+              {/* Spacer at the end */}
+              <span aria-hidden className="block w-[24vw] shrink-0" />
             </div>
 
             <RailArrow side="left" onClick={() => nudge(-1)} />
@@ -246,68 +291,121 @@ function Hanging({
   garment,
   swing,
   index,
+  isHovered,
+  isAnyHovered,
+  relativeIndex,
+  onHover,
   onOpen,
 }: {
   garment: Garment;
   /** Rail velocity, normalised to −1…1. */
   swing: MotionValue<number>;
   index: number;
+  isHovered: boolean;
+  isAnyHovered: boolean;
+  relativeIndex: number;
+  onHover: (hovered: boolean) => void;
   onOpen?: (garment: Garment) => void;
 }) {
   const x = useMotionValue(0);
-  const y = useMotionValue(0);
+  const releaseTorque = useMotionValue(0);
 
-  // Pulling the hem to the right swings the garment clockwise about its hook.
-  const pull = useTransform(x, [-PULL, PULL], [-16, 16]);
+  // Pure pendulum sway around the hanger hook fulcrum (50% 4px):
+  // 1. Manual horizontal drag pull: x -> -18deg to +18deg
+  // 2. Rail momentum inertia lag: swing -> -20deg to +20deg
+  // 3. Fling release impulse: decaying harmonic spring
+  const pull = useTransform(x, [-PULL, PULL], [-18, 18]);
   const drift = useTransform(swing, (v) => -v * MAX_SWING);
+  const rawZ = useTransform(
+    [pull, drift, releaseTorque],
+    ([p, d, r]) => (p as number) + (d as number) + (r as number),
+  );
+  const settledRotateZ = useSpring(rawZ, PENDULUM_SPRING);
 
-  // The two forces are independent and both real, so they add. A garment you
-  // are holding while the rack is moving should feel both.
-  const rotate = useTransform([pull, drift], ([a, b]) => (a as number) + (b as number));
-  const settled = useSpring(rotate, SWING_SPRING);
+  // Reversed Hanger Tilt Angle (Negative / inward tilt):
+  // Idle: -26deg (turned inside along the rod)
+  // Hovered: 0deg (upright, facing straight forward)
+  // Neighbors: parts subtly (-32deg or -20deg)
+  const targetHangerAngle = isHovered
+    ? 0
+    : isAnyHovered
+      ? relativeIndex < 0
+        ? -32
+        : -20
+      : -26;
+
+  const handleDragEnd = (
+    _event: MouseEvent | TouchEvent | PointerEvent,
+    info: { velocity: { x: number; y: number } },
+  ) => {
+    // Transfer drag release velocity into pendulum angular impulse
+    const impulse = Math.max(-20, Math.min(20, info.velocity.x * 0.014));
+    releaseTorque.set(impulse);
+    // Smooth decay to rest
+    setTimeout(() => releaseTorque.set(0), 40);
+  };
+
+  // Calculates smooth sliding separation along the rail when a card is hovered
+  const partingX = !isAnyHovered || relativeIndex === 0
+    ? 0
+    : relativeIndex < 0
+      ? relativeIndex === -1 ? -52 : relativeIndex === -2 ? -26 : relativeIndex === -3 ? -10 : 0
+      : relativeIndex === 1 ? 60 : relativeIndex === 2 ? 30 : relativeIndex === 3 ? 12 : 0;
+
+  // Inverted overlap: earlier cards sit ON TOP of later cards
+  const baseZIndex = 80 - Math.min(index, 70);
 
   return (
-    // Two layers, and they must be two.
-    //
-    // The outer one deals the card in and lifts it on hover. The inner one is
-    // the pendulum, and its x/y are motion values the drag writes to directly.
-    // Collapsed into one element, `animate={{ y: 0 }}` and `style={{ y }}` are
-    // two owners of the same property: motion hands control to the motion value
-    // and the entrance animation never finishes — every card past the second
-    // one sat permanently half-faded, which is exactly what it did.
     <motion.div
       role="listitem"
-      className="relative h-full shrink-0"
-      style={{ width: "clamp(9rem, 17vw, 15rem)" }}
-      initial={{ opacity: 0, y: -18 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: Math.min(index * 0.035, 0.5), duration: 0.5 }}
-      whileHover={{ y: -7 }}
+      className="relative h-full shrink-0 snap-center -mr-8 sm:-mr-12 md:-mr-14 lg:-mr-16"
+      style={{
+        width: "clamp(8.5rem, 15vw, 13.5rem)",
+        perspective: 1000,
+        zIndex: isHovered ? 150 : baseZIndex,
+      }}
+      initial={{ opacity: 0, y: -20 }}
+      animate={{
+        opacity: 1,
+        x: partingX,
+        y: isHovered ? -4 : 0,
+        scale: isHovered ? 1.025 : isAnyHovered ? 0.95 : 0.98,
+        transition: TILT_SPRING,
+      }}
+      onMouseEnter={() => onHover(true)}
+      onMouseLeave={() => onHover(false)}
     >
       <motion.div
-        className="relative h-full w-full cursor-grab active:cursor-grabbing"
+        className="relative flex h-full w-full cursor-grab active:cursor-grabbing flex-col items-center"
         style={{
           x,
-          y,
-          rotate: settled,
-          // The hook, not the card's middle. This one line is the difference
-          // between a garment swinging and a card wobbling.
-          transformOrigin: "50% 10px",
+          rotate: settledRotateZ,
+          rotateY: targetHangerAngle,
+          // Fulcrum point: top center of the hanger hook touching the brass rod
+          transformOrigin: "50% 4px",
+          transformStyle: "preserve-3d",
         }}
-        drag
-        dragConstraints={{ left: -PULL, right: PULL, top: 0, bottom: PULL * 0.5 }}
-        dragElastic={0.14}
+        drag="x"
+        dragConstraints={{ left: -PULL, right: PULL }}
+        dragElastic={0.18}
         dragSnapToOrigin
         dragTransition={{ bounceStiffness: 220, bounceDamping: 14 }}
+        onDragEnd={handleDragEnd}
         whileTap={{ scale: 0.985 }}
         onClick={() => onOpen?.(garment)}
       >
-        <Hanger tone={INK.brass} />
+        <Hanger tone="#EDE7DA" />
         <div
-          className="relative h-[calc(100%-3.6rem)] w-full overflow-hidden rounded-[4px] shadow-[0_16px_30px_-16px_rgba(14,44,57,0.42)]"
-          style={{ border: `1px solid ${INK.abyss}22` }}
+          className="relative -mt-2.5 w-full flex-1 min-h-0"
+          style={{
+            transformStyle: "preserve-3d",
+          }}
         >
-          <GarmentPlate garment={garment} priority={index < 4} />
+          <GarmentPlate
+            garment={garment}
+            priority={index < 4}
+            interactive={isHovered}
+          />
         </div>
       </motion.div>
     </motion.div>
@@ -380,6 +478,43 @@ function Shelf({
   onOpen?: (garment: Garment) => void;
   onClose: () => void;
 }) {
+  const shelfScroller = useRef<HTMLDivElement>(null);
+  const isDraggingShelf = useRef(false);
+  const dragStartX = useRef(0);
+  const scrollStartX = useRef(0);
+
+  const onWheel = useCallback((e: React.WheelEvent) => {
+    const node = shelfScroller.current;
+    if (!node) return;
+    if (Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return;
+    node.scrollLeft += e.deltaY * 0.9;
+  }, []);
+
+  const nudge = (dir: 1 | -1) => {
+    const node = shelfScroller.current;
+    if (!node) return;
+    node.scrollBy({ left: dir * 240, behavior: "smooth" });
+  };
+
+  const handlePointerDown = (e: React.PointerEvent) => {
+    if ((e.target as HTMLElement).closest("button[data-shelf-item]")) return;
+    isDraggingShelf.current = true;
+    dragStartX.current = e.clientX;
+    if (shelfScroller.current) {
+      scrollStartX.current = shelfScroller.current.scrollLeft;
+    }
+  };
+
+  const handlePointerMove = (e: React.PointerEvent) => {
+    if (!isDraggingShelf.current || !shelfScroller.current) return;
+    const dx = e.clientX - dragStartX.current;
+    shelfScroller.current.scrollLeft = scrollStartX.current - dx;
+  };
+
+  const handlePointerUp = () => {
+    isDraggingShelf.current = false;
+  };
+
   return (
     <motion.div
       // Over the racks rather than beside them: a shelf you pull out covers
@@ -414,23 +549,42 @@ function Shelf({
             Nothing on the shelf yet.
           </p>
         ) : (
-          <div className="no-scrollbar flex min-h-0 flex-1 items-end gap-4 overflow-x-auto px-4 pb-4 lg:gap-6 lg:px-8">
-            {garments.map((g, i) => (
-              <motion.button
-                key={g.id}
-                type="button"
-                onClick={() => onOpen?.(g)}
-                className="relative h-[80%] shrink-0 overflow-hidden text-left"
-                style={{ width: "clamp(8rem, 14vw, 12rem)" }}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: i * 0.04, duration: 0.4 }}
-                whileHover={{ y: -8 }}
-              >
-                <GarmentPlate garment={g} />
-              </motion.button>
-            ))}
-            <span aria-hidden className="block w-[16vw] shrink-0" />
+          <div className="relative min-h-0 flex-1">
+            <div
+              ref={shelfScroller}
+              onWheel={onWheel}
+              onPointerDown={handlePointerDown}
+              onPointerMove={handlePointerMove}
+              onPointerUp={handlePointerUp}
+              onPointerLeave={handlePointerUp}
+              className="no-scrollbar flex h-full items-end gap-5 overflow-x-auto px-6 pb-4 lg:gap-7 lg:px-10"
+              style={{
+                scrollbarWidth: "none",
+                scrollSnapType: "x proximity",
+                scrollPaddingLeft: "2rem",
+              }}
+            >
+              {garments.map((g, i) => (
+                <motion.button
+                  key={g.id}
+                  data-shelf-item
+                  type="button"
+                  onClick={() => onOpen?.(g)}
+                  className="relative h-[82%] shrink-0 snap-center overflow-hidden rounded-[4px] text-left shadow-[0_12px_24px_-10px_rgba(0,0,0,0.5)]"
+                  style={{ width: "clamp(8.5rem, 15vw, 13rem)", perspective: 900 }}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: i * 0.04, duration: 0.4 }}
+                  whileHover={{ y: -10, scale: 1.04 }}
+                >
+                  <GarmentPlate garment={g} />
+                </motion.button>
+              ))}
+              <span aria-hidden className="block w-[20vw] shrink-0" />
+            </div>
+
+            <RailArrow side="left" onClick={() => nudge(-1)} />
+            <RailArrow side="right" onClick={() => nudge(1)} />
           </div>
         )}
 

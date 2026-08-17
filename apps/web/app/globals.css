@@ -45,6 +45,9 @@
   --font-display: var(--font-instrument), "Times New Roman", serif;
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-jetbrains), ui-monospace, monospace;
+  --font-friday-family: var(--font-friday), sans-serif;
+  --font-identity-family: var(--font-identity), monospace;
+  --font-iosevka-family: var(--font-iosevka), monospace;
 
   /* ── motion: fabric settles, it does not bounce ────────────────────────── */
   --ease-cloth: cubic-bezier(0.22, 1, 0.36, 1);
@@ -174,6 +177,15 @@ body {
   font-family: var(--font-sans);
   letter-spacing: -0.022em;
   font-weight: 500;
+}
+.font-friday {
+  font-family: var(--font-friday-family);
+}
+.font-identity {
+  font-family: var(--font-identity-family);
+}
+.font-iosevka {
+  font-family: var(--font-iosevka-family);
 }
 
 /* ── the look creator's room ──────────────────────────────────────────────
