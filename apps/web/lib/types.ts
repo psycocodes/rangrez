@@ -1,6 +1,7 @@
 /** Shared domain types. Kept free of any storage/transport concerns. */
 
 import type { GarmentFit, Measurements } from "./fit";
+export type { GarmentFit, Measurements };
 
 /** Layer of the body a garment occupies. The swipe customizer cycles per zone. */
 export type Zone = "top" | "bottom" | "outerwear" | "shoes" | "accessory";
@@ -247,6 +248,9 @@ export interface Avatar {
    */
   framing?: AvatarFraming;
   createdAt: string;
+  /** Body measurements specific to this avatar plate (if custom). */
+  measurements?: Measurements;
+  useGlobalMeasurements?: boolean;
   /** User-tweakable presentation, applied everywhere the avatar appears. */
   customization: AvatarCustomization;
 }
@@ -281,6 +285,8 @@ export interface User {
   email: string;
   name: string;
   createdAt: string;
+  profilePhotoUrl?: string;
+  useGooglePhoto?: boolean;
   /** Up to MAX_AVATARS plates, in the order they were shot. */
   avatars: Avatar[];
   activeAvatarId?: string;

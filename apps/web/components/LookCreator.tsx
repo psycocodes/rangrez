@@ -55,10 +55,14 @@ export function LookCreator({
   avatars,
   activeAvatarId,
   garments,
+  onBackToWardrobe,
+  embedded = false,
 }: {
   avatars: Avatar[];
   activeAvatarId?: string;
   garments: Garment[];
+  onBackToWardrobe?: () => void;
+  embedded?: boolean;
 }) {
   const [plateId, setPlateId] = useState(activeAvatarId ?? avatars[0]?.id);
   const [picked, setPicked] = useState<Partial<Record<SlotId, Garment>>>({});
@@ -265,7 +269,7 @@ export function LookCreator({
           </span>
         </span>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2.5">
           {avatars.length > 1 &&
             avatars.map((a) => (
               <button
@@ -482,6 +486,40 @@ export function LookCreator({
           )}
         </div>
       </div>
+
+      {/* ── Floating Right-Side Button / Pull Tab for Wardrobe ────────── */}
+      {onBackToWardrobe ? (
+        <button
+          type="button"
+          onClick={onBackToWardrobe}
+          aria-label="Slide back to Wardrobe"
+          className="fixed right-0 top-1/2 -translate-y-1/2 z-40 flex flex-col items-center gap-2 rounded-l-2xl border-y-[3px] border-l-[3px] border-[#12100d] bg-[#FFDE59] px-2 py-4 text-[#12100d] shadow-[-4px_4px_0px_#12100d] transition-all duration-200 hover:bg-[#FFE57F] hover:translate-x-[-3px] cursor-pointer select-none"
+        >
+          <span className="text-sm font-black">🚪</span>
+          <span
+            className="font-black text-[0.68rem] tracking-widest uppercase"
+            style={{ writingMode: "vertical-rl", textOrientation: "mixed" }}
+          >
+            WARDROBE
+          </span>
+          <span className="font-mono text-[0.62rem] font-bold">◀</span>
+        </button>
+      ) : (
+        <Link
+          href="/wardrobe"
+          aria-label="Go to Wardrobe Closet"
+          className="fixed right-0 top-1/2 -translate-y-1/2 z-40 flex flex-col items-center gap-2 rounded-l-2xl border-y-[3px] border-l-[3px] border-[#12100d] bg-[#FFDE59] px-2 py-4 text-[#12100d] shadow-[-4px_4px_0px_#12100d] transition-all duration-200 hover:bg-[#FFE57F] hover:translate-x-[-3px] cursor-pointer select-none"
+        >
+          <span className="text-sm font-black">🚪</span>
+          <span
+            className="font-black text-[0.68rem] tracking-widest uppercase"
+            style={{ writingMode: "vertical-rl", textOrientation: "mixed" }}
+          >
+            WARDROBE
+          </span>
+          <span className="font-mono text-[0.62rem] font-bold">◀</span>
+        </Link>
+      )}
     </div>
   );
 }

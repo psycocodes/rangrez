@@ -5,7 +5,7 @@ import { mintExtensionToken } from "@/lib/ext-token";
 
 export const metadata = { title: "Avatar Bodies — Rangrez" };
 
-export default async function AvatarsPage() {
+export default async function AvatarPage() {
   const user = await requireUser();
   const token = mintExtensionToken(user);
   const h = await headers();

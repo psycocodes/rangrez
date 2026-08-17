@@ -11,6 +11,7 @@ const nextConfig: NextConfig = {
       // YouCam returns generated renders as signed URLs on their CDN.
       { protocol: "https", hostname: "**.perfectcorp.com" },
       { protocol: "https", hostname: "**.amazonaws.com" },
+      { protocol: "https", hostname: "api.dicebear.com" },
     ],
   },
 };

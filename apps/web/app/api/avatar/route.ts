@@ -138,12 +138,22 @@ export async function POST(req: Request) {
   try {
     const result = await createAvatar(bytes, contentType);
 
+    const useGlobal = form.get("useGlobalMeasurements") !== "false";
+    let measurements: Avatar["measurements"] = undefined;
+    if (!useGlobal) {
+      measurements = {
+        unit: "cm",
+        heightCm: Number(form.get("heightCm")) || undefined,
+        chestCm: Number(form.get("chestCm")) || undefined,
+        waistCm: Number(form.get("waistCm")) || undefined,
+        hipCm: Number(form.get("hipCm")) || undefined,
+        inseamCm: Number(form.get("inseamCm")) || undefined,
+      };
+    }
+
     const avatar: Avatar = {
       id: replacing?.id ?? newId(),
       sourceUrl: plateUrl,
-      // In mock mode there is no generated plate, so the source photo *is* the
-      // avatar. That is also the graceful degradation path in production: a
-      // failed calibration render should not block the wardrobe.
       renderUrl: result.renderUrl || plateUrl,
       cutoutUrl,
       baseModelId: model?.id,
@@ -151,10 +161,10 @@ export async function POST(req: Request) {
       taskId: result.taskId,
       colorSeason: result.colorSeason,
       framing,
+      measurements,
+      useGlobalMeasurements: useGlobal,
       createdAt: replacing?.createdAt ?? new Date().toISOString(),
       customization: {
-        // A re-shoot keeps everything the user tuned — they shouldn't lose
-        // their crop and grade for taking a better photograph.
         ...(replacing?.customization ?? {
           backdrop: "paper",
           crop: "three-quarter",

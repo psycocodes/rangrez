@@ -430,7 +430,7 @@ function RailArrow({
       type="button"
       onClick={onClick}
       aria-label={side === "left" ? "Earlier on this rail" : "Further along this rail"}
-      className={`absolute top-1/2 z-[25] hidden h-11 w-9 -translate-y-1/2 items-center justify-center border-2 border-[#12100d] bg-[#FFDE59] text-[#12100d] shadow-[3px_3px_0px_#12100d] transition-all hover:bg-[#FFE57F] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none md:flex ${
+      className={`absolute top-1/2 z-[25] hidden h-11 w-9 -translate-y-1/2 items-center justify-center border-2 border-[#12100d] bg-[#FFDE59] text-[#12100d] shadow-[3px_3px_0px_#12100d] transition-all hover:bg-[#FFE57F] active:translate-x-[1px] active:shadow-[1px_1px_0px_#12100d] active:scale-[0.97] cursor-pointer md:flex ${
         side === "left" ? "left-0 rounded-r-lg" : "right-0 rounded-l-lg"
       }`}
     >

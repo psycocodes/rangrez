@@ -135,3 +135,17 @@ export async function clearStarterWardrobe(): Promise<void> {
   await deleteSeedGarments(user.id);
   refresh();
 }
+
+/** Update profile photo preference or URL */
+export async function updateProfilePhoto(form: FormData): Promise<void> {
+  const user = await requireUser();
+  const photoUrl = String(form.get("photoUrl") ?? "").trim();
+  const useGoogle = form.get("useGoogle") === "on";
+
+  await updateUser(user.id, (u) => {
+    u.profilePhotoUrl = photoUrl || u.profilePhotoUrl;
+    u.useGooglePhoto = useGoogle;
+  });
+
+  refresh();
+}

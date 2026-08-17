@@ -1,19 +1,21 @@
 import { headers } from "next/headers";
-import { ClosetRoom } from "@/components/ClosetRoom";
+import { AddAvatarForm } from "@/components/AddAvatarForm";
 import { requireUser } from "@/lib/auth";
-import { listBaseModels } from "@/lib/base-models-server";
 import { mintExtensionToken } from "@/lib/ext-token";
-import { seedCatalog } from "@/lib/seed";
 
-export const metadata = { title: "Wardrobe — Rangrez" };
+export const metadata = { title: "Add Avatar — Rangrez" };
 
-export default async function WardrobePage() {
-  const [user, baseModels] = await Promise.all([
-    requireUser(),
-    listBaseModels(),
-  ]);
+export default async function NewAvatarPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ replace?: string }>;
+}) {
+  const [user, params] = await Promise.all([requireUser(), searchParams]);
 
-  const garments = seedCatalog(user.id);
+  const replacing = params.replace
+    ? user.avatars.find((a) => a.id === params.replace)
+    : undefined;
+
   const token = mintExtensionToken(user);
   const h = await headers();
   const host = h.get("x-forwarded-host") ?? h.get("host") ?? "localhost:3000";
@@ -21,10 +23,9 @@ export default async function WardrobePage() {
   const apiBase = `${proto}://${host}`;
 
   return (
-    <ClosetRoom
-      garments={garments}
+    <AddAvatarForm
       user={user}
-      baseModels={baseModels}
+      replacing={replacing}
       token={token}
       apiBase={apiBase}
     />

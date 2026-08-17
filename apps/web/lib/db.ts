@@ -62,6 +62,8 @@ function toUser(row: Row): User {
     email: row.email as string,
     name: row.name as string,
     createdAt: row.created_at as string,
+    profilePhotoUrl: (row.profile_photo_url as string | undefined) ?? undefined,
+    useGooglePhoto: Boolean(row.use_google_photo ?? true),
     avatars,
     activeAvatarId,
     // The same object as the array entry, not a copy: `u.avatar.colorSeason = x`

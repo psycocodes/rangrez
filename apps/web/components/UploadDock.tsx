@@ -9,24 +9,6 @@ import { CUTS, type Cut } from "@/lib/fit";
 import { UPLOAD_KINDS } from "@/lib/garment-kind";
 import type { Avatar } from "@/lib/types";
 
-/**
- * ═══════════════════════════════════════════════════════════════════════════
- *  Adding clothes you already own
- * ═══════════════════════════════════════════════════════════════════════════
- *
- *  The shape of this is chosen around one fact: extraction is instant and
- *  rendering is not. So it runs in two visible movements —
- *
- *    review    every photograph is cut out and named the moment it's chosen,
- *              and you correct anything wrong before spending a single call
- *    render    the pieces are in your wardrobe already; the body shots arrive
- *              behind them, in parallel, and you can close this and walk away
- *
- *  The alternative — one button, one spinner, twenty seconds a garment — was
- *  never worth building. Nobody watches that.
- * ═══════════════════════════════════════════════════════════════════════════
- */
-
 type ItemState =
   | "reading"
   | "ready"
@@ -41,24 +23,16 @@ interface Item {
   state: ItemState;
   name: string;
   kindId: string;
-  /**
-   * The size on the label, and how the piece is cut. Optional, and asked for
-   * here rather than later because this is the one moment the garment is in
-   * the user's hands — the label is right there. Everything the extension
-   * says about fit on a shop page is calibrated against what these hold.
-   */
   sizeLabel: string;
   cut: Cut;
   previewUrl?: string;
   blob?: Blob;
   dominantColor?: string;
-  /** Set once the row exists in the wardrobe. */
   garmentId?: string;
   tryOnUrl?: string;
   note?: string;
 }
 
-/** How many YouCam renders to have in flight at once. */
 const RENDER_LANES = 3;
 const MAX_FILES = 12;
 
@@ -88,7 +62,6 @@ export function UploadDock({
     );
   }, []);
 
-  // Object URLs outlive React state unless someone revokes them.
   const urls = useRef<string[]>([]);
   useEffect(() => {
     const held = urls.current;
@@ -102,8 +75,6 @@ export function UploadDock({
     document.addEventListener("keydown", esc);
     return () => document.removeEventListener("keydown", esc);
   }, [onClose, phase]);
-
-  /* ── choosing ─────────────────────────────────────────────────────────── */
 
   const accept = useCallback(
     async (files: FileList | null) => {
@@ -135,8 +106,6 @@ export function UploadDock({
       }));
       setItems((list) => [...list, ...fresh]);
 
-      // All at once: this is local canvas work, and doing it in series would
-      // make a dozen photographs feel like a progress bar for no reason.
       await Promise.all(
         fresh.map(async (item) => {
           try {
@@ -167,8 +136,6 @@ export function UploadDock({
     [items.length, patch],
   );
 
-  /* ── committing ───────────────────────────────────────────────────────── */
-
   async function commit() {
     const ready = items.filter((i) => i.state === "ready" && i.blob);
     if (!ready.length) return;
@@ -176,7 +143,6 @@ export function UploadDock({
     setPhase("working");
     setError(null);
 
-    // ── movement one: the pieces land in the wardrobe ───────────────────
     const saved = await Promise.all(
       ready.map(async (item) => {
         patch(item.key, { state: "saving" });
@@ -218,11 +184,8 @@ export function UploadDock({
       }),
     );
 
-    // They are already in the grid, marked as still rendering. Anyone who
-    // closes this now loses nothing.
     router.refresh();
 
-    // ── movement two: the body shots, a few lanes at a time ─────────────
     const queue = saved.filter((s): s is { key: string; id: string } => s !== null);
     let next = 0;
 
@@ -254,8 +217,6 @@ export function UploadDock({
     setPhase("settled");
   }
 
-  /* ── render ───────────────────────────────────────────────────────────── */
-
   const readyCount = items.filter((i) => i.state === "ready").length;
   const doneCount = items.filter((i) => i.state === "done").length;
   const failedCount = items.filter((i) => i.state === "failed").length;
@@ -263,7 +224,7 @@ export function UploadDock({
 
   return (
     <div
-      className="fixed inset-0 z-[80] flex items-end justify-center bg-ink/45 backdrop-blur-[2px] sm:items-center sm:p-6"
+      className="fixed inset-0 z-[80] flex items-end justify-center bg-[#12100d]/75 backdrop-blur-sm sm:items-center sm:p-6"
       onMouseDown={(e) => {
         if (e.target === e.currentTarget && !busy) onClose();
       }}
@@ -271,24 +232,26 @@ export function UploadDock({
       <div
         role="dialog"
         aria-label="Add clothes to your wardrobe"
-        className="rise flex max-h-[92dvh] w-full max-w-[44rem] flex-col border border-ink bg-paper"
+        className="rise flex max-h-[92dvh] w-full max-w-[44rem] flex-col border-[3px] border-[#12100d] bg-[#F4EFE6] shadow-[8px_8px_0px_#12100d] rounded-[2rem] overflow-hidden"
       >
-        <header className="flex items-baseline justify-between border-b border-ink px-4 py-3">
-          <span className="spec text-ink-3">
-            {phase === "settled" ? "Added" : "Add from your photos"}
+        {/* Header */}
+        <header className="flex items-center justify-between border-b-[3px] border-[#12100d] bg-white px-5 py-3.5">
+          <span className="font-friday text-sm uppercase tracking-wider text-[#12100d]">
+            {phase === "settled" ? "ADDED PIECES" : "ADD FROM YOUR PHOTOS"}
           </span>
           <button
             type="button"
             onClick={onClose}
             disabled={busy}
             aria-label="Close"
-            className="spec text-ink-3 transition-colors hover:text-madder disabled:opacity-30"
+            className="border-2 border-[#12100d] bg-[#FF5A5F] px-2 py-0.5 text-xs font-black text-white shadow-[2px_2px_0px_#12100d] transition-all hover:bg-[#FF3B42] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none cursor-pointer"
           >
             ✕
           </button>
         </header>
 
-        <div className="flex-1 overflow-y-auto p-4">
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto p-5 space-y-4">
           {items.length === 0 ? (
             <DropZone
               dragging={dragging}
@@ -298,7 +261,7 @@ export function UploadDock({
             />
           ) : (
             <>
-              <div className="flex flex-col gap-px bg-ink/15">
+              <div className="space-y-3">
                 {items.map((item) => (
                   <Row
                     onSize={(sizeLabel) => patch(item.key, { sizeLabel })}
@@ -319,7 +282,7 @@ export function UploadDock({
                 <button
                   type="button"
                   onClick={() => input.current?.click()}
-                  className="spec-sm mt-3 w-full border border-dashed border-ink/30 py-3 text-ink-3 transition-colors duration-300 hover:border-ink hover:text-ink"
+                  className="w-full border-[3px] border-dashed border-[#12100d] bg-white py-3.5 rounded-2xl font-mono text-xs font-black text-[#12100d] hover:bg-[#FAF6EF] transition-all cursor-pointer"
                 >
                   + ADD MORE PHOTOS
                 </button>
@@ -330,7 +293,7 @@ export function UploadDock({
           {error && (
             <p
               role="alert"
-              className="mt-4 border-l-2 border-madder bg-madder/8 py-2 pl-3 text-[0.85rem] leading-snug text-madder"
+              className="border-2 border-[#12100d] bg-[#FF5A5F] px-4 py-2.5 rounded-2xl font-mono text-xs font-black text-white shadow-[2px_2px_0px_#12100d]"
             >
               {error}
             </p>
@@ -345,54 +308,52 @@ export function UploadDock({
           className="sr-only"
           onChange={(e) => {
             void accept(e.target.files);
-            // Let the same file be chosen twice in a row.
             e.target.value = "";
           }}
         />
 
-        {/* ── the foot ─────────────────────────────────────────────────── */}
-        <footer className="border-t border-ink px-4 py-3">
-          {/* Only a question worth asking when there is more than one answer. */}
+        {/* Footer */}
+        <footer className="border-t-[3px] border-[#12100d] bg-white p-5">
+          {/* Avatar Target Switcher */}
           {avatars.length > 1 && phase === "pick" && items.length > 0 && (
-            <div className="mb-3.5 flex flex-wrap items-center gap-x-3 gap-y-2">
-              <span className="spec-sm text-ink-3">RENDER ON</span>
+            <div className="mb-4 flex flex-wrap items-center gap-2">
+              <span className="font-mono text-[0.68rem] font-black uppercase text-[#12100d]/50">
+                RENDER FIT ON:
+              </span>
               {avatars.map((a) => (
                 <button
                   key={a.id}
                   type="button"
-                  className="chip"
-                  data-on={a.id === plate?.id}
                   onClick={() => setPlateId(a.id)}
+                  className={`border-2 border-[#12100d] px-2.5 py-1 rounded-xl text-xs font-black uppercase shadow-[2px_2px_0px_#12100d] transition-all ${
+                    a.id === plate?.id
+                      ? "bg-[#FFDE59] text-[#12100d]"
+                      : "bg-[#F4EFE6] text-[#12100d]/70 hover:bg-white"
+                  }`}
                 >
-                  <span className="spec">{a.customization.label}</span>
+                  {a.customization.label}
                 </button>
               ))}
             </div>
           )}
 
           {!plate && items.length > 0 && phase === "pick" && (
-            <p className="mb-3.5 border-l-2 border-turmeric bg-turmeric/12 py-2 pl-3 text-[0.8rem] leading-relaxed text-ink-2">
-              <span className="spec-sm mr-2 text-ink">NO BODY YET</span>
-              These will hang flat in your wardrobe.{" "}
-              <Link
-                href="/atelier"
-                className="text-ink underline decoration-madder underline-offset-4"
-              >
-                Create an avatar
-              </Link>{" "}
-              and you can try them on from the grid.
+            <p className="mb-4 border-2 border-[#12100d] bg-[#FFDE59] px-4 py-3 rounded-2xl font-mono text-xs text-[#12100d] leading-relaxed shadow-[3px_3px_0px_#12100d]">
+              <span className="font-black mr-2">NO BODY YET</span>
+              These will hang flat in your wardrobe. Create an avatar to unlock automated fits.
             </p>
           )}
 
-          <div className="flex flex-wrap items-center gap-2.5">
+          <div className="flex flex-wrap items-center gap-3">
             {phase === "settled" ? (
               <>
-                <button type="button" onClick={onClose} className="btn flex-1">
-                  <span className="spec">
-                    {doneCount} in your wardrobe
-                    {failedCount > 0 ? ` · ${failedCount} didn't take` : ""}
-                  </span>
-                  <span aria-hidden className="spec">→</span>
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="flex-1 border-2 border-[#12100d] bg-[#FFDE59] py-3 rounded-2xl font-friday text-sm uppercase tracking-wider text-[#12100d] shadow-[3px_3px_0px_#12100d] hover:bg-[#FFE57F]"
+                >
+                  {doneCount} in your wardrobe
+                  {failedCount > 0 ? ` · ${failedCount} failed` : ""} →
                 </button>
                 <button
                   type="button"
@@ -400,10 +361,9 @@ export function UploadDock({
                     setItems([]);
                     setPhase("pick");
                   }}
-                  className="btn btn-ghost"
+                  className="border-2 border-[#12100d] bg-white py-3 px-5 rounded-2xl font-friday text-sm uppercase tracking-wider text-[#12100d] shadow-[2px_2px_0px_#12100d] hover:bg-[#FAF6EF]"
                 >
-                  <span className="spec">Add more</span>
-                  <span aria-hidden className="spec">+</span>
+                  Add more
                 </button>
               </>
             ) : (
@@ -412,34 +372,29 @@ export function UploadDock({
                   type="button"
                   onClick={commit}
                   disabled={busy || readyCount === 0}
-                  className="btn flex-1"
+                  className="flex-1 border-2 border-[#12100d] bg-[#FFDE59] py-3 rounded-2xl font-friday text-sm uppercase tracking-wider text-[#12100d] shadow-[3px_3px_0px_#12100d] hover:bg-[#FFE57F] disabled:opacity-40 disabled:pointer-events-none"
                 >
-                  <span className="spec">
-                    {busy
-                      ? "Working"
-                      : readyCount === 0
-                        ? "Choose some photos"
-                        : `Add ${readyCount} ${readyCount === 1 ? "piece" : "pieces"}`}
-                  </span>
-                  <span aria-hidden className="spec">{busy ? "···" : "→"}</span>
+                  {busy
+                    ? "DIGITISING & RENDERING PIECES..."
+                    : readyCount === 0
+                      ? "CHOOSE SOME PHOTOS"
+                      : `ADD ${readyCount} ${readyCount === 1 ? "PIECE" : "PIECES"} TO WARDROBE →`}
                 </button>
                 <button
                   type="button"
                   onClick={onClose}
                   disabled={busy}
-                  className="btn btn-ghost disabled:opacity-40"
+                  className="border-2 border-[#12100d] bg-white py-3 px-6 rounded-2xl font-friday text-sm uppercase tracking-wider text-[#12100d] shadow-[2px_2px_0px_#12100d] hover:bg-[#FAF6EF] disabled:opacity-40 cursor-pointer"
                 >
-                  <span className="spec">Cancel</span>
+                  CANCEL
                 </button>
               </>
             )}
           </div>
 
           {busy && (
-            <p className="mt-3 text-[0.78rem] leading-relaxed text-ink-3">
-              Your pieces are in the wardrobe already — the body shots are
-              rendering {RENDER_LANES} at a time. You can close this; they&apos;ll
-              finish without you.
+            <p className="mt-3 font-mono text-[0.68rem] text-[#12100d]/60 leading-relaxed uppercase">
+              Your garments are queued. Rendering body shots in parallel. You can close this screen anytime.
             </p>
           )}
         </footer>
@@ -447,8 +402,6 @@ export function UploadDock({
     </div>
   );
 }
-
-/* ── the empty state ─────────────────────────────────────────────────────── */
 
 function DropZone({
   dragging,
@@ -473,42 +426,34 @@ function DropZone({
         setDragging(false);
         void onFiles(e.dataTransfer.files);
       }}
-      className={`flex flex-col items-center justify-center gap-5 border border-dashed p-10 text-center transition-colors duration-300 ${
-        dragging ? "border-ink bg-paper-3" : "border-ink/30 bg-paper-2"
+      className={`flex flex-col items-center justify-center gap-6 border-[3px] border-dashed border-[#12100d] p-10 text-center rounded-[2rem] transition-colors duration-300 ${
+        dragging ? "bg-[#FFFBEA]" : "bg-white"
       }`}
     >
       <Hanger />
       <div>
-        <p className="display display-md">
+        <h3 className="font-friday text-2xl uppercase text-[#12100d]">
           Photograph what
           <br />
-          <span className="aside">you already own.</span>
-        </p>
-        <p className="mx-auto mt-3.5 max-w-[42ch] text-[0.85rem] leading-relaxed text-ink-3">
-          Lay a piece flat on a plain surface, or shoot it on a hanger. Rangrez
-          cuts it out, files it on the right rail, and renders it onto your
-          avatar — hover any card in the grid to see it worn.
+          <span className="text-[#FF5A5F]">you already own.</span>
+        </h3>
+        <p className="mx-auto mt-3 max-w-[42ch] font-mono text-xs leading-relaxed text-[#12100d]/70">
+          Lay a piece flat on a plain surface, or shoot it on a hanger. Rangrez cuts it out, files it on the right rail, and renders it onto your avatar.
         </p>
       </div>
-      <button type="button" onClick={onBrowse} className="btn">
-        <span className="spec">Choose photos</span>
-        <span aria-hidden className="spec">↑</span>
+      <button
+        type="button"
+        onClick={onBrowse}
+        className="border-[3px] border-[#12100d] bg-[#12100d] text-white px-5 py-2.5 rounded-xl font-friday text-xs uppercase tracking-wider shadow-[3px_3px_0px_#FFDE59] hover:bg-[#FFDE59] hover:text-[#12100d] transition-all cursor-pointer"
+      >
+        CHOOSE PHOTOS ↑
       </button>
-      <p className="spec-sm text-ink-3">OR DROP THEM HERE · UP TO {MAX_FILES}</p>
+      <p className="font-mono text-[0.68rem] text-[#12100d]/50 font-bold uppercase">
+        OR DROP THEM HERE · UP TO {MAX_FILES}
+      </p>
     </div>
   );
 }
-
-/* ── one photograph ──────────────────────────────────────────────────────── */
-
-const STATE_LABEL: Record<ItemState, string> = {
-  reading: "READING",
-  ready: "READY",
-  saving: "SAVING",
-  rendering: "ON THE BODY…",
-  done: "DONE",
-  failed: "DIDN'T TAKE",
-};
 
 function Row({
   item,
@@ -531,11 +476,8 @@ function Row({
   const busy = item.state === "reading" || item.state === "saving" || item.state === "rendering";
 
   return (
-    <div className="flex items-start gap-3.5 bg-paper p-3">
-      <div className="relative aspect-square w-16 shrink-0 overflow-hidden border border-ink/15 bg-paper-3">
-        {/* A plain <img>, deliberately. This is usually a `blob:` URL for a
-            file that has not been uploaded yet — there is nothing for an image
-            optimizer to fetch, and next/image doesn't take that protocol. */}
+    <div className="flex items-start gap-4 border-2 border-[#12100d] bg-white p-3.5 rounded-[1.5rem] shadow-[3px_3px_0px_#12100d]">
+      <div className="relative aspect-square w-16 shrink-0 overflow-hidden border-2 border-[#12100d] bg-[#FAF6EF] rounded-xl">
         {shot ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
@@ -547,10 +489,10 @@ function Row({
           />
         ) : null}
         {busy && (
-          <span aria-hidden className="scan absolute inset-x-0 top-0 h-px bg-turmeric" />
+          <span aria-hidden className="scan absolute inset-x-0 top-0 h-px bg-[#FFDE59]" />
         )}
         {item.state === "done" && item.tryOnUrl && (
-          <span className="spec-sm absolute inset-x-0 bottom-0 bg-turmeric px-1 py-0.5 text-center text-ink">
+          <span className="absolute inset-x-0 bottom-0 border-t border-[#12100d] bg-[#FFDE59] py-0.5 text-center font-mono text-[0.58rem] font-bold text-[#12100d]">
             ON YOU
           </span>
         )}
@@ -558,7 +500,7 @@ function Row({
 
       <div className="min-w-0 flex-1">
         {locked ? (
-          <p className="tight truncate text-[0.9rem]">
+          <p className="font-friday text-sm uppercase truncate text-[#12100d]">
             {item.name || item.file.name}
           </p>
         ) : (
@@ -568,22 +510,22 @@ function Row({
             placeholder={item.file.name.replace(/\.[a-z0-9]+$/i, "")}
             maxLength={90}
             aria-label="Name this piece"
-            className="field !py-1 !text-[0.88rem]"
+            className="w-full border-2 border-[#12100d] bg-[#FAF6EF] px-2 py-1 rounded-xl text-xs font-mono font-bold uppercase outline-none text-[#12100d]"
           />
         )}
 
         <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5">
           {locked ? (
-            <span className="spec-sm text-ink-3">
-              {UPLOAD_KINDS.find((k) => k.id === item.kindId)?.label}
+            <span className="border border-[#12100d] bg-[#F4EFE6] px-1.5 py-0.5 rounded text-[0.65rem] font-mono font-bold text-[#12100d]/70">
+              {UPLOAD_KINDS.find((k) => k.id === item.kindId)?.label.toUpperCase()}
             </span>
           ) : (
-            <label className="flex items-baseline gap-2">
-              <span className="spec-sm text-ink-3">RAIL</span>
+            <label className="flex items-center gap-2">
+              <span className="font-mono text-[0.62rem] font-black text-[#12100d]/50">RAIL:</span>
               <select
                 value={item.kindId}
                 onChange={(e) => onKind(e.target.value)}
-                className="spec cursor-pointer border-b border-ink/25 bg-transparent py-0.5 pr-1 outline-none"
+                className="border-2 border-[#12100d] bg-[#FAF6EF] px-1.5 py-0.5 rounded-lg text-[0.65rem] font-mono font-black uppercase text-[#12100d] cursor-pointer outline-none"
               >
                 {UPLOAD_KINDS.map((k) => (
                   <option key={k.id} value={k.id}>
@@ -595,49 +537,45 @@ function Row({
           )}
 
           <span
-            className={`spec-sm ${
+            className={`font-mono text-[0.65rem] font-black uppercase ${
               item.state === "failed"
-                ? "text-madder"
+                ? "text-[#FF5A5F]"
                 : item.state === "done"
-                  ? "text-ink"
-                  : "text-ink-3"
+                  ? "text-emerald-600"
+                  : "text-[#12100d]/50"
             }`}
           >
-            {STATE_LABEL[item.state]}
+            {item.state === "reading" ? "READING" : item.state === "ready" ? "READY" : item.state === "saving" ? "SAVING" : item.state === "rendering" ? "ON MANNEQUIN..." : item.state === "done" ? "COMPLETED" : "FAILED"}
           </span>
 
           {item.dominantColor && (
             <span
               aria-hidden
-              className="block h-2.5 w-2.5 border border-ink/25"
+              className="block h-2.5 w-2.5 rounded-full border border-[#12100d]"
               style={{ backgroundColor: item.dominantColor }}
             />
           )}
         </div>
 
-        {/* The label, while the garment is still in your hands. Both optional
-            — an unsized piece is a perfectly good wardrobe entry — but they
-            are what every fit recommendation downstream is calibrated on, and
-            there is no later moment when the tag is this easy to read. */}
         {!locked && (
-          <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5">
-            <label className="flex items-baseline gap-2">
-              <span className="spec-sm text-ink-3">SIZE</span>
+          <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1.5">
+            <label className="flex items-center gap-2">
+              <span className="font-mono text-[0.62rem] font-black text-[#12100d]/50">SIZE:</span>
               <input
                 value={item.sizeLabel}
                 onChange={(e) => onSize(e.target.value)}
                 placeholder="M"
                 maxLength={12}
                 aria-label="Size on the label"
-                className="spec w-16 border-b border-ink/25 bg-transparent py-0.5 uppercase outline-none placeholder:text-ink-3/60 focus:border-ink"
+                className="w-16 border-2 border-[#12100d] bg-[#FAF6EF] px-2 py-0.5 rounded-lg text-xs font-mono font-bold uppercase text-[#12100d] outline-none"
               />
             </label>
-            <label className="flex items-baseline gap-2">
-              <span className="spec-sm text-ink-3">CUT</span>
+            <label className="flex items-center gap-2">
+              <span className="font-mono text-[0.62rem] font-black text-[#12100d]/50">CUT:</span>
               <select
                 value={item.cut}
                 onChange={(e) => onCut(e.target.value as Cut)}
-                className="spec cursor-pointer border-b border-ink/25 bg-transparent py-0.5 pr-1 outline-none"
+                className="border-2 border-[#12100d] bg-[#FAF6EF] px-1.5 py-0.5 rounded-lg text-[0.65rem] font-mono font-black uppercase text-[#12100d] cursor-pointer outline-none"
               >
                 {CUTS.map((c) => (
                   <option key={c} value={c}>
@@ -650,15 +588,15 @@ function Row({
         )}
 
         {locked && item.sizeLabel && (
-          <p className="spec-sm mt-1.5 text-ink-3">
+          <p className="font-mono text-[0.65rem] text-[#12100d]/60 mt-1 uppercase">
             SIZE {item.sizeLabel.toUpperCase()} · {item.cut.toUpperCase()}
           </p>
         )}
 
         {item.note && (
           <p
-            className={`mt-1.5 text-[0.75rem] leading-snug ${
-              item.state === "failed" ? "text-madder" : "text-ink-3"
+            className={`mt-1 font-mono text-[0.65rem] leading-snug ${
+              item.state === "failed" ? "text-[#FF5A5F]" : "text-[#12100d]/50"
             }`}
           >
             {item.note}
@@ -671,7 +609,7 @@ function Row({
           type="button"
           onClick={onRemove}
           aria-label={`Remove ${item.name || item.file.name}`}
-          className="spec shrink-0 px-1 py-1 text-ink-3 transition-colors hover:text-madder"
+          className="border-2 border-[#12100d] bg-[#FF5A5F] px-2 py-0.5 text-xs text-white rounded-lg shadow-[1px_1px_0px_#12100d] hover:bg-[#FF3B42] cursor-pointer"
         >
           ✕
         </button>
@@ -688,17 +626,17 @@ function Hanger() {
       viewBox="0 0 46 34"
       fill="none"
       aria-hidden
-      className="text-ink-3"
+      className="text-[#12100d]"
     >
       <path
         d="M23 11c0-3 2-5 4.5-5S32 8 32 10.5"
         stroke="currentColor"
-        strokeWidth="1.2"
+        strokeWidth="2.5"
       />
       <path
         d="M23 11 3 26.5c-1.2.9-.6 2.5.9 2.5h38.2c1.5 0 2.1-1.6.9-2.5L23 11Z"
         stroke="currentColor"
-        strokeWidth="1.2"
+        strokeWidth="2.5"
       />
     </svg>
   );
