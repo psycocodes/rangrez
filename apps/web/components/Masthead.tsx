@@ -8,11 +8,10 @@ import { Knot } from "./Wordmark";
 import { INK, phool } from "@/lib/ornament";
 
 const NAV = [
-  { href: "/trialroom", label: "Dashboard", mark: "०१" },
-  { href: "/wardrobe", label: "Wardrobe", mark: "०२" },
-  { href: "/avatar", label: "Avatars", mark: "०३" },
-  { href: "/profile", label: "Profile", mark: "०४" },
-  { href: "/connect", label: "Extension", mark: "०५" },
+  { href: "/wardrobe", label: "Dashboard", mark: "०१" },
+  { href: "/avatar", label: "Avatars", mark: "०२" },
+  { href: "/profile", label: "Profile", mark: "०३" },
+  { href: "/connect", label: "Extension", mark: "०४" },
 ] as const;
 
 export function Masthead({ name, note }: { name: string; note?: string }) {
@@ -30,7 +29,7 @@ export function Masthead({ name, note }: { name: string; note?: string }) {
       />
 
       <Link
-        href="/trialroom"
+        href="/wardrobe"
         className="group flex shrink-0 items-center gap-2.5 border-r-2 border-abyss px-3.5 lg:px-5"
         aria-label="Rangrez — dashboard"
       >

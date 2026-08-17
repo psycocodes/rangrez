@@ -87,11 +87,11 @@ export function ProfileView({
         apiBase={apiBase}
         leftElement={
           <Link
-            href="/trialroom"
+            href="/wardrobe"
             className="flex items-center gap-1.5 rounded-xl border-2 border-[#12100d] bg-[#12100d] px-3.5 py-1.5 font-friday text-xs uppercase tracking-wider text-white shadow-[2px_2px_0px_#FFDE59] hover:bg-[#FFDE59] hover:text-[#12100d] active:translate-x-[1px] active:translate-y-[1px] transition-all cursor-pointer"
           >
             <ArrowLeft className="w-3.5 h-3.5" />
-            <span>Back to Trial Room</span>
+            <span>Back to Dashboard</span>
           </Link>
         }
       />

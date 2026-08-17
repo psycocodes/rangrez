@@ -121,7 +121,7 @@ export function Navbar({
             {leftElement ? (
               leftElement
             ) : (
-              <Link href="/trialroom" className="flex items-center gap-2 text-[#12100d] hover:opacity-80 transition-opacity">
+              <Link href="/wardrobe" className="flex items-center gap-2 text-[#12100d] hover:opacity-80 transition-opacity">
                 <Image
                   src="/assets/logos/rangrez-logo.png"
                   alt="Rangrez Logo"
@@ -146,7 +146,7 @@ export function Navbar({
               centerElement
             ) : leftElement ? (
               /* When there's a back button on the left, Rangrez logo sits in the middle */
-              <Link href="/trialroom" className="flex items-center gap-2 text-[#12100d] hover:opacity-80 transition-opacity">
+              <Link href="/wardrobe" className="flex items-center gap-2 text-[#12100d] hover:opacity-80 transition-opacity">
                 <Image
                   src="/assets/logos/rangrez-logo.png"
                   alt="Rangrez Logo"
