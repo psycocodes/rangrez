@@ -65,6 +65,19 @@
   --spacing-shell-top: 3rem;
 }
 
+/* The bounce rail deals its cards in. Declared here rather than in the
+   component because a @keyframes has to be global; the easing that drives it
+   is generated in components/BounceRail.tsx from GSAP's own elastic formula
+   and handed over as a custom property. */
+@keyframes deal-in {
+  from {
+    scale: 0;
+  }
+  to {
+    scale: 1;
+  }
+}
+
 /* ── base ─────────────────────────────────────────────────────────────────── */
 
 * {

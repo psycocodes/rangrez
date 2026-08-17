@@ -43,12 +43,24 @@ export interface Tint {
   edge: string;
   /** Small caps and category lines — darker than `edge`, lighter than `ink`. */
   mark: string;
-  /** The opposite of the card, for the lettering *behind* the garment. */
+  /**
+   * The opposite of the card, for the lettering *behind* the garment.
+   *
+   * Carries its own alpha rather than being laid down under an `opacity`.
+   * That is a rendering decision, not a style one: an element with opacity
+   * below 1 is a transparency group, so the browser has to paint the whole
+   * subtree into an offscreen buffer and composite it — every time the card
+   * repaints, for eighty glyphs of the most complex face in the app. Alpha on
+   * the colour paints straight into the card with no buffer at all. It is also
+   * what the design specifies: `rgba(22, 25, 114, 0.6)`, one colour.
+   */
   complement: string;
 }
 
-const hsl = (h: number, s: number, l: number) =>
-  `hsl(${Math.round(h)} ${Math.round(s * 100)}% ${Math.round(l * 100)}%)`;
+const hsl = (h: number, s: number, l: number, a = 1) =>
+  `hsl(${Math.round(h)} ${Math.round(s * 100)}% ${Math.round(l * 100)}%${
+    a === 1 ? "" : ` / ${a}`
+  })`;
 
 /** Below this there is no meaningful hue to amplify, only rounding noise. */
 const ACHROMATIC = 0.08;
@@ -103,7 +115,12 @@ export function tintOf(hex: string): Tint {
     // pastel has to come from the 60% it is laid down at, not from the colour
     // itself. Mixed pale instead, the lettering greys out against the panel
     // and the fingerprint whorls — the entire point of the face — disappear.
-    complement: hsl((hue + OPPOSITE) % 360, Math.min(0.75, Math.max(0.5, chroma * 0.9)), 0.27),
+    complement: hsl(
+      (hue + OPPOSITE) % 360,
+      Math.min(0.75, Math.max(0.5, chroma * 0.9)),
+      0.27,
+      0.6,
+    ),
   };
 }
 
@@ -127,6 +144,6 @@ export function tintOfDark(hex: string): Tint {
     edge: hsl(hue, chroma * 0.7, 0.36),
     mark: hsl(hue, chroma * 0.5, 0.62),
     // Inverted along with the rest: pale ink for a dark ground.
-    complement: hsl((hue + OPPOSITE) % 360, Math.min(0.6, Math.max(0.4, chroma)), 0.74),
+    complement: hsl((hue + OPPOSITE) % 360, Math.min(0.6, Math.max(0.4, chroma)), 0.74, 0.6),
   };
 }

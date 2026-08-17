@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { memo, useEffect, useMemo, useRef, useState } from "react";
 
 import {
   chainOrder,
@@ -12,6 +12,7 @@ import {
   slotFor,
 } from "@/lib/look";
 import { GarmentPlate } from "./GarmentPlate";
+import { elasticOut, ramp } from "@/lib/ease";
 import { materialise } from "@/lib/rasterize";
 import {
   FRAMING,
@@ -670,49 +671,104 @@ function Lock() {
 
 /* ═══ a hand of cards ════════════════════════════════════════════════════ */
 
-/* ── the wheel ───────────────────────────────────────────────────────────── */
+/* ── the hands of cards ──────────────────────────────────────────────────── */
 
 /**
- * Rim geometry. These three numbers decide whether the wheel is usable, not
- * just whether it looks right.
+ * A port of React Bits' BounceCards (MIT), for the two hands either side of
+ * the body. Three behaviours, in the reference's own proportions:
  *
- * Cards sit `RADIUS * STEP` apart along the rim. At 460px and 11° that came to
- * 88px between cards carrying 184px-wide cards — so the front card covered
- * most of every other one and owned fifteen times their share of the pointer.
- * Widening the radius buys spacing without turning the cards any harder.
+ *   · cards stack on one point and fan out with a rotation and a translation
+ *     each, rather than sitting in a row
+ *   · they scale in from nothing, staggered, on an elastic ease that
+ *     overshoots and rings down
+ *   · hovering one flattens its rotation and shoves every sibling aside, each
+ *     starting a beat later than the one before, so the gap opens outward
+ *
+ * This replaced a radial wheel. The wheel turned cards up and over a hub below
+ * the floor, which was handsome and hard to read: a card's position told you
+ * nothing about where it was in the list, and every card arrived at a slightly
+ * different angle. A flat hand is the same gesture with none of that.
  */
-const STEP = 13;
-const RADIUS = 720;
-/** How many cards each way stay on the rim before they're dropped. */
-const ARC = 3;
 
-/** How far a scroll gesture must travel, in pixels, to move the wheel one card. */
+/**
+ * Distance between one card and the next, in px.
+ *
+ * Five cards 176px wide, 62px apart, span 424 — which is the 27rem the hand
+ * is given, near enough. The reference overflows its own container and looks
+ * fine doing it; here the container is jammed into the corner of the window,
+ * so overflow means cards half off the screen. Fitting is not optional.
+ */
+const SPREAD = 62;
+/** Degrees of lean per place from the middle of the hand. */
+const TILT = 4;
+/**
+ * How far the whole hand sits toward the middle of the room, in px.
+ *
+ * The cards pivot about their own foot, so a leaning card's top swings out
+ * well past where its translation puts it — at the ends of the fan that was
+ * about fifty pixels, and the outermost card hung off the left edge of the
+ * window. Nudging both hands inward buys that back, and it reads better
+ * anyway: the hands lean in toward the body they are dressing.
+ */
+const BIAS = 30;
+/** How far a sibling is shoved when you reach past it, in px. */
+const PUSH = 100;
+/** How many cards each way stay in the hand before they're dropped. */
+const ARC = 2;
+
+/** Duration of the deal, and of every push, in ms. */
+const DEAL = 1150;
+const MOVE = 400;
+/** Between one card's deal and the next. */
+const STAGGER = 60;
+/** Added delay per place away from the card being hovered. */
+const RIPPLE = 50;
+
+/**
+ * The deal's curve, sampled for CSS — see lib/ease.ts. Computed once at module
+ * load rather than per render; it is a long string.
+ *
+ * Only the deal needs it. An elastic ring crosses its target several times and
+ * no cubic-bezier can describe that, so `linear()` is the only way to state it
+ * — but it runs once, at mount, and never again.
+ */
+const ELASTIC = ramp(elasticOut, 30);
+
+/**
+ * `back.out(1.4)` as a bezier, for everything that runs while you are using
+ * the page.
+ *
+ * This one *is* a cubic, so a bezier states it essentially exactly: the
+ * standard easeOutBack at s = 1.70158 is cubic-bezier(0.34, 1.56, 0.64, 1),
+ * and the overshoot scales with s, giving 1 + 0.56 · 1.4/1.70158 ≈ 1.46 here.
+ * It replaced a twenty-five stop `linear()` ramp. Beziers are the well-trodden
+ * path for accelerated transitions; a long sampled ramp is strictly more work
+ * per frame and, where it isn't accelerated at all, drags the whole push onto
+ * the main thread — with ten of the heaviest cards in the app riding on it.
+ */
+const BACK = "cubic-bezier(0.34, 1.46, 0.64, 1)";
+
+/** How far a scroll gesture must travel, in pixels, to move the hand one card. */
 const WHEEL_THRESHOLD = 55;
 /** Quiet period after which a scroll counts as a fresh gesture, not a tail. */
 const GESTURE_GAP_MS = 160;
-/** Minimum between steps. Comfortably under the rim's own travel, so a held
- *  scroll keeps the wheel in continuous motion instead of stepping, stopping,
- *  and stepping again — the pause is what read as juddering. */
+/** Minimum between steps. Comfortably under `MOVE`, so a held scroll keeps the
+ *  hand in continuous motion instead of stepping, stopping, and stepping again
+ *  — the pause is what read as juddering. */
 const STEP_COOLDOWN_MS = 180;
-/** The rim's travel time. Paired with the cooldown above — keep them in step. */
-const SPIN_MS = 420;
 
 /**
- * A wheel of clothes, hubbed below the floor.
+ * A hand of clothes, dealt into the corner.
  *
- * Cards sit on the rim — `rotate(θ) translateY(-R)` puts each one at its own
- * angle and leaves it standing radially, so turning the wheel really does
- * carry the left-hand cards up and over the top and the right-hand ones back
- * down. Scrolling over it spins it; so do the arrows.
+ * Scrolling over it moves through the wardrobe a card at a time; so do the
+ * arrows. Hover follows the pointer rather than only ever lifting whichever
+ * card is at the front — a card you are looking at is the card that should
+ * come to you — and clicking any card in the hand takes it, rather than making
+ * you index to the front first.
  *
- * Two things this fixes from the version before it. Hover now follows the
- * pointer rather than only ever lifting whichever card happened to be at the
- * front — a card you are looking at is the card that should come to you. And
- * clicking any card on the rim takes it, instead of making you index to the
- * front first.
- *
- * Deliberately hubbed off-stage in a corner: the wheel is the supporting cast,
- * and nothing here may compete with the body for the centre of the frame.
+ * Deliberately in a corner and deliberately low: the hands are the supporting
+ * cast, and nothing here may compete with the body for the centre of the
+ * frame.
  */
 function Fan({
   side,
@@ -735,6 +791,36 @@ function Fan({
   const [hover, setHover] = useState(false);
   const [held, setHeld] = useState<string | null>(null);
   const mirror = side === "left" ? 1 : -1;
+
+  /**
+   * The cards actually in the hand, in the order they are dealt.
+   *
+   * A hand that held your whole wardrobe would be a hand you cannot read — at
+   * thirty cards the spread closes to a few pixels each and every one is
+   * covered. So a window of `ARC` either side of the index, which is what the
+   * arrows and the scroll move. `offset` places a card in the fan; `place` is
+   * its position left-to-right on screen, which is what the deal staggers
+   * along and what the push measures distance in.
+   */
+  const window = useMemo(() => {
+    const out: Array<{ garment: Garment; offset: number; place: number }> = [];
+    const half = garments.length / 2;
+    garments.forEach((garment, i) => {
+      let offset = i - index;
+      if (offset > half) offset -= garments.length;
+      if (offset < -half) offset += garments.length;
+      if (Math.abs(offset) > ARC) return;
+      out.push({ garment, offset, place: 0 });
+    });
+    // Left to right as drawn, which for the right-hand fan is the reverse of
+    // the rim order — the push has to ripple the way the eye reads, not the
+    // way the array happens to run.
+    out.sort((a, b) => mirror * (a.offset - b.offset));
+    out.forEach((card, place) => (card.place = place));
+    return out;
+  }, [garments, index, mirror]);
+
+  const heldPlace = window.find((c) => c.garment.id === held)?.place ?? 0;
 
   const move = (by: number) => {
     if (!garments.length) return;
@@ -832,30 +918,25 @@ function Fan({
         </p>
       ) : (
         <>
-          {/* The hub. Everything on the rim is positioned from this one point,
-              which is what makes the whole thing turn together. */}
-          <div
-            className="absolute"
-            style={{
-              left: side === "left" ? "42%" : "58%",
-              // Below the floor of the room, so we only ever see the top of it.
-              top: `calc(100% + ${RADIUS - 300}px)`,
-              perspective: "1400px",
-            }}
-          >
-            {garments.map((g, i) => {
-              let offset = i - index;
-              const half = garments.length / 2;
-              if (offset > half) offset -= garments.length;
-              if (offset < -half) offset += garments.length;
-
+          {/* The hand, dealt flat. Cards stack on one point and fan out from
+              it; the pointer opens a gap wherever it lands. */}
+          <div className="absolute inset-x-0 bottom-0 h-full">
+            {window.map(({ garment: g, offset, place }) => {
               const far = Math.abs(offset);
-              if (far > ARC) return null;
-
-              // The wheel leans out of the corner, so the hand opens toward
-              // the middle of the room instead of straight up.
-              const angle = mirror * (offset * STEP - 14);
               const lifted = held === g.id;
+
+              // Fanned about the middle of the visible hand, and mirrored so
+              // both hands open toward the body rather than away from it.
+              const home = mirror * (offset * SPREAD + BIAS);
+              const lean = mirror * offset * TILT;
+
+              // Reaching for one card shoves the rest aside — the ones on its
+              // left to the left, the ones on its right to the right, each a
+              // beat later than the one before it.
+              const away =
+                held === null || lifted
+                  ? 0
+                  : mirror * (place < heldPlace ? -1 : 1) * PUSH;
 
               return (
                 <button
@@ -867,35 +948,69 @@ function Fan({
                   onBlur={() => setHeld(null)}
                   onClick={() => onPick(g)}
                   aria-label={`Put on ${g.name}`}
-                  className="pointer-events-auto absolute bottom-0 left-0 w-[13.5rem] cursor-pointer disabled:cursor-default"
+                  className="pointer-events-auto absolute bottom-0 left-1/2 w-[11rem] cursor-pointer disabled:cursor-default"
                   style={{
-                    // rotate → out along the spoke → centre the card on the rim
-                    // and stand it on that point. Order matters: every translate
-                    // after the rotate happens in the rotated frame, which is
-                    // exactly what keeps the cards radial.
-                    transform: [
-                      `rotate(${angle}deg)`,
-                      `translateY(${-RADIUS - (lifted ? 46 : 0)}px)`,
-                      "translateX(-50%)",
-                      "translateY(100%)",
-                      `scale(${lifted ? 1.1 : 1 - far * 0.035})`,
-                    ].join(" "),
-                    transformOrigin: "0 0",
-                    // Monotonic along the rim, the way a real hand of cards
-                    // stacks — each card is covered by exactly one neighbour,
-                    // so every card exposes a strip of the same width. Peaking
-                    // the z-order at the front instead put that one card on top
-                    // of both its neighbours, and it ended up owning fifteen
-                    // times its share of the pointer.
-                    zIndex: lifted ? 30 : 20 - (offset + ARC),
-                    // The cards at the ends of the rim sit back, but a card
-                    // you are pointing at is never faded — you are looking at
-                    // it, so it is not scenery any more.
-                    opacity: lifted ? 1 : far > ARC - 1 ? 0.4 : 1,
-                    transition: `transform ${SPIN_MS}ms var(--ease-cloth), opacity 520ms var(--ease-cloth)`,
+                    marginLeft: "-5.5rem",
+                    // ── the hit area ──────────────────────────────────────
+                    // Carries the card's *place in the hand* and nothing else.
+                    // Everything hover does — the lift, the straighten, the
+                    // scale — lives on the element inside, and this is not a
+                    // tidiness argument: when the pose was on this element,
+                    // hovering the edge of a card moved that edge out from
+                    // under the pointer, which fired a leave, which reset the
+                    // pose, which put the edge back under the pointer. At the
+                    // end of the hand, where there is no neighbour to catch
+                    // the pointer, it oscillated for as long as you held
+                    // still. A card's target has to stay where it is while you
+                    // are aiming at it.
+                    translate: `${home + away}px`,
+                    // Monotonic along the hand, the way a real one stacks —
+                    // each card covered by exactly one neighbour, so every
+                    // card exposes a strip of the same width.
+                    zIndex: lifted ? 30 : 20 - far,
+                    opacity: lifted ? 1 : far > ARC - 1 ? 0.55 : 1,
+                    transition: `translate ${MOVE}ms ${BACK}, opacity 520ms var(--ease-cloth)`,
+                    // The shove ripples outward from your pointer. Reset is
+                    // immediate — a delayed reset feels like the hand is
+                    // sticky.
+                    transitionDelay:
+                      held === null ? "0ms" : `${Math.abs(place - heldPlace) * RIPPLE}ms`,
+                    willChange: "translate",
                   }}
                 >
-                  <Card garment={g} lifted={lifted} openSlots={openSlots} />
+                  {/* ── the pose, and the deal, on one element ───────────
+                      Three transforms act on a card — the deal's scale, the
+                      lean, and the rise-and-straighten under the pointer — and
+                      they used to need an element each, because they would all
+                      have been writing `transform` and the last one would win.
+                      CSS has `scale`, `rotate` and `translate` as properties in
+                      their own right, and they compose. So the deal takes
+                      `scale`, the pose takes the other two, and one element
+                      does the work of three.
+                      That is not tidiness. Every one of those elements was a
+                      promoted compositor layer holding a full raster of the
+                      card, and the card is the heaviest raster in the app —
+                      eighty glyphs of a face whose letters are drawn as
+                      fingerprints. Ten cards went from thirty layers to twenty.
+
+                      No scale in the pose, either. Scale is the one transform
+                      that forces a re-raster, because the type has to stay
+                      crisp at the new size; translate and rotate are free on a
+                      layer that already exists. The six per cent it used to
+                      grow by was never what said "picked up" — the rise and
+                      the straightening are. */}
+                  <span
+                    className="block origin-bottom"
+                    style={{
+                      translate: `0 ${lifted ? -26 : 0}px`,
+                      rotate: `${lifted ? 0 : lean}deg`,
+                      animation: `deal-in ${DEAL}ms ${ELASTIC} ${place * STAGGER}ms backwards`,
+                      transition: `translate ${MOVE}ms ${BACK}, rotate ${MOVE}ms ${BACK}`,
+                      willChange: "translate, rotate, scale",
+                    }}
+                  >
+                    <Card garment={g} lifted={lifted} openSlots={openSlots} />
+                  </span>
                 </button>
               );
             })}
@@ -937,7 +1052,9 @@ function Fan({
  * its colour from the piece, so a wheel of them is a wheel of colours rather
  * than a stack of beige rectangles.
  */
-function Card({
+// Memoised alongside the plate it wraps: a hover changes `lifted` on two cards
+// out of five, and the other three have no reason to re-render at all.
+const Card = memo(function Card({
   garment,
   lifted,
   openSlots,
@@ -985,4 +1102,4 @@ function Card({
       </div>
     </div>
   );
-}
+});

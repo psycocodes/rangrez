@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import { memo } from "react";
 
 import { INK } from "@/lib/ornament";
 import { tintOf, tintOfDark } from "@/lib/tint";
@@ -167,7 +168,17 @@ function layoutTitle(text: string): { lines: string[]; size: number } {
   return { lines: best.lines, size: two };
 }
 
-export function GarmentPlate({
+/**
+ * Memoised, and not as a precaution.
+ *
+ * This is the most expensive thing on either page to render: a container
+ * query, eighty characters of a 170px display face that re-wraps to fill the
+ * panel, and an image. The look creator's hands re-render on every hover —
+ * that is how the push knows where your pointer is — and re-rendering five of
+ * these on each pointer move was the whole of the choppiness. None of the
+ * props move when a sibling is hovered, so the plate can sit the change out.
+ */
+export const GarmentPlate = memo(function GarmentPlate({
   garment,
   dark = false,
   showName = true,
@@ -207,6 +218,12 @@ export function GarmentPlate({
       className={`relative overflow-hidden ${poster ? "" : "h-full w-full"} ${className}`}
       style={{
         containerType: "inline-size",
+        // Nothing inside a card ever draws outside it, and saying so lets the
+        // browser treat the card as its own paint unit. Without it a repaint
+        // here is allowed to dirty whatever is behind — on the look creator
+        // that is a full-bleed block-print ground and a large blurred floor
+        // light, both of which cost far more to repaint than the card does.
+        contain: "paint",
         aspectRatio: poster ? "1063 / 1752" : undefined,
         // The card's field is the *deeper* of the two tints and the panel
         // inside it is the lighter one — which is the way round the reference
@@ -240,8 +257,9 @@ export function GarmentPlate({
             lineHeight: 1,
             letterSpacing: "0.01em",
             overflowWrap: "anywhere",
+            // The alpha is in the colour, never on the element — see the note
+            // on `complement` in lib/tint.ts.
             color: t.complement,
-            opacity: 0.6,
           }}
         >
           {chant}
@@ -332,7 +350,7 @@ export function GarmentPlate({
       )}
     </article>
   );
-}
+});
 
 /**
  * The same card, hanging.

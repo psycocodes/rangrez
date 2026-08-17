@@ -278,7 +278,10 @@ function Hanging({
     <motion.div
       role="listitem"
       className="relative h-full shrink-0"
-      style={{ width: "clamp(9rem, 17vw, 15rem)" }}
+      // No width: the card carries the design's 1063 × 1752 and the rail gives
+      // it a height, so its width falls out of the two. Fixing one as well
+      // would crop the card at most rail heights, and the rail's height moves
+      // with the viewport.
       initial={{ opacity: 0, y: -18 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: Math.min(index * 0.035, 0.5), duration: 0.5 }}
@@ -304,7 +307,9 @@ function Hanging({
       >
         <Hanger tone={INK.brass} />
         <div
-          className="relative h-[calc(100%-3.6rem)] w-full overflow-hidden rounded-[4px] shadow-[0_16px_30px_-16px_rgba(14,44,57,0.42)]"
+          // inline-block so `width: auto` shrinks to the aspect ratio instead
+          // of filling the parent — a block box ignores the ratio here.
+          className="relative inline-block aspect-[1063/1752] h-[calc(100%-3.6rem)] overflow-hidden rounded-[4px] shadow-[0_16px_30px_-16px_rgba(14,44,57,0.42)]"
           style={{ border: `1px solid ${INK.abyss}22` }}
         >
           <GarmentPlate garment={garment} priority={index < 4} />
@@ -420,8 +425,9 @@ function Shelf({
                 key={g.id}
                 type="button"
                 onClick={() => onOpen?.(g)}
-                className="relative h-[80%] shrink-0 overflow-hidden text-left"
-                style={{ width: "clamp(8rem, 14vw, 12rem)" }}
+                // Height-driven for the same reason the rail is — the card
+                // owns its proportion, the shelf only says how tall.
+                className="relative aspect-[1063/1752] h-[80%] shrink-0 overflow-hidden text-left"
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: i * 0.04, duration: 0.4 }}
