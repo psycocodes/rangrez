@@ -65,7 +65,7 @@
   /* Height of the sticky top bar. Anything that sticks *below* it offsets by
      this, so the two can never disagree — they did, by 8px, and the page
      showed through the seam on every scroll. One number, two consumers. */
-  --spacing-shell-top: 3rem;
+  --spacing-shell-top: 0rem;
 }
 
 /* The bounce rail deals its cards in. Declared here rather than in the
@@ -520,7 +520,7 @@ body {
 /* Under the masthead, not over it: one number feeds both, so the header and
    the viewport arithmetic cannot drift apart. */
 .page {
-  height: calc(100dvh - var(--spacing-shell-top));
+  height: 100dvh;
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -644,3 +644,5 @@ body {
   outline: 2px solid var(--color-madder);
   outline-offset: 2px;
 }
+
+/* ═══ THE CLOSET ═════════════════════════════════════════════════════════ */

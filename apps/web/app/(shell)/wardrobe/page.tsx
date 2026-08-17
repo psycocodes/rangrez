@@ -13,6 +13,7 @@ export default async function WardrobePage() {
     <ClosetRoom
       garments={garments}
       name={user.name}
+      note={user.avatar?.colorSeason?.name.toUpperCase() ?? "YEAR ROUND"}
       avatars={user.avatars}
       activeAvatarId={user.activeAvatarId}
     />

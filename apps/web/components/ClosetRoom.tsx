@@ -3,6 +3,7 @@
 
 import { useMemo, useState } from "react";
 
+import { signOut } from "@/app/actions/auth";
 import { AddClothesProvider, useDock } from "./AddClothes";
 import { Closet } from "./Closet";
 import { GarmentPlate } from "./GarmentPlate";
@@ -13,45 +14,41 @@ import { ORIGIN_LABEL, type Avatar, type Garment } from "@/lib/types";
 
 /**
  * The wardrobe, as a room.
- *
- * Owns exactly one viewport and never scrolls: the masthead is fixed, the
- * racks fill what is left, and everything that moves moves sideways. That
- * constraint is the design — a cupboard you scroll past is a list of clothes,
- * and the whole point is that it should feel like standing in front of one.
- *
- * Two tabs, because a wardrobe holds two different kinds of thing and
- * conflating them is why most closet apps are useless: what you *own*, and
- * what you are still deciding about.
  */
 export function ClosetRoom({
   garments,
   name,
+  note,
   avatars,
   activeAvatarId,
 }: {
   garments: Garment[];
   name: string;
+  note?: string;
   avatars: Avatar[];
   activeAvatarId?: string;
 }) {
-  // The upload dock used to hang off the old masthead, which this replaced.
-  // Without it there is no way to put a garment into the wardrobe at all —
-  // a closet you cannot add to is a catalogue.
   return (
     <AddClothesProvider avatars={avatars} activeAvatarId={activeAvatarId}>
-      <Room garments={garments} name={name} />
+      <Room garments={garments} name={name} note={note} />
     </AddClothesProvider>
   );
 }
 
-function Room({ garments, name }: { garments: Garment[]; name: string }) {
+function Room({
+  garments,
+  name,
+  note,
+}: {
+  garments: Garment[];
+  name: string;
+  note?: string;
+}) {
   const [tab, setTab] = useState<"bought" | "wishlist">("bought");
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState<Garment | null>(null);
 
   const shown = useMemo(() => {
-    // A shop save is a thing you were looking at; everything else is a thing
-    // you have. That is the honest split, and it needs no extra column.
     const owned = tab === "bought"
       ? garments.filter((g) => g.origin !== "shop")
       : garments.filter((g) => g.origin === "shop");
@@ -59,8 +56,6 @@ function Room({ garments, name }: { garments: Garment[]; name: string }) {
     const q = query.trim().toLowerCase();
     if (!q) return owned;
 
-    // Matched across everything the card can show, so searching for a colour
-    // or a season works as readily as searching for a name.
     return owned.filter((g) =>
       [g.name, g.dye.name, g.material, g.zone, g.sizeLabel, ORIGIN_LABEL[g.origin]]
         .filter(Boolean)
@@ -71,61 +66,79 @@ function Room({ garments, name }: { garments: Garment[]; name: string }) {
   }, [garments, tab, query]);
 
   return (
-    // Cream ground, saturated ink — which is what a matchbox label actually
-    // is. An earlier pass went dark because pale cards dissolved into a pale
-    // room, but the real fault was that the cards had no keyline. Give every
-    // card a heavy rule (rule 5 of the grammar) and it reads on anything, and
-    // the room gets to stay the colour of paper.
-    <Ground
-      kind="phool"
-      tone={INK.peacock}
-      accent={INK.madder}
-      base={INK.leaf}
-      // Denser and fainter. At 104px the rosettes were large enough to read as
-      // individual motifs — snowflakes scattered behind the rail — rather than
-      // as the weave of the cloth the rail is standing against. A block print
-      // is a *texture* at arm's length; it only resolves into flowers up close.
-      scale={74}
-      opacity={0.075}
-      className="page text-abyss"
+    <div
+      className="page relative flex flex-col overflow-hidden text-abyss"
+      style={{
+        backgroundImage: "url('/assets/backgrounds/wardrobe-background.png')",
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        backgroundColor: "#EBE3D5",
+      }}
     >
-      {/* ── masthead ──────────────────────────────────────────────────── */}
-      <header className="relative z-10 flex shrink-0 flex-wrap items-center gap-x-4 gap-y-2.5 border-b-2 border-abyss bg-leaf/85 px-4 py-2.5 backdrop-blur-sm lg:px-8">
-        <span className="spec shrink-0 text-madder">The cupboard</span>
-
-        <label className="relative min-w-0 flex-1 md:max-w-sm">
-          <span className="sr-only">Search your wardrobe</span>
-          <input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search — colour, cloth, name…"
-            className="w-full border-2 border-abyss/30 bg-leaf px-3 py-1.5 text-[0.85rem] text-abyss outline-none transition-colors placeholder:text-abyss/35 focus:border-brass"
-          />
-        </label>
-
-        <div className="flex shrink-0 items-center">
-          {(["bought", "wishlist"] as const).map((t) => (
-            <button
-              key={t}
-              type="button"
-              onClick={() => setTab(t)}
-              aria-pressed={tab === t}
-              className={`spec border-y border-l px-3 py-2 transition-colors duration-300 last:border-r ${
-                tab === t
-                  ? "border-abyss bg-brass text-abyss"
-                  : "border-abyss/30 text-abyss/55 hover:text-abyss"
-              }`}
-            >
-              {t}
-            </button>
-          ))}
+      {/* ── Neobrutalist Header with Search, Filter & Account Details ── */}
+      <header className="relative z-20 flex shrink-0 flex-wrap items-center justify-between gap-3 border-b-[3px] border-[#12100d] bg-[#F4EFE6]/95 px-4 py-2.5 backdrop-blur-md lg:px-7">
+        {/* Brand Badge */}
+        <div className="flex items-center gap-2.5">
+          <span className="border-2 border-[#12100d] bg-white px-2.5 py-1 text-[0.82rem] font-black tracking-[0.22em] uppercase text-[#12100d] shadow-[2px_2px_0px_#12100d]">
+            RANGREZ
+          </span>
+          <span className="hidden font-mono text-[0.72rem] font-bold tracking-[0.14em] uppercase text-[#12100d]/60 sm:inline">
+            WARDROBE
+          </span>
         </div>
 
-        <AddButton />
+        {/* Search & Filter Controls */}
+        <div className="flex min-w-0 flex-1 items-center justify-center gap-2.5 max-w-xl">
+          <label className="relative min-w-0 flex-1">
+            <span className="sr-only">Search your wardrobe</span>
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="SEARCH PIECES, DYES, CUTS…"
+              className="w-full border-2 border-[#12100d] bg-white px-3 py-1.5 font-mono text-[0.8rem] font-bold uppercase text-[#12100d] outline-none shadow-[2px_2px_0px_#12100d] transition-all placeholder:text-[#12100d]/35 focus:shadow-[3px_3px_0px_#12100d]"
+            />
+          </label>
 
-        <span className="spec-sm hidden text-abyss/45 lg:block">
-          {name.toUpperCase()}
-        </span>
+          <div className="flex shrink-0 items-center gap-1.5">
+            {(["bought", "wishlist"] as const).map((t) => (
+              <button
+                key={t}
+                type="button"
+                onClick={() => setTab(t)}
+                aria-pressed={tab === t}
+                className={`border-2 border-[#12100d] px-3 py-1.5 text-[0.75rem] font-black tracking-wider uppercase shadow-[2px_2px_0px_#12100d] transition-all active:translate-x-[1px] active:translate-y-[1px] ${
+                  tab === t
+                    ? "bg-[#FFDE59] text-[#12100d]"
+                    : "bg-white text-[#12100d]/65 hover:bg-[#FAF6EF] hover:text-[#12100d]"
+                }`}
+              >
+                {t}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Account Details on Side of Filter */}
+        <div className="flex shrink-0 items-center gap-2">
+          <div className="flex items-center gap-2 border-2 border-[#12100d] bg-white px-2.5 py-1 shadow-[2px_2px_0px_#12100d]">
+            <span className="text-[0.78rem] font-black tracking-wide uppercase text-[#12100d]">
+              {name}
+            </span>
+            {note && (
+              <span className="border border-[#12100d] bg-[#FFDE59] px-1.5 py-0.5 font-mono text-[0.62rem] font-bold text-[#12100d]">
+                {note}
+              </span>
+            )}
+          </div>
+          <form action={signOut}>
+            <button
+              type="submit"
+              className="border-2 border-[#12100d] bg-[#FF5A5F] px-2.5 py-1 text-[0.75rem] font-black uppercase text-white shadow-[2px_2px_0px_#12100d] transition-all hover:bg-[#FF3B42] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none"
+            >
+              EXIT
+            </button>
+          </form>
+        </div>
       </header>
 
       {/* ── the cupboard ──────────────────────────────────────────────── */}
@@ -158,23 +171,26 @@ function Room({ garments, name }: { garments: Garment[]; name: string }) {
         <Closet garments={shown} onOpen={setOpen} />
       )}
 
+      {/* ── Neobrutalist Floating + Action Button (Bottom-Right) ── */}
+      <FloatingAddButton />
+
       {open && <Lightbox garment={open} onClose={() => setOpen(null)} />}
-    </Ground>
+    </div>
   );
 }
 
-/** Put something new on the rail. */
-function AddButton() {
+/** Neobrutalist Floating Action Button for adding/uploading clothes */
+function FloatingAddButton() {
   const dock = useDock();
   if (!dock) return null;
   return (
     <button
       type="button"
       onClick={dock.open}
-      className="spec flex shrink-0 items-center gap-2 border border-brass bg-brass px-3 py-2 text-abyss transition-colors duration-300 hover:bg-brass-light"
+      aria-label="Hang new garment"
+      className="fixed bottom-6 right-6 z-40 flex h-14 w-14 sm:h-16 sm:w-16 items-center justify-center rounded-2xl border-[3px] border-[#12100d] bg-[#FFDE59] text-[#12100d] shadow-[4px_4px_0px_#12100d] transition-all duration-200 hover:-translate-x-0.5 hover:-translate-y-0.5 hover:bg-[#FFE57F] hover:shadow-[6px_6px_0px_#12100d] active:translate-x-[3px] active:translate-y-[3px] active:shadow-[1px_1px_0px_#12100d] cursor-pointer"
     >
-      <span aria-hidden>+</span>
-      <span className="hidden sm:inline">Hang something</span>
+      <span className="text-3xl sm:text-4xl font-black leading-none select-none">+</span>
     </button>
   );
 }

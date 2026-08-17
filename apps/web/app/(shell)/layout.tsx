@@ -21,17 +21,9 @@ export default async function ShellLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const user = await requireUser();
-
   return (
     <div className="flex h-dvh flex-col overflow-hidden">
-      <Masthead
-        name={user.name}
-        note={user.avatar?.colorSeason?.name.toUpperCase() ?? "NO AVATAR"}
-      />
-      {/* min-h-0 so a page that wants exactly one viewport can have it — a
-          flex child defaults to min-height:auto and refuses to shrink. */}
-      <main className="min-h-0 flex-1 overflow-y-auto">{children}</main>
+      <main className="min-h-0 flex-1 overflow-hidden">{children}</main>
     </div>
   );
 }

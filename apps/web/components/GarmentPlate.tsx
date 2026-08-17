@@ -190,6 +190,7 @@ export const GarmentPlate = memo(function GarmentPlate({
   dark = false,
   showName = true,
   priority = false,
+  variant = "standard",
   className = "",
 }: {
   garment: Garment;
@@ -198,227 +199,349 @@ export const GarmentPlate = memo(function GarmentPlate({
   showName?: boolean;
   priority?: boolean;
   interactive?: boolean;
+  variant?: "standard" | "short" | "shoe";
   className?: string;
 }) {
   const t = dark ? tintOfDark(garment.dye.hex) : tintOf(garment.dye.hex);
 
-  // No spaces and no punctuation, so the line breaks fall mid-word and each
-  // line starts on a different letter — that offset *is* the pattern. Set as
-  // one string rather than one node per repeat: a wrapped string breaks
-  // wherever the measure runs out, whereas separate nodes would break at the
-  // same place every time and stack into columns.
-  const word = garment.name.toUpperCase().replace(/[^A-Z0-9]/g, "");
-  const chant = word
-    ? word.repeat(Math.max(2, Math.ceil(FILL_CHARS / word.length)))
-    : "";
+  // Auto-detect layout mode
+  const isShoe = variant === "shoe" || garment.zone === "shoes";
+  const isShort = variant === "short";
 
-  // Set in caps rather than relying on the face having no lowercase, so the
-  // string measured is the string drawn.
-  const title = layoutTitle(garment.name.toUpperCase());
+  // Maximum 12 characters for garment names
+  const displayName =
+    garment.name.length > 12 ? garment.name.slice(0, 12).trim() : garment.name;
 
-  // The lightbox and the look slots want the piece, not the poster: no
-  // caption, no forced proportion, just the panel filling whatever box it was
-  // handed. Only the full card claims the design's aspect.
+  // Derive continuous repeating text to fill the background box
+  const word = (displayName || "PINKSHIRT").toUpperCase().replace(/[^A-Z0-9]/g, "") || "PINKSHIRT";
+  const chant = word.repeat(Math.max(2, Math.ceil(FILL_CHARS / word.length)));
+
+  const titleWords = displayName.toUpperCase().split(" ");
   const poster = showName;
 
+  /* ── 1. SHOE CARD LAYOUT (Figma Node: Card - Shoe - Wardrobe - Front) ── */
+  if (isShoe) {
+    return (
+      <article
+        className={`relative flex flex-col overflow-hidden rounded-[24px] border-[3px] border-[#12100d] shadow-[4px_4px_0px_#12100d] ${
+          poster ? "h-full w-full" : "h-full w-full"
+        } ${className}`}
+        style={{
+          containerType: "inline-size",
+          contain: "paint",
+          aspectRatio: "1.45 / 1",
+          background: t.wash,
+          color: t.ink,
+        }}
+      >
+        {/* Top/Center Stadium Pill Wash Panel */}
+        <div
+          className="relative m-[3.5%] mb-0 h-[68%] overflow-hidden rounded-[18px] border-2 border-[#12100d]/30"
+          style={{ background: t.card }}
+        >
+          {/* Repeating Identity watermark scaling in cqw */}
+          <p
+            aria-hidden
+            className="absolute text-center select-none pointer-events-none"
+            style={{
+              left: w(-72),
+              top: w(-45),
+              width: w(1253),
+              fontFamily: "var(--font-identity)",
+              fontSize: w(170.621),
+              lineHeight: 1,
+              letterSpacing: "0.01em",
+              overflowWrap: "anywhere",
+              color: t.complement,
+            }}
+          >
+            {chant}
+          </p>
+
+          {/* Shoe cutout artwork floating centered */}
+          <div className="relative z-[10] h-full w-full">
+            <Image
+              src={garment.imageUrl}
+              alt={displayName}
+              fill
+              sizes="(max-width: 768px) 45vw, 22vw"
+              priority={priority}
+              className="object-contain p-[6%] drop-shadow-[0_12px_18px_rgba(18,16,13,0.38)]"
+              unoptimized={garment.imageUrl.startsWith("data:")}
+            />
+          </div>
+        </div>
+
+        {/* Bottom Title Line & Zone */}
+        {poster && (
+          <div className="relative z-[18] flex flex-1 items-center justify-between px-[6%] pb-[2%] pt-[1%]">
+            <span
+              className="font-iosevka font-bold tracking-[0.14em] uppercase text-[#2f1714]/80"
+              style={{ fontSize: "clamp(0.62rem, 3.8cqw, 0.85rem)" }}
+            >
+              SHOES
+            </span>
+            <h3
+              className="font-friday truncate leading-none tracking-[0.01em] uppercase text-white"
+              style={{ fontSize: "clamp(1.1rem, 7.5cqw, 1.7rem)" }}
+              title={displayName}
+            >
+              {displayName}
+            </h3>
+          </div>
+        )}
+      </article>
+    );
+  }
+
+  /* ── 2. SHORT HORIZONTAL CARD LAYOUT (Card - Casual - Wardrobe - Front - Shoertest) ── */
+  if (isShort) {
+    return (
+      <article
+        className={`relative flex flex-row items-center overflow-hidden rounded-tl-[48px] rounded-bl-[48px] rounded-tr-[48px] rounded-br-[18px] border-2 border-[#12100d] shadow-[3px_3px_0px_#12100d] sm:shadow-[4px_4px_0px_#12100d] p-[2.5%] gap-[3.5%] ${
+          poster ? "h-full w-full" : "h-full w-full"
+        } ${className}`}
+        style={{
+          containerType: "inline-size",
+          contain: "paint",
+          aspectRatio: poster ? "1.58 / 1" : undefined,
+          background: t.wash,
+          color: t.ink,
+        }}
+      >
+        {/* Left Side Vertical Pill Stadium Panel */}
+        <div
+          className="relative h-full w-[44%] shrink-0 overflow-hidden rounded-[34px] border border-[#12100d]/20"
+          style={{ background: t.card }}
+        >
+          <p
+            aria-hidden
+            className="absolute text-center select-none pointer-events-none"
+            style={{
+              left: w(-72),
+              top: w(-45),
+              width: w(1253),
+              fontFamily: "var(--font-identity)",
+              fontSize: w(170.621),
+              lineHeight: 1,
+              letterSpacing: "0.01em",
+              overflowWrap: "anywhere",
+              color: t.complement,
+            }}
+          >
+            {chant}
+          </p>
+
+          <div className="relative z-[10] h-full w-full">
+            <Image
+              src={garment.imageUrl}
+              alt={displayName}
+              fill
+              sizes="(max-width: 768px) 45vw, 22vw"
+              priority={priority}
+              className="object-contain p-[5%] drop-shadow-[0_12px_20px_rgba(18,16,13,0.42)]"
+              unoptimized={garment.imageUrl.startsWith("data:")}
+            />
+          </div>
+        </div>
+
+        {/* Right Side Stacked Category & Title */}
+        {poster && (
+          <div className="relative z-[18] flex flex-1 flex-col items-end justify-center pr-[7%] text-right">
+            <p
+              className="font-iosevka font-bold tracking-[0.16em] uppercase text-[#2f1714]/85 text-right mb-1"
+              style={{ fontSize: "clamp(0.82rem, 5cqw, 1.2rem)" }}
+            >
+              {garment.zone === "top"
+                ? "SHIRTS"
+                : ZONE_LABEL[garment.zone]?.toUpperCase() || "PIECE"}
+            </p>
+            <div
+              className="flex flex-col font-friday leading-[0.9] tracking-[0.01em] uppercase text-white text-right"
+              style={{ fontSize: "clamp(1.45rem, 11.5cqw, 2.75rem)" }}
+            >
+              {titleWords.length > 1 ? (
+                <>
+                  <span>{titleWords[0]}</span>
+                  <span>{titleWords.slice(1).join(" ")}</span>
+                </>
+              ) : (
+                <span>{displayName}</span>
+              )}
+            </div>
+          </div>
+        )}
+      </article>
+    );
+  }
+
+  /* ── 3. STANDARD BIG LONG VERTICAL CARD LAYOUT (Card - Casual) ── */
   return (
     <article
-      className={`relative overflow-hidden ${poster ? "" : "h-full w-full"} ${className}`}
+      className={`relative flex flex-col overflow-hidden rounded-t-[44px] sm:rounded-t-[52px] rounded-b-[12px] sm:rounded-b-[14px] border-2 border-[#12100d] shadow-[3px_3px_0px_#12100d] sm:shadow-[4px_4px_0px_#12100d] ${
+        poster ? "h-full w-full" : "h-full w-full"
+      } ${className}`}
       style={{
         containerType: "inline-size",
-        // Nothing inside a card ever draws outside it, and saying so lets the
-        // browser treat the card as its own paint unit. Without it a repaint
-        // here is allowed to dirty whatever is behind — on the look creator
-        // that is a full-bleed block-print ground and a large blurred floor
-        // light, both of which cost far more to repaint than the card does.
         contain: "paint",
-        aspectRatio: poster ? "1063 / 1752" : undefined,
-        // The card's field is the *deeper* of the two tints and the panel
-        // inside it is the lighter one — which is the way round the reference
-        // has it, and the opposite of what this card used to do. A pale card
-        // holding a darker panel reads as a hole; this reads as a mount.
+        aspectRatio: poster ? "1 / 1.65" : undefined,
         background: t.wash,
         color: t.ink,
       }}
     >
-      {/* ── the panel, and the name printed across it ─────────────────── */}
+      {/* ── Inner Wash Panel (extended downwards) ── */}
       <div
-        className="absolute overflow-hidden"
-        style={
-          poster
-            ? { left: w(55), top: w(54), width: w(950), height: w(1109), background: t.card }
-            : { inset: "5%", background: t.card }
-        }
+        className="relative m-[2.2%] mb-0 flex-1 overflow-hidden rounded-t-[36px] sm:rounded-t-[44px] rounded-b-[6px] border border-[#12100d]/20"
+        style={{ background: t.card }}
       >
-        {/* Wider than the panel and starting above it, so the letters run off
-            all four edges. Cropped lettering reads as a printed ground; the
-            same lettering fitted inside the panel reads as a caption. */}
         <p
           aria-hidden
-          className="absolute text-center"
+          className="absolute text-center select-none pointer-events-none"
           style={{
             left: w(-72),
             top: w(-45),
             width: w(1253),
-            fontFamily: "var(--font-fingerprint)",
+            fontFamily: "var(--font-identity)",
             fontSize: w(170.621),
             lineHeight: 1,
             letterSpacing: "0.01em",
             overflowWrap: "anywhere",
-            // The alpha is in the colour, never on the element — see the note
-            // on `complement` in lib/tint.ts.
             color: t.complement,
           }}
         >
           {chant}
         </p>
-      </div>
 
-      {/* ── the garment, sitting proud of the panel ─────────────────────
-          The reference's 849 × 982 at (105, 117), grown 8% about its own
-          centre. That still leaves about 16px of panel either side at the
-          reference size, so the piece never touches the panel's edge — but
-          it is the thing you are meant to be looking at, and at the drawn
-          size it was sitting too far inside its own mount. */}
-      <div
-        className="absolute"
-        style={
-          poster
-            ? { left: w(71), top: w(78), width: w(917), height: w(1061) }
-            : { inset: "7%" }
-        }
-      >
-        <Image
-          src={garment.imageUrl}
-          alt={garment.name}
-          fill
-          sizes="(max-width: 768px) 45vw, 22vw"
-          priority={priority}
-          // Contained, not covered: a garment cropped by its own card is a
-          // garment you cannot identify, and identifying it is the card's job.
-          // No cast shadow — the reference has none, and the lettering has to
-          // stay legible right up to the garment's edge for the two planes to
-          // read as printed rather than stacked.
-          className="object-contain"
-          unoptimized={garment.imageUrl.startsWith("data:")}
-        />
+        <div className="relative z-[10] h-full w-full">
+          <Image
+            src={garment.imageUrl}
+            alt={displayName}
+            fill
+            sizes="(max-width: 768px) 45vw, 22vw"
+            priority={priority}
+            className="object-contain p-[5%] drop-shadow-[0_14px_24px_rgba(18,16,13,0.42)]"
+            unoptimized={garment.imageUrl.startsWith("data:")}
+          />
+        </div>
 
         {garment.inPalette && (
           <span
             title="Inside your colour season"
-            className="absolute right-0 top-0 z-[2] leading-none"
-            style={{ color: t.mark, fontSize: w(34) }}
+            className="absolute right-2 top-2 z-[18] text-[0.7rem] leading-none"
+            style={{ color: t.edge }}
           >
             ✦
           </span>
         )}
       </div>
 
-      {/* ── the caption, printed straight onto the card ───────────────── */}
+      {/* ── Bottom labels aligned left with dynamic text ── */}
       {poster && (
-        <>
+        <div className="relative z-[18] px-[5%] pb-[3.5%] pt-[1.5%] text-left">
           <p
-            className="absolute whitespace-nowrap"
-            style={{
-              left: w(36),
-              top: w(1184),
-              fontFamily: "var(--font-label)",
-              fontSize: w(63.562),
-              lineHeight: 1,
-              letterSpacing: "0.01em",
-              color: t.mark,
-            }}
+            className="font-iosevka font-bold tracking-[0.16em] uppercase text-[#2f1714]/85"
+            style={{ fontSize: "clamp(0.68rem, 4.4cqw, 0.95rem)" }}
           >
-            {ZONE_LABEL[garment.zone].toUpperCase()}
+            {garment.zone === "top"
+              ? "SHIRTS"
+              : ZONE_LABEL[garment.zone]?.toUpperCase() || "PIECE"}
           </p>
-
-          {/* Broken where layoutTitle decided, never by the browser: at this
-              size the face overflows its own line box, so a wrap the layout
-              didn't measure would set one line through another. */}
-          <p
-            className="absolute"
-            style={{
-              left: w(36),
-              top: w(TITLE_CAP_TOP - title.size * TITLE_INK_OFFSET),
-              width: w(TITLE_BOX),
-              fontFamily: "var(--font-block)",
-              fontSize: w(title.size),
-              lineHeight: TITLE_LEADING,
-              letterSpacing: `${TITLE_TRACKING}em`,
-              color: "rgba(255,255,255,0.7)",
-            }}
+          <h3
+            className="font-friday mt-0.5 whitespace-nowrap leading-tight tracking-[0.01em] uppercase text-white"
+            style={{ fontSize: "clamp(1.1rem, 7.8cqw, 1.65rem)" }}
+            title={displayName}
           >
-            {title.lines.map((line) => (
-              <span key={line} className="block whitespace-nowrap">
-                {line}
-              </span>
-            ))}
-          </p>
-        </>
+            {displayName}
+          </h3>
+        </div>
       )}
     </article>
   );
 });
 
 /**
- * Dual front and back hanging string suspension lines.
- * Back cables drop behind the card; front cables hook over the rod and dip into the eyelet holes.
+ * Clothing hanger with 3D shaded polished brown wood ball finial sitting on the brass rail.
  */
-export function Hanger({ tone = "#EDE7DA" }: { tone?: string }) {
+export function Hanger({ tone = "#7C4A27" }: { tone?: string }) {
   return (
-    <div className="relative h-11 w-full overflow-visible">
-      {/* Back cable layer sitting behind card */}
-      <svg
-        aria-hidden
-        viewBox="0 0 100 44"
-        preserveAspectRatio="none"
-        className="pointer-events-none absolute inset-0 z-[1] block h-full w-full overflow-visible"
-      >
-        <g
-          fill="none"
-          stroke="#B5ADA0"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <path d="M50 8 L19 44" />
-          <path d="M50 8 L81 44" />
-        </g>
-      </svg>
+    <svg
+      aria-hidden
+      viewBox="0 0 100 36"
+      preserveAspectRatio="xMidYMax meet"
+      className="relative z-[12] block h-9 w-full overflow-visible pointer-events-none"
+    >
+      <defs>
+        {/* Warm Walnut / Teak Wood Spherical Radial Gradient with muted gloss */}
+        <radialGradient id="woodBallGrad" cx="32%" cy="28%" r="68%">
+          <stop offset="0%" stopColor="#E0B78B" />
+          <stop offset="22%" stopColor="#C48E5A" />
+          <stop offset="50%" stopColor="#96552B" />
+          <stop offset="75%" stopColor="#693412" />
+          <stop offset="92%" stopColor="#45200A" />
+          <stop offset="100%" stopColor="#241004" />
+        </radialGradient>
+      </defs>
 
-      {/* Front cable layer with brass hook on the rail */}
-      <svg
-        aria-hidden
-        viewBox="0 0 100 44"
-        preserveAspectRatio="none"
-        className="pointer-events-none absolute inset-0 z-[20] block h-full w-full overflow-visible"
-      >
-        <g
-          fill="none"
+      <g fill="none" strokeLinecap="round" strokeLinejoin="round">
+        {/* ── 1. Shaded 3D Brown Wood Ball resting on rail rod ── */}
+        {/* Contact cast shadow on rod */}
+        <ellipse cx="50" cy="15" rx="5.2" ry="1.6" fill="#12100d" opacity="0.6" />
+
+        {/* Main 3D shaded wood ball with bold Neobrutalist outline */}
+        <circle
+          cx="50"
+          cy="9.5"
+          r="6.5"
+          fill="url(#woodBallGrad)"
+          stroke="#12100d"
+          strokeWidth="1.8"
+        />
+
+        {/* Ambient bottom-right warm bounce rim reflection */}
+        <path
+          d="M52 14.6 A 5.5 5.5 0 0 0 55.5 9.5"
+          stroke="#C48E5A"
+          strokeWidth="0.8"
+          opacity="0.35"
+        />
+
+        {/* Muted soft diffused gloss highlight glint */}
+        <ellipse
+          cx="47.8"
+          cy="7.2"
+          rx="1.7"
+          ry="1.1"
+          fill="#FFEFE0"
+          opacity="0.3"
+          transform="rotate(-15 47.8 7.2)"
+        />
+
+        {/* Matching wood collar mount connecting ball to wishbone */}
+        <ellipse cx="50" cy="15.5" rx="3.5" ry="1.6" fill="#6E3816" stroke="#12100d" strokeWidth="1.2" />
+
+        {/* ── 2. Wooden Hanger Contoured Wishbone Arms with bold neobrutalist line ── */}
+        <path
+          d="M10 28 C22 22 36 17 50 15.5 C64 17 78 22 90 28"
+          stroke="#12100d"
+          strokeWidth="4.6"
+        />
+        <path
+          d="M10 28 C22 22 36 17 50 15.5 C64 17 78 22 90 28"
           stroke={tone}
-          strokeWidth="2.4"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          {/* Top brass hook sitting over the rod */}
-          <path
-            d="M50 8 V2 a4 4 0 1 0 -4 -4"
-            stroke={INK.brass}
-            strokeWidth="2.6"
-          />
-          {/* Front white hanging lines entering the two holes */}
-          <path
-            d="M50 8 L19 44"
-            stroke="#FFFFFF"
-            className="drop-shadow-[0_1px_2px_rgba(0,0,0,0.35)]"
-          />
-          <path
-            d="M50 8 L81 44"
-            stroke="#FFFFFF"
-            className="drop-shadow-[0_1px_2px_rgba(0,0,0,0.35)]"
-          />
-        </g>
-      </svg>
-    </div>
+          strokeWidth="3.2"
+        />
+
+        {/* ── 3. Dual Card Holding Clips (Neobrutalist Black & Brass) ── */}
+        {/* Left Holding Clip */}
+        <path d="M10 24 V34" stroke="#12100d" strokeWidth="4.4" />
+        <path d="M10 24 V34" stroke="#FFDE59" strokeWidth="2.2" />
+        <circle cx="10" cy="27" r="1.4" fill="#12100d" />
+
+        {/* Right Holding Clip */}
+        <path d="M90 24 V34" stroke="#12100d" strokeWidth="4.4" />
+        <path d="M90 24 V34" stroke="#FFDE59" strokeWidth="2.2" />
+        <circle cx="90" cy="27" r="1.4" fill="#12100d" />
+      </g>
+    </svg>
   );
 }

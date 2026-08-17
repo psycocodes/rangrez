@@ -65,7 +65,7 @@ export interface Rack {
   zones: Zone[];
 }
 
-/** Torso above, bottoms below — the order a cupboard is actually organised in. */
+/** Torso above, bottoms below — equal vertical halves. */
 export const RACKS: Rack[] = [
   { id: "torso", label: "Tops & layers", zones: ["top", "outerwear"] },
   { id: "bottom", label: "Bottoms", zones: ["bottom"] },
@@ -85,7 +85,7 @@ export function Closet({
 
   return (
     <div className="relative flex min-h-0 flex-1 flex-col select-none">
-      {RACKS.map((rack, i) => {
+      {RACKS.map((rack) => {
         const items = garments.filter((g) => rack.zones.includes(g.zone));
         return (
           <Rail
@@ -93,9 +93,8 @@ export function Closet({
             rack={rack}
             garments={items}
             onOpen={onOpen}
-            // The top rack gets the taller share: a shirt is longer than a
-            // folded trouser, and equal halves make both look wrong.
-            grow={i === 0 ? 1.15 : 1}
+            // Equal 50/50 vertical distribution for top and bottom racks
+            grow={1}
           />
         );
       })}
@@ -169,7 +168,7 @@ function Rail({
     };
   }, []);
 
-  /** A plain mouse wheel emits deltaY; without this it does nothing here. */
+  /** A plain mouse wheel emits deltaY; convert to horizontal scroll */
   const onWheel = useCallback((e: React.WheelEvent) => {
     const node = scroller.current;
     if (!node) return;
@@ -199,6 +198,22 @@ function Rail({
     scroller.current.scrollLeft = scrollStartX.current - dx;
   };
 
+  const [isShortRack, setIsShortRack] = useState(false);
+
+  useEffect(() => {
+    if (!scroller.current) return;
+    const updateSize = () => {
+      if (scroller.current) {
+        // Only switch to short horizontal card when rack is genuinely squished (< 220px)
+        setIsShortRack(scroller.current.clientHeight < 220);
+      }
+    };
+    updateSize();
+    const ro = new ResizeObserver(updateSize);
+    ro.observe(scroller.current);
+    return () => ro.disconnect();
+  }, []);
+
   const handlePointerUp = () => {
     isDraggingRail.current = false;
   };
@@ -211,22 +226,12 @@ function Rail({
       style={{ flex: `${grow} 1 0%` }}
       aria-label={rack.label}
     >
-      {/* ── header label ─────────────────────────────────────────────────── */}
-      <div className="relative z-[2] shrink-0 px-4 pt-3 pb-1 lg:px-8">
-        <div className="flex items-baseline justify-between gap-4">
-          <span className="spec text-abyss/75">{rack.label}</span>
-          <span className="spec-sm text-abyss/40">
-            {String(garments.length).padStart(2, "0")} HANGING
-          </span>
-        </div>
-      </div>
-
-      {/* ── the rail with continuous rod ───────────────────────────────── */}
+      {/* ── the rail with continuous rod ── */}
       <div className="relative min-h-0 flex-1 overflow-hidden">
-        {/* Continuous brass rod running across the entire rail viewport */}
+        {/* Continuous Neobrutalist brass rod running across the rail */}
         <div
           aria-hidden
-          className="rod pointer-events-none absolute inset-x-0 top-[3px] z-[3] h-[7px]"
+          className="pointer-events-none absolute inset-x-0 top-[6px] z-[1] h-[9px] border-y-[2.5px] border-[#12100d] bg-[#FFDE59] shadow-[0px_3px_0px_#12100d]"
         />
 
         {garments.length === 0 ? (
@@ -249,7 +254,7 @@ function Rail({
               tabIndex={0}
               role="list"
               aria-label={`${rack.label} rail`}
-              className="no-scrollbar flex h-full items-start overflow-x-auto overflow-y-hidden px-6 pt-0 focus-visible:outline-none lg:px-10"
+              className="no-scrollbar relative z-[10] flex h-full items-start overflow-x-auto overflow-y-hidden px-6 pt-0 focus-visible:outline-none lg:px-10"
               style={{
                 scrollbarWidth: "none",
                 scrollSnapType: "x proximity",
@@ -268,6 +273,7 @@ function Rail({
                   isHovered={hoveredId === g.id}
                   isAnyHovered={hoveredId !== null}
                   relativeIndex={hoveredIndex !== -1 ? i - hoveredIndex : 0}
+                  isShort={isShortRack}
                   onHover={(h) => setHoveredId(h ? g.id : null)}
                   onOpen={onOpen}
                 />
@@ -294,6 +300,7 @@ function Hanging({
   isHovered,
   isAnyHovered,
   relativeIndex,
+  isShort = false,
   onHover,
   onOpen,
 }: {
@@ -304,16 +311,14 @@ function Hanging({
   isHovered: boolean;
   isAnyHovered: boolean;
   relativeIndex: number;
+  isShort?: boolean;
   onHover: (hovered: boolean) => void;
   onOpen?: (garment: Garment) => void;
 }) {
   const x = useMotionValue(0);
   const releaseTorque = useMotionValue(0);
 
-  // Pure pendulum sway around the hanger hook fulcrum (50% 4px):
-  // 1. Manual horizontal drag pull: x -> -18deg to +18deg
-  // 2. Rail momentum inertia lag: swing -> -20deg to +20deg
-  // 3. Fling release impulse: decaying harmonic spring
+  // Pure pendulum sway around the hanger hook fulcrum (50% 6px):
   const pull = useTransform(x, [-PULL, PULL], [-18, 18]);
   const drift = useTransform(swing, (v) => -v * MAX_SWING);
   const rawZ = useTransform(
@@ -323,9 +328,6 @@ function Hanging({
   const settledRotateZ = useSpring(rawZ, PENDULUM_SPRING);
 
   // Reversed Hanger Tilt Angle (Negative / inward tilt):
-  // Idle: -26deg (turned inside along the rod)
-  // Hovered: 0deg (upright, facing straight forward)
-  // Neighbors: parts subtly (-32deg or -20deg)
   const targetHangerAngle = isHovered
     ? 0
     : isAnyHovered
@@ -338,10 +340,8 @@ function Hanging({
     _event: MouseEvent | TouchEvent | PointerEvent,
     info: { velocity: { x: number; y: number } },
   ) => {
-    // Transfer drag release velocity into pendulum angular impulse
     const impulse = Math.max(-20, Math.min(20, info.velocity.x * 0.014));
     releaseTorque.set(impulse);
-    // Smooth decay to rest
     setTimeout(() => releaseTorque.set(0), 40);
   };
 
@@ -358,9 +358,13 @@ function Hanging({
   return (
     <motion.div
       role="listitem"
-      className="relative h-full shrink-0 snap-center -mr-8 sm:-mr-12 md:-mr-14 lg:-mr-16"
+      className={`relative h-[92%] shrink-0 snap-center ${
+        isShort
+          ? "-mr-10 sm:-mr-14 md:-mr-18 lg:-mr-22"
+          : "-mr-7 sm:-mr-10 md:-mr-12 lg:-mr-14"
+      }`}
       style={{
-        width: "clamp(8.5rem, 15vw, 13.5rem)",
+        width: isShort ? "clamp(12.5rem, 21vw, 17.5rem)" : "clamp(7.5rem, 12.5vw, 11.2rem)",
         perspective: 1000,
         zIndex: isHovered ? 150 : baseZIndex,
       }}
@@ -368,8 +372,8 @@ function Hanging({
       animate={{
         opacity: 1,
         x: partingX,
-        y: isHovered ? -4 : 0,
-        scale: isHovered ? 1.025 : isAnyHovered ? 0.95 : 0.98,
+        y: 0,
+        scale: 1,
         transition: TILT_SPRING,
       }}
       onMouseEnter={() => onHover(true)}
@@ -382,7 +386,7 @@ function Hanging({
           rotate: settledRotateZ,
           rotateY: targetHangerAngle,
           // Fulcrum point: top center of the hanger hook touching the brass rod
-          transformOrigin: "50% 4px",
+          transformOrigin: "50% 6px",
           transformStyle: "preserve-3d",
         }}
         drag="x"
@@ -391,10 +395,9 @@ function Hanging({
         dragSnapToOrigin
         dragTransition={{ bounceStiffness: 220, bounceDamping: 14 }}
         onDragEnd={handleDragEnd}
-        whileTap={{ scale: 0.985 }}
         onClick={() => onOpen?.(garment)}
       >
-        <Hanger tone="#EDE7DA" />
+        <Hanger tone="#7C4A27" />
         <div
           className="relative -mt-2.5 w-full flex-1 min-h-0"
           style={{
@@ -403,6 +406,7 @@ function Hanging({
         >
           <GarmentPlate
             garment={garment}
+            variant={isShort ? "short" : "standard"}
             priority={index < 4}
             interactive={isHovered}
           />
@@ -426,11 +430,11 @@ function RailArrow({
       type="button"
       onClick={onClick}
       aria-label={side === "left" ? "Earlier on this rail" : "Further along this rail"}
-      className={`absolute top-1/2 z-[3] hidden h-11 w-8 -translate-y-1/2 items-center justify-center border border-abyss/20 bg-leaf/85 text-abyss/70 backdrop-blur-sm transition-colors duration-300 hover:border-abyss hover:bg-brass hover:text-abyss md:flex ${
-        side === "left" ? "left-0" : "right-0"
+      className={`absolute top-1/2 z-[25] hidden h-11 w-9 -translate-y-1/2 items-center justify-center border-2 border-[#12100d] bg-[#FFDE59] text-[#12100d] shadow-[3px_3px_0px_#12100d] transition-all hover:bg-[#FFE57F] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none md:flex ${
+        side === "left" ? "left-0 rounded-r-lg" : "right-0 rounded-l-lg"
       }`}
     >
-      <span className="spec text-[0.7rem]">{side === "left" ? "‹" : "›"}</span>
+      <span className="font-black text-[0.85rem]">{side === "left" ? "◀" : "▶"}</span>
     </button>
   );
 }
@@ -445,27 +449,37 @@ function ShelfHandle({
   onToggle: () => void;
 }) {
   return (
-    <button
-      type="button"
-      onClick={onToggle}
-      aria-expanded={open}
-      className="group relative z-[12] flex shrink-0 items-center justify-center gap-3 border-t-2 border-abyss bg-abyss px-4 py-2.5 text-leaf transition-colors duration-300 hover:bg-peacock"
-    >
-      <span
-        aria-hidden
-        className={`spec text-brass-light transition-transform duration-500 [transition-timing-function:var(--ease-cloth)] ${
-          open ? "rotate-180" : ""
-        }`}
+    <div className="relative z-[22] flex justify-center items-end shrink-0 w-full">
+      <motion.button
+        type="button"
+        drag="y"
+        dragConstraints={{ top: -80, bottom: 0 }}
+        dragElastic={0.2}
+        onDragEnd={(_e, info) => {
+          if (info.offset.y < -20 || info.velocity.y < -100) {
+            if (!open) onToggle();
+          }
+        }}
+        onClick={onToggle}
+        aria-expanded={open}
+        className="flex items-center gap-3 rounded-t-2xl border-t-[3px] border-x-[3px] border-[#12100d] bg-[#FFDE59] hover:bg-[#FFE57F] px-8 py-2.5 text-[#12100d] shadow-[0px_-4px_0px_#12100d] transition-colors cursor-grab active:cursor-grabbing select-none"
       >
-        ▲
-      </span>
-      <span className="spec">
-        {open ? "Close the shelf" : "Shoes & the rest"}
-      </span>
-      <span className="spec-sm text-leaf/50">
-        {String(count).padStart(2, "0")}
-      </span>
-    </button>
+        <span
+          aria-hidden
+          className={`font-black text-sm transition-transform duration-300 ${
+            open ? "rotate-180" : ""
+          }`}
+        >
+          ▲
+        </span>
+        <span className="font-black text-[0.82rem] tracking-widest uppercase">
+          {open ? "CLOSE SHOE DRAWER" : "DRAG / PULL SHOES"}
+        </span>
+        <span className="border-2 border-[#12100d] bg-white px-2 py-0.5 font-mono text-[0.68rem] font-black text-[#12100d]">
+          {String(count).padStart(2, "0")}
+        </span>
+      </motion.button>
+    </div>
   );
 }
 
@@ -479,122 +493,91 @@ function Shelf({
   onClose: () => void;
 }) {
   const shelfScroller = useRef<HTMLDivElement>(null);
-  const isDraggingShelf = useRef(false);
-  const dragStartX = useRef(0);
-  const scrollStartX = useRef(0);
 
   const onWheel = useCallback((e: React.WheelEvent) => {
     const node = shelfScroller.current;
     if (!node) return;
-    if (Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return;
+    // Allow natural trackpad horizontal swiping without interference
+    if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
     node.scrollLeft += e.deltaY * 0.9;
   }, []);
 
   const nudge = (dir: 1 | -1) => {
     const node = shelfScroller.current;
     if (!node) return;
-    node.scrollBy({ left: dir * 240, behavior: "smooth" });
-  };
-
-  const handlePointerDown = (e: React.PointerEvent) => {
-    if ((e.target as HTMLElement).closest("button[data-shelf-item]")) return;
-    isDraggingShelf.current = true;
-    dragStartX.current = e.clientX;
-    if (shelfScroller.current) {
-      scrollStartX.current = shelfScroller.current.scrollLeft;
-    }
-  };
-
-  const handlePointerMove = (e: React.PointerEvent) => {
-    if (!isDraggingShelf.current || !shelfScroller.current) return;
-    const dx = e.clientX - dragStartX.current;
-    shelfScroller.current.scrollLeft = scrollStartX.current - dx;
-  };
-
-  const handlePointerUp = () => {
-    isDraggingShelf.current = false;
+    node.scrollBy({ left: dir * 300, behavior: "smooth" });
   };
 
   return (
     <motion.div
-      // Over the racks rather than beside them: a shelf you pull out covers
-      // what is behind it, and the page has exactly one viewport to spend.
-      className="absolute inset-x-0 bottom-0 z-[11] h-[58%] overflow-hidden border-t-2 border-abyss"
+      className="absolute inset-x-0 bottom-0 z-[30] h-[64%] overflow-hidden border-t-[3px] border-[#12100d] bg-[#F4EFE6]/98 backdrop-blur-md shadow-[0px_-8px_0px_rgba(18,16,13,0.15)] flex flex-col"
       initial={{ y: "100%" }}
       animate={{ y: 0 }}
       exit={{ y: "100%" }}
       transition={{ type: "spring", stiffness: 260, damping: 30 }}
     >
-      <Ground
-        kind="bandhani"
-        tone={INK.brassLight}
-        base={INK.abyss}
-        opacity={0.18}
-        glow={false}
-        className="flex h-full flex-col"
-      >
-        <div className="flex items-baseline justify-between gap-4 px-4 pb-2 pt-3 lg:px-8">
-          <span className="spec text-brass-light">On the shelf</span>
-          <button
-            type="button"
-            onClick={onClose}
-            className="spec-sm text-leaf/60 transition-colors hover:text-leaf"
-          >
-            CLOSE ×
-          </button>
-        </div>
+      {/* Neobrutalist Drawer Header matching top header tone */}
+      <div className="flex shrink-0 items-center justify-between border-b-[3px] border-[#12100d] bg-[#F4EFE6] px-5 py-3 shadow-[0px_2px_0px_#12100d] lg:px-8">
+        <span className="border-2 border-[#12100d] bg-[#FFDE59] px-3 py-1 font-black text-xs tracking-wider uppercase text-[#12100d] shadow-[2px_2px_0px_#12100d]">
+          SHOE DRAWER
+        </span>
+        <button
+          type="button"
+          onClick={onClose}
+          className="border-2 border-[#12100d] bg-[#FF5A5F] px-3 py-1 text-xs font-black uppercase text-white shadow-[2px_2px_0px_#12100d] transition-all hover:bg-[#FF3B42] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none cursor-pointer"
+        >
+          CLOSE ✕
+        </button>
+      </div>
 
-        {garments.length === 0 ? (
-          <p className="aside flex flex-1 items-center justify-center text-[1.1rem] text-leaf/40">
-            Nothing on the shelf yet.
-          </p>
-        ) : (
-          <div className="relative min-h-0 flex-1">
-            <div
-              ref={shelfScroller}
-              onWheel={onWheel}
-              onPointerDown={handlePointerDown}
-              onPointerMove={handlePointerMove}
-              onPointerUp={handlePointerUp}
-              onPointerLeave={handlePointerUp}
-              className="no-scrollbar flex h-full items-end gap-5 overflow-x-auto px-6 pb-4 lg:gap-7 lg:px-10"
-              style={{
-                scrollbarWidth: "none",
-                scrollSnapType: "x proximity",
-                scrollPaddingLeft: "2rem",
-              }}
-            >
-              {garments.map((g, i) => (
-                <motion.button
-                  key={g.id}
-                  data-shelf-item
+      {garments.length === 0 ? (
+        <p className="aside flex flex-1 items-center justify-center text-[1.1rem] text-[#12100d]/40">
+          Nothing on the shelf yet.
+        </p>
+      ) : (
+        <div className="relative min-h-0 flex-1">
+          <div
+            ref={shelfScroller}
+            onWheel={onWheel}
+            className="no-scrollbar flex h-full items-center gap-6 overflow-x-auto px-8 pb-3 pt-1"
+            style={{
+              scrollbarWidth: "none",
+              scrollSnapType: "x proximity",
+              scrollPaddingLeft: "2rem",
+            }}
+          >
+            {garments.map((g, i) => (
+              <motion.div
+                key={g.id}
+                data-shelf-item
+                className="relative h-[82%] shrink-0 snap-center"
+                style={{ width: "clamp(13rem, 21vw, 17.5rem)" }}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: i * 0.04, duration: 0.4 }}
+              >
+                <button
                   type="button"
                   onClick={() => onOpen?.(g)}
-                  className="relative h-[82%] shrink-0 snap-center overflow-hidden rounded-[4px] text-left shadow-[0_12px_24px_-10px_rgba(0,0,0,0.5)]"
-                  style={{ width: "clamp(8.5rem, 15vw, 13rem)", perspective: 900 }}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: i * 0.04, duration: 0.4 }}
-                  whileHover={{ y: -10, scale: 1.04 }}
+                  className="h-full w-full rounded-[24px] text-left transition-all hover:-translate-y-1 cursor-pointer focus:outline-none"
                 >
-                  <GarmentPlate garment={g} />
-                </motion.button>
-              ))}
-              <span aria-hidden className="block w-[20vw] shrink-0" />
-            </div>
-
-            <RailArrow side="left" onClick={() => nudge(-1)} />
-            <RailArrow side="right" onClick={() => nudge(1)} />
+                  <GarmentPlate garment={g} variant="shoe" />
+                </button>
+              </motion.div>
+            ))}
+            <span aria-hidden className="block w-[20vw] shrink-0" />
           </div>
-        )}
 
-        {/* The shelf board the shoes stand on. */}
-        <span
-          aria-hidden
-          className="rod block h-[6px] w-full shrink-0"
-          style={{ borderRadius: 0 }}
-        />
-      </Ground>
+          <RailArrow side="left" onClick={() => nudge(-1)} />
+          <RailArrow side="right" onClick={() => nudge(1)} />
+        </div>
+      )}
+
+      {/* The thick neobrutalist shelf board */}
+      <div
+        aria-hidden
+        className="h-[10px] w-full shrink-0 border-t-[3px] border-[#12100d] bg-[#8B4513] shadow-[0px_3px_0px_#12100d]"
+      />
     </motion.div>
   );
 }

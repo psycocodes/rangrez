@@ -85,6 +85,18 @@ const smokum = Smokum({
   display: "swap",
 });
 
+const friday = localFont({
+  src: "../public/assets/fonts/FridayNightLights-l5pe.ttf",
+  variable: "--font-friday",
+  display: "swap",
+});
+
+const iosevka = localFont({
+  src: "../public/assets/fonts/Iosevka-Nerd-Font-Complete.ttf",
+  variable: "--font-iosevka",
+  display: "swap",
+});
+
 export const metadata: Metadata = {
   title: "Rangrez — the dyer of cloth",
   description:
@@ -103,7 +115,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${instrument.variable} ${inter.variable} ${jetbrains.variable} ${kartik.variable} ${identity.variable} ${scholar.variable} ${smokum.variable} ${friday.variable} ${identity.variable} ${iosevka.variable} h-full`}
+      className={`${instrument.variable} ${inter.variable} ${jetbrains.variable} ${kartik.variable} ${identity.variable} ${scholar.variable} ${smokum.variable} ${friday.variable} ${iosevka.variable} h-full`}
     >
       <body className="weave grain min-h-full text-ink">{children}</body>
     </html>
