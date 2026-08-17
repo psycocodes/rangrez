@@ -68,7 +68,12 @@ export function GarmentFlip({
         headers: { "Content-Type": "application/json" },
         // No avatarId: the route falls back to the active plate, which is the
         // one the person is looking at their wardrobe with.
-        body: JSON.stringify({ id: garment.id }),
+        body: JSON.stringify({
+          id: garment.id,
+          name: garment.name,
+          zone: garment.zone,
+          imageUrl: garment.imageUrl,
+        }),
       });
       const json = await res.json();
       if (!res.ok || !json.tryOnUrl) throw new Error(json.error ?? "no render");

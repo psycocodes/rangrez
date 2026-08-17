@@ -1,6 +1,6 @@
 import { DYES, nearestDye } from "./dyes";
 import { garmentArt } from "./garment-art";
-import { SEED_PHOTOS } from "./seed-photos";
+import { findSeedPhoto, SEED_PHOTOS } from "./seed-photos";
 import type { Dye, Garment, SeasonTag, Zone } from "./types";
 
 // Both used to live here, and half the app imports them from here. Re-exported
@@ -107,9 +107,9 @@ export function seedCatalog(userId: string): Garment[] {
 
   return ITEMS.map((item, i) => {
     const s = slug(item.name);
-    const photo = SEED_PHOTOS[s];
+    const photo = findSeedPhoto(item.name);
     const dye: Dye = photo ? { name: item.dye.name, hex: photo.hex } : item.dye;
-    const imageUrl = photo?.file ?? (s === "pink-shirt" ? "/seed/Pink Shirt.png" : garmentArt(item.name, item.zone, dye));
+    const imageUrl = photo ? photo.file : garmentArt(item.name, item.zone, dye);
 
     return {
       id: crypto.randomUUID(),

@@ -2,6 +2,7 @@ import { headers } from "next/headers";
 import { ClosetRoom } from "@/components/ClosetRoom";
 import { requireUser } from "@/lib/auth";
 import { listBaseModels } from "@/lib/base-models-server";
+import { listGarments, insertGarments } from "@/lib/db";
 import { mintExtensionToken } from "@/lib/ext-token";
 import { seedCatalog } from "@/lib/seed";
 
@@ -13,7 +14,11 @@ export default async function WardrobePage() {
     listBaseModels(),
   ]);
 
-  const garments = seedCatalog(user.id);
+  let garments = await listGarments(user.id);
+  if (!garments.length) {
+    const seeds = seedCatalog(user.id);
+    garments = await insertGarments(seeds).catch(() => seeds);
+  }
   const token = mintExtensionToken(user);
   const h = await headers();
   const host = h.get("x-forwarded-host") ?? h.get("host") ?? "localhost:3000";
