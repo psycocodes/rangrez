@@ -301,8 +301,19 @@ export interface User {
   email: string;
   name: string;
   createdAt: string;
+  /** A photo the user uploaded themselves, which overrides the Google one. */
   profilePhotoUrl?: string;
   useGooglePhoto?: boolean;
+  /**
+   * The picture on the Google account this session signed in with.
+   *
+   * Read off the live session rather than stored, and deliberately: it is not
+   * ours, the user can change it at any time on Google's side, and a copy in
+   * our table would be a stale copy of someone's face. It is absent for an
+   * email-and-password account, which is why nothing may depend on it — see
+   * `profilePhoto()` in lib/profile-photo.ts for the order things fall back in.
+   */
+  googlePhotoUrl?: string;
   /** Up to MAX_AVATARS plates, in the order they were shot. */
   avatars: Avatar[];
   activeAvatarId?: string;

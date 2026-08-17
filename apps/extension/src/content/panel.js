@@ -31,8 +31,6 @@ globalThis.RZ = globalThis.RZ || {};
     const style = document.createElement("style");
     style.id = "rz-fontface";
     style.textContent = `
-@font-face{font-family:RangrezSerif;font-style:normal;font-weight:400;font-display:swap;src:url("${url("instrument-serif-normal.woff2")}") format("woff2")}
-@font-face{font-family:RangrezSerif;font-style:italic;font-weight:400;font-display:swap;src:url("${url("instrument-serif-italic.woff2")}") format("woff2")}
 @font-face{font-family:RangrezMono;font-style:normal;font-weight:500;font-display:swap;src:url("${url("jetbrains-mono-500.woff2")}") format("woff2")}`;
     (document.head || document.documentElement).appendChild(style);
   }
@@ -43,16 +41,23 @@ globalThis.RZ = globalThis.RZ || {};
 :host{all:initial;font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :host{
-  --paper:#EDE7DA; --paper-2:#E4DCCA; --paper-3:#D8CFBA;
-  --ink:#14120E; --ink-2:#3A352B; --ink-3:#6D6555;
-  --madder:#B03A21; --turmeric:#D99B21; --indigo:#26356E; --vat:#161D3D;
+  /* Neubrutalist, and deliberately the same token names the old dye-house
+     palette used — every rule below already reads through them, so the whole
+     panel converts by changing what they mean rather than where they are
+     used. These are the app's values (apps/web/app/globals.css). */
+  --paper:#F4EFE6; --paper-2:#EBE3D5; --paper-3:#E0D6C4;
+  --ink:#12100D; --ink-2:#12100D; --ink-3:#5C574C;
+  --madder:#FF5252; --turmeric:#FFDE59; --indigo:#2196F3; --vat:#12100D;
+  --brut:4px 4px 0 #12100D; --brut-sm:2px 2px 0 #12100D;
   --cloth:cubic-bezier(.22,1,.36,1);
-  --grain:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='.5'/%3E%3C/svg%3E");
   color:var(--ink); line-height:1.45;
 }
 .spec{font-family:RangrezMono,ui-monospace,monospace;font-size:9.5px;letter-spacing:.2em;text-transform:uppercase;font-weight:500;line-height:1}
 .spec-sm{font-family:RangrezMono,ui-monospace,monospace;font-size:8.5px;letter-spacing:.24em;text-transform:uppercase;font-weight:500;line-height:1}
-.display{font-family:RangrezSerif,Georgia,serif;font-weight:400;letter-spacing:-.03em;line-height:.95;font-size:30px}
+/* Inter Tight 800 in the app. A content script is injected into somebody
+   else's page, so it takes the heaviest system face rather than shipping
+   another font file for one heading. */
+.display{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;font-weight:800;letter-spacing:-.02em;line-height:1;font-size:28px;text-transform:none}
 .display em{font-style:italic}
 .note{font-size:11.5px;line-height:1.55;color:var(--ink-3);letter-spacing:-.005em}
 
@@ -61,19 +66,19 @@ globalThis.RZ = globalThis.RZ || {};
 .dock[hidden]{display:none}
 .trigger{
   display:flex;align-items:center;gap:9px;padding:11px 13px;cursor:pointer;
-  background:var(--paper);border:1px solid var(--ink);border-right:0;color:var(--ink);
+  background:var(--turmeric);border:3px solid var(--ink);border-right:0;
+  border-radius:8px 0 0 8px;box-shadow:-4px 4px 0 var(--ink);color:var(--ink);
   position:relative;overflow:hidden;isolation:isolate;font:inherit;
   transition:color .3s var(--cloth);
 }
-.trigger::before{content:"";position:absolute;inset:0;z-index:-1;background:var(--ink);transform:translateY(101%);transition:transform .42s var(--cloth)}
-.trigger:hover{color:var(--paper)}
+.trigger:hover{background:var(--madder);color:var(--paper)}
 .trigger:hover::before{transform:translateY(0)}
-.trigger__rule{position:absolute;top:0;left:0;right:0;height:2px;background:var(--madder)}
+.trigger__rule{position:absolute;top:0;left:0;right:0;height:3px;background:var(--ink)}
 .trigger svg{width:13px;height:13px;flex:none}
 .trigger__arrow{opacity:.5;transition:transform .42s var(--cloth)}
 .trigger:hover .trigger__arrow{transform:translateX(3px);opacity:1}
 .dock__x{
-  width:30px;cursor:pointer;background:var(--paper);border:1px solid var(--ink);
+  width:30px;cursor:pointer;background:var(--paper);border-left:3px solid var(--ink);
   color:var(--ink-3);font:inherit;font-size:14px;line-height:1;
   transition:background .25s var(--cloth),color .25s var(--cloth);
 }
@@ -84,15 +89,15 @@ globalThis.RZ = globalThis.RZ || {};
   position:relative; /* the grain overlay is absolute against this */
   width:372px;max-width:calc(100vw - 36px);max-height:calc(100vh - 36px);
   display:flex;flex-direction:column;overflow:hidden;
-  background:var(--paper);border:1px solid var(--ink);
-  box-shadow:0 26px 64px -22px rgba(20,18,14,.55);
+  background:var(--paper);border:3px solid var(--ink);border-radius:8px;
+  box-shadow:6px 6px 0 var(--ink);
   animation:rise .5s var(--cloth) both;
 }
 .panel[hidden]{display:none}
-.panel::before{content:"";position:absolute;inset:0;pointer-events:none;background-image:var(--grain);opacity:.16;mix-blend-mode:multiply}
+/* The grain overlay belonged to the paper this replaced. Flat colour now. */
 @keyframes rise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
 
-.head{display:flex;align-items:center;gap:8px;padding:10px 11px;border-bottom:1px solid var(--ink);position:relative}
+.head{display:flex;align-items:center;gap:8px;padding:10px 11px;border-bottom:3px solid var(--ink);background:var(--turmeric);position:relative}
 .head svg{width:13px;height:13px;flex:none}
 .head__site{margin-left:auto;color:var(--ink-3)}
 .head__x{
@@ -156,19 +161,19 @@ globalThis.RZ = globalThis.RZ || {};
 .steps li[data-done="1"] b{background:var(--turmeric)}
 
 /* ── result ─────────────────────────────────────────────────────────── */
-.result__name{font-family:RangrezSerif,Georgia,serif;font-size:19px;line-height:1.15;letter-spacing:-.02em;margin-top:11px}
+.result__name{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;font-weight:800;font-size:19px;line-height:1.15;letter-spacing:-.02em;margin-top:11px}
 .result__spec{color:var(--ink-3);margin-top:7px}
 .swatch{display:inline-block;width:8px;height:8px;vertical-align:-1px;margin-right:5px;border:1px solid rgba(20,18,14,.25)}
 
 /* ── fit: which size, and why ───────────────────────────────────────── */
-.fit{margin-top:12px;border-top:1px solid rgba(20,18,14,.18);padding-top:10px}
+.fit{margin-top:12px;border:3px solid var(--ink);border-radius:8px;background:var(--paper-2);box-shadow:var(--brut-sm);padding:10px}
 .fit__top{display:flex;align-items:baseline;gap:8px}
-.fit__size{font-family:RangrezSerif,Georgia,serif;font-size:26px;line-height:.9;letter-spacing:-.02em}
+.fit__size{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;font-weight:800;font-size:26px;line-height:.9;letter-spacing:-.02em}
 .fit__verdict{color:var(--ink-2)}
 .fit__conf{margin-left:auto;color:var(--ink-3)}
 .fit__why{font-size:11px;line-height:1.5;color:var(--ink-3);margin-top:7px}
 .fit__scale{display:flex;gap:3px;margin-top:9px}
-.fit__step{flex:1;min-width:0;text-align:center;padding-bottom:3px;border-bottom:2px solid rgba(20,18,14,.14)}
+.fit__step{flex:1;min-width:0;text-align:center;padding-bottom:3px;border-bottom:3px solid rgba(18,16,13,.2)}
 .fit__step b{display:block;font-family:RangrezMono,ui-monospace,monospace;font-size:9px;letter-spacing:.14em;font-weight:500;color:var(--ink-3);padding:4px 0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .fit__step[data-pick="1"]{border-bottom-color:var(--madder)}
 .fit__step[data-pick="1"] b{color:var(--ink)}
@@ -180,20 +185,22 @@ globalThis.RZ = globalThis.RZ || {};
 
 /* ── actions ────────────────────────────────────────────────────────── */
 .actions{display:flex;gap:5px;margin-top:13px}
+/* The wipe-up fill was the old language's one flourish. This one has no
+   gradients and no transitions over colour: a button is a slab that sits on
+   its shadow, and pressing it moves it *into* the shadow. */
 .btn{
   flex:1;display:flex;align-items:center;justify-content:space-between;gap:10px;
   padding:10px 11px;cursor:pointer;font:inherit;color:var(--paper);
-  background:var(--ink);border:1px solid var(--ink);
-  position:relative;overflow:hidden;isolation:isolate;transition:color .3s var(--cloth);
+  background:var(--ink);border:3px solid var(--ink);border-radius:8px;
+  box-shadow:var(--brut);position:relative;
+  transition:translate .12s ease,box-shadow .12s ease,background-color .12s ease;
 }
-.btn::before{content:"";position:absolute;inset:0;z-index:-1;background:var(--madder);transform:translateY(101%);transition:transform .42s var(--cloth)}
-.btn:hover::before{transform:translateY(0)}
-.btn:disabled{opacity:.45;cursor:default}
-.btn:disabled::before{transform:translateY(101%)}
-.btn--ghost{flex:0 0 auto;background:transparent;color:var(--ink)}
-.btn--ghost:hover{color:var(--paper)}
-.btn--done{background:var(--turmeric);border-color:var(--turmeric);color:var(--ink)}
-.btn--done::before{display:none}
+.btn:hover{background:var(--madder);border-color:var(--ink);color:var(--ink)}
+.btn:active{translate:4px 4px;box-shadow:none}
+.btn:disabled{opacity:.4;cursor:default;translate:none;box-shadow:var(--brut)}
+.btn--ghost{flex:0 0 auto;background:var(--paper);color:var(--ink)}
+.btn--ghost:hover{background:var(--turmeric);color:var(--ink)}
+.btn--done{background:var(--turmeric);border-color:var(--ink);color:var(--ink)}
 
 .flag{border-left:2px solid var(--madder);background:rgba(176,58,33,.08);padding:8px 10px;font-size:11.5px;line-height:1.5;color:var(--ink-2)}
 .flag--mock{border-left-color:var(--turmeric);background:rgba(217,155,33,.12)}

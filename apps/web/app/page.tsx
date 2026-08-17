@@ -1,5 +1,10 @@
-import { LandingPage } from "@/components/LandingPage";
+import { redirect } from "next/navigation";
 
-export default function Home() {
-  return <LandingPage />;
+import { getCurrentUser } from "@/lib/auth";
+
+/** The door is either the wardrobe, the studio, or the sign-in page. */
+export default async function Index() {
+  const user = await getCurrentUser();
+  if (!user) redirect("/enter");
+  redirect(user.avatar ? "/wardrobe" : "/atelier");
 }

@@ -8,6 +8,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Loader2, Sparkles, Check, Layers } from "lucide-react";
 
 import { signOut } from "@/app/actions/auth";
+import { profilePhoto } from "@/lib/profile-photo";
 import type { Avatar, User } from "@/lib/types";
 
 const HANDSHAKE_NODE_ID = "rangrez-ext-handshake";
@@ -64,12 +65,8 @@ export function Navbar({
   const isExtPaired = useSyncExternalStore(subscribeExtension, checkIsPaired, () => false);
 
   const activeAvatar = user.avatars.find((a) => a.id === user.activeAvatarId) ?? user.avatars[0];
-  const googleAvatarUrl = `https://api.dicebear.com/7.x/notionists/svg?seed=${encodeURIComponent(
-    user.name || "User",
-  )}&backgroundColor=b6e3f4,c0aede,d1d4f9,ffd5dc,ffdfbf`;
-  const displayProfilePhoto = user.useGooglePhoto !== false
-    ? googleAvatarUrl
-    : user.profilePhotoUrl || googleAvatarUrl;
+  // One decision, shared with the profile page — see lib/profile-photo.ts.
+  const displayProfilePhoto = profilePhoto(user);
 
   const isAvatarPage = pathname.startsWith("/avatar");
   const isProfilePage = pathname.startsWith("/profile");
@@ -153,7 +150,7 @@ export function Navbar({
             {leftElement ? (
               leftElement
             ) : (
-              <Link href="/trialroom" className="flex items-center gap-2 text-[#12100d] hover:opacity-80 transition-opacity">
+              <Link href="/wardrobe" className="flex items-center gap-2 text-[#12100d] hover:opacity-80 transition-opacity">
                 <Image
                   src="/assets/logos/rangrez-logo.png"
                   alt="Rangrez Logo"
@@ -191,7 +188,7 @@ export function Navbar({
               centerElement
             ) : leftElement ? (
               /* When there's a back button on the left, Rangrez logo sits in the middle */
-              <Link href="/trialroom" className="flex items-center gap-2 text-[#12100d] hover:opacity-80 transition-opacity">
+              <Link href="/wardrobe" className="flex items-center gap-2 text-[#12100d] hover:opacity-80 transition-opacity">
                 <Image
                   src="/assets/logos/rangrez-logo.png"
                   alt="Rangrez Logo"
@@ -395,7 +392,8 @@ export function Navbar({
                       src={displayProfilePhoto}
                       alt={user.name || "Profile"}
                       fill
-                      className="object-cover p-0.5"
+                      className="object-cover"
+                      unoptimized={displayProfilePhoto.startsWith("https://unavatar.io") || displayProfilePhoto.includes("googleusercontent")}
                     />
                   </div>
                 </button>

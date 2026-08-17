@@ -24,6 +24,7 @@ import {
 
 import { chainOrder, SLOTS, slotFor } from "@/lib/look";
 import { GarmentPlate } from "./GarmentPlate";
+import { RoomTab } from "./RoomTab";
 import { SwipeButton } from "./SwipeButton";
 import { ArtifactModal } from "./ArtifactModal";
 import { materialise } from "@/lib/rasterize";
@@ -274,7 +275,7 @@ export function LookCreator({
 
   return (
     <div
-      className="relative flex h-[calc(100vh-4.2rem)] min-h-[40rem] w-full flex-col justify-between overflow-hidden"
+      className="relative flex h-[calc(100vh-4.2rem)] min-h-[38rem] w-full flex-col justify-between overflow-hidden"
       style={{
         backgroundImage: "url('/assets/backgrounds/trialroom-background.png')",
         backgroundSize: "cover",
@@ -613,6 +614,40 @@ export function LookCreator({
         isOpen={artifactModalOpen}
         onClose={() => setArtifactModalOpen(false)}
       />
+
+      {/* ── Floating Pull Tab to Wardrobe Closet ── */}
+      {onBackToWardrobe ? (
+        <button
+          type="button"
+          onClick={onBackToWardrobe}
+          aria-label="Slide back to Wardrobe"
+          className="fixed right-0 top-1/2 -translate-y-1/2 z-40 flex flex-col items-center gap-1.5 rounded-l-2xl border-y-[3px] border-l-[3px] border-[#12100d] bg-[#FFDE59] px-2 py-4 text-[#12100d] shadow-[-4px_4px_0px_#12100d] transition-all hover:bg-[#FFE57F] hover:translate-x-[-3px] cursor-pointer select-none"
+        >
+          <span className="text-sm font-black">🚪</span>
+          <span
+            className="font-friday text-[0.7rem] tracking-widest uppercase"
+            style={{ writingMode: "vertical-rl", textOrientation: "mixed" }}
+          >
+            WARDROBE
+          </span>
+          <span className="font-mono text-[0.62rem] font-bold">◀</span>
+        </button>
+      ) : (
+        <Link
+          href="/wardrobe"
+          aria-label="Go to Wardrobe Closet"
+          className="fixed right-0 top-1/2 -translate-y-1/2 z-40 flex flex-col items-center gap-1.5 rounded-l-2xl border-y-[3px] border-l-[3px] border-[#12100d] bg-[#FFDE59] px-2 py-4 text-[#12100d] shadow-[-4px_4px_0px_#12100d] transition-all hover:bg-[#FFE57F] hover:translate-x-[-3px] cursor-pointer select-none"
+        >
+          <span className="text-sm font-black">🚪</span>
+          <span
+            className="font-friday text-[0.7rem] tracking-widest uppercase"
+            style={{ writingMode: "vertical-rl", textOrientation: "mixed" }}
+          >
+            WARDROBE
+          </span>
+          <span className="font-mono text-[0.62rem] font-bold">◀</span>
+        </Link>
+      )}
     </div>
   );
 }

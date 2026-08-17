@@ -3,9 +3,10 @@ import "server-only";
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { redirect } from "next/navigation";
 
-import { DbNotReadyError, ensureProfile, findUserById } from "./db";
+import { DbNotReadyError, ensureProfile, findUserById, updateUser } from "./db";
 import { authClient } from "./supabase-auth";
 import type { User } from "./types";
+import { extractGooglePhoto } from "./profile-photo";
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -46,7 +47,9 @@ export async function getCurrentUser(): Promise<User | null> {
   if (!authUser) return null;
 
   try {
-    return (
+    const googlePhoto = extractGooglePhoto(authUser);
+
+    const user =
       (await findUserById(authUser.id)) ??
       (await ensureProfile({
         id: authUser.id,
@@ -55,8 +58,23 @@ export async function getCurrentUser(): Promise<User | null> {
           (authUser.user_metadata?.name as string | undefined) ??
           authUser.email?.split("@")[0] ??
           "You",
-      }))
-    );
+        profilePhotoUrl: googlePhoto,
+      }));
+
+    const resolvedGooglePhoto = googlePhoto || extractGooglePhoto(authUser, user);
+
+    // If pre-existing user doesn't have profilePhotoUrl persisted in DB, save it now!
+    if (resolvedGooglePhoto && !user.profilePhotoUrl) {
+      updateUser(user.id, (u) => {
+        u.profilePhotoUrl = resolvedGooglePhoto;
+      }).catch(() => {});
+    }
+
+    return {
+      ...user,
+      profilePhotoUrl: user.profilePhotoUrl || resolvedGooglePhoto,
+      googlePhotoUrl: resolvedGooglePhoto,
+    };
   } catch (err) {
     // Nothing works before the schema exists. Send people somewhere that says
     // so rather than letting a Postgres error surface as a broken page.

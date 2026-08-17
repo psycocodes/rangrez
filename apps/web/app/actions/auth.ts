@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { endSession } from "@/lib/auth";
 import { DbNotReadyError, ensureProfile } from "@/lib/db";
 import { authClient } from "@/lib/supabase-auth";
+import { landingFor } from "@/lib/onboarding";
 
 export interface AuthState {
   error?: string;
@@ -129,6 +130,8 @@ export async function signInWithGoogle(): Promise<void> {
       // Always show the picker. Silent re-auth into whichever account Google
       // happens to have is disorienting on a shared machine.
       queryParams: { prompt: "select_account" },
+      // Explicitly request profile so Google returns the avatar photo.
+      scopes: "openid email profile",
     },
   });
 

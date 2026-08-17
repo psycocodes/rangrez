@@ -32,7 +32,7 @@ export default async function SetupPage() {
     ],
     [
       "Run the schema",
-      "Paste apps/web/supabase/schema.sql into the Supabase SQL editor and run it, then 002-supabase-auth.sql, then 004-fit-and-two-images.sql. All three are idempotent — safe to run twice, and 004 contains everything 003 did, so you can skip 003 entirely.",
+      "Paste apps/web/supabase/schema.sql into the Supabase SQL editor and run it, then 002-supabase-auth.sql, then 004-fit-and-two-images.sql, then 005-google-photo.sql. All are idempotent — safe to run twice.",
       ready,
     ],
     [

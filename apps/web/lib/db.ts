@@ -249,15 +249,26 @@ export async function ensureProfile(input: {
   id: string;
   email: string;
   name: string;
+  profilePhotoUrl?: string;
 }): Promise<User> {
   const existing = await findUserById(input.id);
-  if (existing) return existing;
+  if (existing) {
+    if (input.profilePhotoUrl && !existing.profilePhotoUrl) {
+      await updateUser(existing.id, (u) => {
+        u.profilePhotoUrl = input.profilePhotoUrl;
+      }).catch(() => {});
+      existing.profilePhotoUrl = input.profilePhotoUrl;
+    }
+    return existing;
+  }
 
   const user: User = {
     id: input.id,
     email: input.email,
     name: input.name,
     createdAt: new Date().toISOString(),
+    profilePhotoUrl: input.profilePhotoUrl,
+    useGooglePhoto: true,
     avatars: [],
     measurements: { unit: "cm" },
     preferences: { fitPreference: "regular", paletteFirst: true },
@@ -268,19 +279,23 @@ export async function ensureProfile(input: {
 }
 
 export async function insertUser(user: User): Promise<User> {
-  must(
+  await tolerant(
     "insertUser",
-    await supabase().from("rangrez_users").insert({
+    "rangrez_users",
+    [{
       id: user.id,
       email: user.email,
       name: user.name,
+      profile_photo_url: user.profilePhotoUrl ?? null,
+      use_google_photo: user.useGooglePhoto ?? true,
       avatars: user.avatars,
       active_avatar_id: user.activeAvatarId ?? null,
       avatar: user.avatar ?? null,
       measurements: user.measurements,
       preferences: user.preferences,
       created_at: user.createdAt,
-    }),
+    }],
+    ([row]) => supabase().from("rangrez_users").insert(row),
   );
 
   // A brand-new closet is a bad first impression, so we seed a starter
@@ -325,6 +340,8 @@ export async function updateUser(
     [
       {
         name: user.name,
+        profile_photo_url: user.profilePhotoUrl ?? null,
+        use_google_photo: user.useGooglePhoto ?? true,
         avatars: user.avatars,
         active_avatar_id: user.activeAvatarId ?? null,
         // Still written, so anything reading the pre-migration column — an old
@@ -366,26 +383,32 @@ export async function getGarment(
 }
 
 /**
- * Columns migration 004 adds, per table.
+ * Columns added by post-schema migrations, per table.
  *
- * Every one of them is optional detail hung off a row that is perfectly valid
- * without it — which size you were looking at, the shop's own chart, the
- * gallery shot a cutout came from, the measurements the fit engine reads.
+ * Each entry is a group of columns added by the same migration. When any one
+ * column in a group is missing, the entire group is dropped and the write is
+ * retried — because if one column from a migration is absent, the rest will
+ * be too. Groups from different migrations are independent.
  */
-const MIGRATION_004: Record<string, readonly string[]> = {
-  rangrez_users: ["measurements"],
-  rangrez_garments: ["original_url", "fit", "size_label"],
+const OPTIONAL_COLUMN_GROUPS: Record<string, readonly (readonly string[])[]> = {
+  rangrez_users: [
+    ["measurements"],                              // 004
+    ["profile_photo_url", "use_google_photo"],      // 005
+  ],
+  rangrez_garments: [
+    ["original_url", "fit", "size_label"],          // 004
+  ],
 };
 
 /**
- * A write that survives a database still on 003.
+ * A write that survives a database missing optional columns.
  *
  * PostgREST rejects the *whole* statement over a column it has never heard of,
  * so before this the piece someone had just clicked save on was simply lost,
  * and adding an avatar died on `measurements` with a schema-cache error in the
- * middle of the form. Neither is worth three optional columns: drop them,
- * complete the write, and leave the /setup gate saying the migration is
- * outstanding.
+ * middle of the form. Neither is worth optional columns: drop the group that
+ * has the missing column, complete the write, and leave the /setup gate saying
+ * the migration is outstanding.
  *
  * Matched on both spellings, because the two layers word it differently —
  * PostgREST says «Could not find the 'fit' column of 'rangrez_garments' in the
@@ -395,7 +418,7 @@ const MIGRATION_004: Record<string, readonly string[]> = {
  */
 async function tolerant(
   what: string,
-  table: keyof typeof MIGRATION_004,
+  table: string,
   rows: Row[],
   send: (rows: Row[]) => PromiseLike<{ error: unknown }>,
 ): Promise<void> {
@@ -403,27 +426,31 @@ async function tolerant(
   if (!error) return;
 
   const message = String((error as { message?: unknown }).message ?? error);
-  const columns = MIGRATION_004[table] ?? [];
-  const missing = columns.find(
-    (c) => message.includes(`'${c}' column`) || message.includes(`.${c} does not exist`),
-  );
-  if (!missing) fail(what, error);
+  const groups = OPTIONAL_COLUMN_GROUPS[table] ?? [];
 
-  console.warn(
-    `[db] ${table} has no "${missing}" column — writing without ${columns.join(", ")}. ` +
-      `Run apps/web/supabase/004-fit-and-two-images.sql.`,
-  );
-
-  must(
-    what,
-    await send(
-      rows.map((row) => {
-        const copy = { ...row };
-        for (const column of columns) delete copy[column];
-        return copy;
-      }),
+  // Find the group containing the missing column.
+  const missingGroup = groups.find((group) =>
+    group.some(
+      (c) => message.includes(`'${c}' column`) || message.includes(`.${c} does not exist`),
     ),
   );
+  if (!missingGroup) fail(what, error);
+
+  console.warn(
+    `[db] ${table} is missing column(s): ${missingGroup!.join(", ")} — writing without them. ` +
+      `Run the latest migration in apps/web/supabase/.`,
+  );
+
+  // Drop only the columns from the offending group.
+  const toDrop = new Set(missingGroup);
+  const stripped = rows.map((row) => {
+    const copy = { ...row };
+    for (const column of toDrop) delete copy[column];
+    return copy;
+  });
+
+  // Retry — if another group is also missing, we'll recurse once more.
+  await tolerant(what, table, stripped, send);
 }
 
 export async function insertGarments(items: Garment[]): Promise<Garment[]> {

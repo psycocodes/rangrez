@@ -2,14 +2,13 @@ import { NextResponse } from "next/server";
 
 import { ensureProfile } from "@/lib/db";
 import { authClient } from "@/lib/supabase-auth";
+import { extractGooglePhoto } from "@/lib/profile-photo";
 
 /**
  * Where Google sends people back to.
  *
  * Supabase hands over a one-time code; exchanging it sets the session cookies.
- * The profile row is created here rather than left to the next page load, so a
- * first-time Google user lands in the studio with a wardrobe already waiting,
- * exactly like someone who signed up with an email.
+ * The profile row is created here rather than left to the next page load.
  */
 export async function GET(req: Request) {
   const url = new URL(req.url);
@@ -40,6 +39,8 @@ export async function GET(req: Request) {
   }
 
   const meta = data.user.user_metadata ?? {};
+  const googlePhoto = extractGooglePhoto(data.user);
+
   let profile;
   try {
     profile = await ensureProfile({
@@ -50,13 +51,13 @@ export async function GET(req: Request) {
         (meta.name as string | undefined) ??
         data.user.email?.split("@")[0] ??
         "You",
+      profilePhotoUrl: googlePhoto,
     });
   } catch (err) {
     console.error("[auth/callback] profile failed:", err);
-    return NextResponse.redirect(new URL("/setup", url.origin));
   }
 
   return NextResponse.redirect(
-    new URL(profile.avatar ? "/wardrobe" : "/avatar-new", url.origin),
+    new URL(profile?.avatar ? "/trialroom" : "/onboarding", url.origin),
   );
 }

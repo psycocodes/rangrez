@@ -1,4 +1,4 @@
-import { context2d, makeCanvas, toPngBlob } from "./canvas";
+import { type AnyCanvas, context2d, makeCanvas, toJpegBlob, toPngBlob } from "./canvas";
 import { floodBackground, meanColor, softenMask, subjectBox } from "./matte";
 
 /**
@@ -6,9 +6,9 @@ import { floodBackground, meanColor, softenMask, subjectBox } from "./matte";
  *  Taking the background out
  * ═══════════════════════════════════════════════════════════════════════════
  *
- *  BROWSER ONLY. Runs on the user's machine before anything is uploaded, for
- *  the same reason the crop in lib/extract.ts does: the server never has to
- *  decode a 12MB photograph, and the result is on screen immediately.
+ *  BROWSER ONLY. Runs on the user's machine, and the photograph stays there —
+ *  the server never decodes a 12MB image and the result is on screen without
+ *  waiting on an upload.
  *
  *  Used for two things that look unrelated and are the same problem:
  *
@@ -17,8 +17,15 @@ import { floodBackground, meanColor, softenMask, subjectBox } from "./matte";
  *      rather than on a rectangle of someone's hallway
  *
  *  This file is the canvas half — sizing, cropping, compositing, encoding.
- *  Everything that *decides* what is background lives in lib/matte.ts, which
- *  has no imports at all and is therefore the half that can be tested.
+ *  What *decides* which pixels are background is somewhere else, and since the
+ *  segmentation model arrived there are two somewheres:
+ *
+ *    1. app/api/matte/route.ts, which runs the model. Only the ~320px probe
+ *       is posted, so this stays a small round trip rather than an upload.
+ *    2. lib/matte.ts, the hand-written fill, whenever that returns nothing.
+ *
+ *  lib/matte.ts still has no imports at all and is still the half that can be
+ *  tested without a browser or a runtime.
  * ═══════════════════════════════════════════════════════════════════════════
  */
 
@@ -70,6 +77,45 @@ const MIN_REMOVED = 0.06;
 /** Above this, the fill escaped into the subject and ate the picture. */
 const MAX_REMOVED = 0.93;
 
+/**
+ * The same ceiling, for a mask a model produced.
+ *
+ * MAX_REMOVED describes one specific way the flood fill dies: it slips through
+ * a gap in the outline and keeps going until the garment is gone. A model has
+ * no such failure — it is not walking anywhere — so a high background share
+ * from it usually means what it says, a small piece photographed on a lot of
+ * floor. Judging it by the fill's number threw away good mattes of exactly the
+ * shots this was brought in to fix. It still needs *a* ceiling, because a mask
+ * with nothing left in it is worth rejecting whatever produced it.
+ */
+const MAX_REMOVED_MODEL = 0.985;
+
+/**
+ * A mask from the segmentation model, or null to use the one we can compute
+ * here. See app/api/matte/route.ts — only the probe makes the trip, never the
+ * photograph, so this costs a ~30KB round trip rather than an upload.
+ */
+async function serverMask(
+  probe: AnyCanvas,
+  mw: number,
+  mh: number,
+): Promise<Uint8Array | null> {
+  try {
+    const body = await toJpegBlob(probe, 0.9);
+    const res = await fetch(`/api/matte?w=${mw}&h=${mh}`, { method: "POST", body });
+    // 204 is the model saying it isn't there. Anything else non-OK is a
+    // genuine error. Both mean the same thing to us.
+    if (res.status !== 200) return null;
+
+    const mask = new Uint8Array(await res.arrayBuffer());
+    return mask.length === mw * mh ? mask : null;
+  } catch {
+    // Offline, blocked, or running somewhere with no such endpoint — the
+    // extension shares this file and does not share its origin.
+    return null;
+  }
+}
+
 export async function cutout(
   source: Blob | ImageBitmap,
   options: CutoutOptions = {},
@@ -100,7 +146,11 @@ export async function cutout(
     pctx.drawImage(bitmap, 0, 0, mw, mh);
     const { data } = pctx.getImageData(0, 0, mw, mh);
 
-    const mask = floodBackground(data, mw, mh);
+    /* The model first, the fill if it isn't there. Both return one byte per
+       probe pixel, 1 for background, so nothing below this line can tell which
+       of them answered — which is the property that makes the fallback safe. */
+    const modelled = await serverMask(probe, mw, mh);
+    const mask = modelled ?? floodBackground(data, mw, mh);
 
     /* ── 2 · did it work? ─────────────────────────────────────────────── */
     let removed = 0;
@@ -112,9 +162,9 @@ export async function cutout(
     if (removedFraction < MIN_REMOVED) {
       confident = false;
       reason = "nothing that looked like a background to remove";
-    } else if (removedFraction > MAX_REMOVED) {
+    } else if (removedFraction > (modelled ? MAX_REMOVED_MODEL : MAX_REMOVED)) {
       confident = false;
-      reason = "the fill escaped into the subject";
+      reason = modelled ? "the mask kept almost nothing" : "the fill escaped into the subject";
     }
 
     /* ── 3 · the subject box, and its colour ──────────────────────────── */

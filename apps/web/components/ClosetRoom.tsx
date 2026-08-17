@@ -2,22 +2,21 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useMemo, useState, useTransition, useEffect } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { useMemo, useState, useEffect } from "react";
+import { motion } from "framer-motion";
 
 import { Navbar } from "./Navbar";
 import { Closet } from "./Closet";
-import { GarmentPlate } from "./GarmentPlate";
 import { LookCreator } from "./LookCreator";
 import { CommandSearch } from "./CommandSearch";
 import { GarmentModal } from "./GarmentModal";
+import { RoomTab } from "./RoomTab";
 import { slotFor } from "@/lib/look";
 import type { BaseModelStatus } from "@/lib/base-models-server";
-import { ORIGIN_LABEL, type Avatar, type Garment, type User } from "@/lib/types";
+import { ORIGIN_LABEL, type Garment, type User } from "@/lib/types";
 
-/**
- * The wardrobe and trial room, unified with sliding window transitions and floating navbar.
- */
+type Room = "dashboard" | "wardrobe";
+
 export function ClosetRoom({
   garments,
   user,
@@ -31,7 +30,7 @@ export function ClosetRoom({
   token?: string;
   apiBase?: string;
 }) {
-  const [view, setView] = useState<"wardrobe" | "trial">("wardrobe");
+  const [view, setView] = useState<Room>("dashboard");
   const [tab, setTab] = useState<"bought" | "wishlist">("bought");
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState<Garment | null>(null);
@@ -91,116 +90,101 @@ export function ClosetRoom({
         onTabChange={setTab}
       />
 
-      {/* ── Seamless Sliding Viewport Between Wardrobe and Trial Room ── */}
-      <div className="relative flex flex-1 min-h-0 overflow-hidden">
-        <AnimatePresence mode="wait" initial={false}>
-          {view === "wardrobe" ? (
-            <motion.div
-              key="wardrobe"
-              className="relative flex min-h-0 flex-1 flex-col overflow-hidden w-full h-full"
-              initial={{ x: "-100%", opacity: 0 }}
-              animate={{ x: 0, opacity: 1 }}
-              exit={{ x: "-100%", opacity: 0 }}
-              transition={{ type: "spring", stiffness: 280, damping: 28 }}
-            >
-              {/* Cupboard Contents */}
-              {shown.length === 0 ? (
-                <div className="flex min-h-0 flex-1 flex-col items-center justify-center px-6 text-center select-none">
-                  <div className="max-w-xl mx-auto space-y-4">
-                    {/* Badge */}
-                    <div className="inline-flex items-center gap-2 border-2 border-[#12100d] bg-[#12100d] px-3.5 py-1 text-white shadow-[2px_2px_0px_#FFDE59]">
-                      <span className="font-mono text-xs font-black uppercase tracking-wider">
-                        {query ? "NO MATCHES FOUND" : tab === "wishlist" ? "WISHLIST EMPTY" : "WARDROBE IS BARE"}
-                      </span>
-                    </div>
+      {/* ── the two rooms, on one continuous sliding track ──────────────────────────────────── */}
+      <div className="relative flex flex-1 min-h-0 overflow-hidden w-full h-full">
+        <motion.div
+          className="flex h-full w-full shrink-0"
+          initial={false}
+          animate={{ x: view === "dashboard" ? "0%" : "-100%" }}
+          transition={{
+            type: "spring",
+            stiffness: 240,
+            damping: 28,
+            mass: 0.9,
+          }}
+        >
+          {/* ── one · the dashboard, which is home ── */}
+          <div
+            className="relative flex h-full w-full min-h-0 shrink-0 flex-col overflow-hidden"
+            {...({ inert: view === "dashboard" ? undefined : "" } as Record<string, string | undefined>)}
+          >
+            <LookCreator
+              avatars={user.avatars}
+              activeAvatarId={user.activeAvatarId}
+              garments={wearableGarments}
+              onBackToWardrobe={() => setView("wardrobe")}
+              embedded
+            />
+          </div>
 
-                    {/* Headline */}
-                    <h2 className="font-friday text-4xl sm:text-6xl text-[#12100d] uppercase tracking-wide leading-tight">
-                      {query ? (
-                        <>
-                          NOTHING MATCHES{" "}
-                          <span className="bg-[#FFDE59] px-2 text-[#12100d]">“{query}”</span>
-                        </>
-                      ) : tab === "wishlist" ? (
-                        <>
-                          NOTHING ON THE{" "}
-                          <span className="bg-[#FFDE59] px-2 text-[#12100d]">WISHLIST.</span>
-                        </>
-                      ) : (
-                        <>
-                          THE CLOSET RAIL IS{" "}
-                          <span className="bg-[#FFDE59] px-2 text-[#12100d]">EMPTY.</span>
-                        </>
-                      )}
-                    </h2>
+          {/* ── two · the wardrobe, which arrives from the right ── */}
+          <div
+            className="relative flex h-full w-full min-h-0 shrink-0 flex-col overflow-hidden"
+            {...({ inert: view === "wardrobe" ? undefined : "" } as Record<string, string | undefined>)}
+          >
+            {shown.length === 0 ? (
+              <div className="flex min-h-0 flex-1 items-center justify-center px-6 text-center">
+                <div>
+                  <p className="display text-[clamp(1.8rem,4vw,3rem)] text-abyss">
+                    {query ? (
+                      <>
+                        NOTHING MATCHES{" "}
+                        <span className="bg-[#FFDE59] px-2 text-[#12100d]">“{query}”</span>
+                      </>
+                    ) : tab === "wishlist" ? (
+                      <>
+                        NOTHING ON THE{" "}
+                        <span className="bg-[#FFDE59] px-2 text-[#12100d]">WISHLIST.</span>
+                      </>
+                    ) : (
+                      <>
+                        THE CLOSET RAIL IS{" "}
+                        <span className="bg-[#FFDE59] px-2 text-[#12100d]">EMPTY.</span>
+                      </>
+                    )}
+                  </p>
 
-                    {/* Description */}
-                    <p className="font-mono text-xs sm:text-sm font-bold uppercase text-[#12100d]/70 max-w-md mx-auto leading-relaxed">
-                      {tab === "wishlist"
-                        ? "Save garments while browsing Zara, H&M or Myntra using the extension."
-                        : "Import from product URLs or drop images to hang your clothes on the rail in seconds."}
-                    </p>
+                  {/* Description */}
+                  <p className="font-mono text-xs sm:text-sm font-bold uppercase text-[#12100d]/70 max-w-md mx-auto leading-relaxed mt-4">
+                    {tab === "wishlist"
+                      ? "Save garments while browsing Zara, H&M or Myntra using the extension."
+                      : "Import from product URLs or drop images to hang your clothes on the rail in seconds."}
+                  </p>
 
-                    {/* CTA Button */}
-                    <div className="pt-2">
-                      <Link
-                        href="/add-garment"
-                        className="inline-flex items-center gap-2.5 rounded-2xl border-[3px] border-[#12100d] bg-[#FFDE59] px-7 py-3.5 font-friday text-sm uppercase tracking-wider text-[#12100d] shadow-[5px_5px_0px_#12100d] hover:bg-[#FFE57F] hover:shadow-[7px_7px_0px_#12100d] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none transition-all cursor-pointer"
-                      >
-                        <span>ADD FIRST GARMENT →</span>
-                      </Link>
-                    </div>
+                  {/* CTA Button */}
+                  <div className="pt-4">
+                    <Link
+                      href="/add-garment"
+                      className="inline-flex items-center gap-2.5 rounded-2xl border-[3px] border-[#12100d] bg-[#FFDE59] px-7 py-3.5 font-friday text-sm uppercase tracking-wider text-[#12100d] shadow-[5px_5px_0px_#12100d] hover:bg-[#FFE57F] hover:shadow-[7px_7px_0px_#12100d] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none transition-all cursor-pointer"
+                    >
+                      <span>ADD FIRST GARMENT →</span>
+                    </Link>
                   </div>
                 </div>
-              ) : (
-                <Closet garments={shown} onOpen={setOpen} />
-              )}
+              </div>
+            ) : (
+              <Closet garments={shown} onOpen={setOpen} />
+            )}
 
-              {/* ── Floating Left-Side Sliding Handle: Slide into Trial Room ──────── */}
-              <button
-                type="button"
-                onClick={() => setView("trial")}
-                aria-label="Slide to Trial Room"
-                className="fixed left-0 top-1/2 -translate-y-1/2 z-40 flex flex-col items-center gap-2 rounded-r-2xl border-y-[3px] border-r-[3px] border-[#12100d] bg-[#FF5A5F] px-2.5 py-4 text-white shadow-[4px_4px_0px_#12100d] transition-all duration-200 hover:bg-[#FF3B42] hover:translate-x-[3px] cursor-pointer select-none"
-              >
-                <span className="text-sm font-black">⚡</span>
-                <span
-                  className="font-black text-[0.68rem] tracking-widest uppercase"
-                  style={{ writingMode: "vertical-rl", textOrientation: "mixed" }}
-                >
-                  TRIAL ROOM
-                </span>
-                <span className="font-mono text-[0.62rem] font-bold">▶</span>
-              </button>
+            {/* Back the way you came — the dashboard is off to the left. */}
+            <RoomTab
+              side="left"
+              tone="madder"
+              label="Dashboard"
+              title="Slide back to the dashboard"
+              onClick={() => setView("dashboard")}
+            />
 
-              {/* ── Neobrutalist Floating + Action Button (Bottom-Right) -> Links to /add-garment ── */}
-              <Link
-                href="/add-garment"
-                aria-label="Add or import garment"
-                className="fixed bottom-6 right-6 z-40 flex h-14 w-14 sm:h-16 sm:w-16 items-center justify-center rounded-2xl border-[3px] border-[#12100d] bg-[#FFDE59] text-[#12100d] shadow-[4px_4px_0px_#12100d] transition-all duration-200 hover:-translate-x-0.5 hover:-translate-y-0.5 hover:bg-[#FFE57F] hover:shadow-[6px_6px_0px_#12100d] active:translate-x-[3px] active:translate-y-[3px] active:shadow-[1px_1px_0px_#12100d] cursor-pointer"
-              >
-                <span className="text-3xl sm:text-4xl font-black leading-none select-none">+</span>
-              </Link>
-            </motion.div>
-          ) : (
-            <motion.div
-              key="trial"
-              className="relative flex min-h-0 flex-1 flex-col overflow-hidden w-full h-full"
-              initial={{ x: "100%", opacity: 0 }}
-              animate={{ x: 0, opacity: 1 }}
-              exit={{ x: "100%", opacity: 0 }}
-              transition={{ type: "spring", stiffness: 280, damping: 28 }}
+            {/* ── add or import a garment ── */}
+            <Link
+              href="/add-garment"
+              aria-label="Add or import garment"
+              className="absolute bottom-6 right-6 z-40 flex h-14 w-14 sm:h-16 sm:w-16 items-center justify-center rounded-2xl border-[3px] border-[#12100d] bg-[#FFDE59] text-[#12100d] shadow-[4px_4px_0px_#12100d] transition-all duration-200 hover:-translate-x-0.5 hover:-translate-y-0.5 hover:bg-[#FFE57F] hover:shadow-[6px_6px_0px_#12100d] active:translate-x-[3px] active:translate-y-[3px] active:shadow-[1px_1px_0px_#12100d] cursor-pointer"
             >
-              <LookCreator
-                avatars={user.avatars}
-                activeAvatarId={user.activeAvatarId}
-                garments={wearableGarments}
-                onBackToWardrobe={() => setView("wardrobe")}
-                embedded
-              />
-            </motion.div>
-          )}
-        </AnimatePresence>
+              <span className="text-3xl sm:text-4xl font-black leading-none select-none">+</span>
+            </Link>
+          </div>
+        </motion.div>
       </div>
 
       <CommandSearch
