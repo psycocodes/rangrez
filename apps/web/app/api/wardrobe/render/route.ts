@@ -1,26 +1,19 @@
 import { NextResponse } from "next/server";
 
 import { requireUser } from "@/lib/auth";
-import { getGarment, patchGarment, pickAvatar } from "@/lib/db";
+import { getGarment, insertGarments, patchGarment, pickAvatar } from "@/lib/db";
 import { fetchImage } from "@/lib/fetch-image";
 import { storeBytes } from "@/lib/uploads";
 import { isVtoTarget, tryOnGarment } from "@/lib/youcam";
-import type { Zone } from "@/lib/types";
+import { findSeedPhoto } from "@/lib/seed-photos";
+import { seedCatalog } from "@/lib/seed";
+import type { Garment, Zone } from "@/lib/types";
 
 /** A render is real seconds of YouCam; don't let the platform cut it off. */
 export const maxDuration = 120;
 
 /**
  * POST /api/wardrobe/render — put a piece on a body.
- *
- * Used twice:
- *   · straight after an upload, by the dock, several at a time
- *   · on demand, from a card's "Try on avatar"
- *
- * The result is copied onto our own origin rather than linked. YouCam's URLs
- * are signed and expire in a couple of hours, so storing one would give the
- * wardrobe a shelf life — pieces would quietly turn into broken images
- * overnight, which is a far worse failure than waiting for one more fetch.
  */
 
 /** The fallback when a piece predates `vtoTarget` — the four unambiguous rails. */
@@ -33,6 +26,9 @@ const BY_ZONE: Partial<Record<Zone, string>> = {
 
 interface Body {
   id?: string;
+  name?: string;
+  zone?: Zone;
+  imageUrl?: string;
   /** Which plate to render against. Defaults to whichever is in use. */
   avatarId?: string;
 }
@@ -47,7 +43,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Expected JSON." }, { status: 400 });
   }
 
-  if (!body.id) {
+  if (!body.id && !body.name) {
     return NextResponse.json({ error: "Which piece?" }, { status: 400 });
   }
 
@@ -59,7 +55,29 @@ export async function POST(req: Request) {
     );
   }
 
-  const garment = await getGarment(user.id, body.id);
+  let garment: Garment | undefined;
+  if (body.id) {
+    garment = await getGarment(user.id, body.id);
+  }
+
+  // If not found by id in DB (e.g. starter piece generated in-memory), match against seed catalog
+  if (!garment) {
+    const seeds = seedCatalog(user.id);
+    const searchId = (body.id ?? "").toLowerCase();
+    const searchName = (body.name ?? "").toLowerCase();
+
+    garment = seeds.find(
+      (s) =>
+        (searchId && (s.id === body.id || s.seed === searchId || s.name.toLowerCase() === searchId)) ||
+        (searchName && s.name.toLowerCase() === searchName),
+    );
+
+    if (garment) {
+      // Persist it into the user's database catalog so subsequent calls find it by id
+      await insertGarments([garment]).catch(() => {});
+    }
+  }
+
   if (!garment) {
     return NextResponse.json({ error: "That piece is gone." }, { status: 404 });
   }
@@ -78,9 +96,16 @@ export async function POST(req: Request) {
   await patchGarment(user.id, garment.id, { status: "processing" });
 
   try {
+    let garmentImageUrl = garment.imageUrl;
+    const photo = findSeedPhoto(garment.name);
+    if (photo && (!garmentImageUrl || garmentImageUrl.startsWith("data:"))) {
+      garmentImageUrl = photo.file;
+    }
+
+    const avatarUrl = avatar.renderUrl || avatar.sourceUrl;
     const [plate, piece] = await Promise.all([
-      fetchImage(avatar.renderUrl),
-      fetchImage(garment.imageUrl),
+      fetchImage(avatarUrl),
+      fetchImage(garmentImageUrl),
     ]);
 
     const result = await tryOnGarment(
@@ -94,7 +119,7 @@ export async function POST(req: Request) {
     // still walkable end to end without a key.
     const tryOnUrl = result.renderUrl
       ? await mirror(result.renderUrl)
-      : avatar.renderUrl;
+      : avatarUrl;
 
     const updated = await patchGarment(user.id, garment.id, {
       status: "rendered",

@@ -114,6 +114,14 @@ export const metadata: Metadata = {
   title: "Rangrez — the dyer of cloth",
   description:
     "One avatar. Every garment you own, rendered on the same body. Rangrez turns photos of outfits you have already worn into a wardrobe you can actually wear again.",
+  icons: {
+    icon: [
+      { url: "/assets/logos/rangrez-logo.png" },
+      { url: "/icon.png" },
+    ],
+    shortcut: "/assets/logos/rangrez-logo.png",
+    apple: "/assets/logos/rangrez-logo.png",
+  },
 };
 
 export const viewport: Viewport = {

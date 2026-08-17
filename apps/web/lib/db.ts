@@ -5,6 +5,7 @@ import { randomUUID } from "node:crypto";
 import type { Measurements } from "./fit";
 import { isInPalette } from "./palette";
 import { seedCatalog } from "./seed";
+import { findSeedPhoto } from "./seed-photos";
 import { supabase } from "./supabase";
 import type { Avatar, ColorSeason, Garment, SavedFit, User } from "./types";
 
@@ -84,16 +85,31 @@ export function pickAvatar(user: User, id?: string | null): Avatar | undefined {
 }
 
 function toGarment(row: Row): Garment {
+  let imageUrl = row.image_url as string;
+  const name = row.name as string;
+  let dye = row.dye as Garment["dye"];
+
+  // Replace SVGs or seed garments with real photography from assets/clothes when matched
+  if (row.origin === "seed" || (imageUrl && imageUrl.startsWith("data:"))) {
+    const photo = findSeedPhoto(name);
+    if (photo) {
+      imageUrl = photo.file;
+      if (dye && photo.hex) {
+        dye = { ...dye, hex: photo.hex };
+      }
+    }
+  }
+
   return {
     id: row.id as string,
     userId: row.user_id as string,
-    name: row.name as string,
+    name,
     origin: row.origin as Garment["origin"],
     zone: row.zone as Garment["zone"],
-    dye: row.dye as Garment["dye"],
+    dye,
     season: row.season as Garment["season"],
     material: (row.material as string) ?? "",
-    imageUrl: row.image_url as string,
+    imageUrl,
     tryOnUrl: (row.try_on_url as string) ?? undefined,
     tryOnAvatarId: (row.try_on_avatar_id as string) ?? undefined,
     originalUrl: (row.original_url as string) ?? undefined,

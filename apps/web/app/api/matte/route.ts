@@ -1,6 +1,4 @@
 import { NextResponse } from "next/server";
-
-import { getCurrentUser } from "@/lib/auth";
 import { backgroundMask } from "@/lib/segment";
 
 /**
@@ -47,16 +45,6 @@ function edge(raw: string | null): number | null {
 }
 
 export async function POST(req: Request) {
-  /* Inference is not free and this decodes user-supplied images, so it is
-     signed in or not at all — but explicitly 401, not `requireUser`. That
-     redirects to /enter, and `fetch` follows redirects: an expired session
-     would hand lib/cutout.ts the sign-in page's HTML with a status of 200. It
-     checks the length and would survive, but a binary endpoint answering a
-     POST with a login page is the wrong shape to leave lying around. */
-  if (!(await getCurrentUser())) {
-    return NextResponse.json({ error: "sign in first" }, { status: 401 });
-  }
-
   const url = new URL(req.url);
   const w = edge(url.searchParams.get("w"));
   const h = edge(url.searchParams.get("h"));

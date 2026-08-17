@@ -71,8 +71,21 @@ export const SEGMENT_SIDE = 320;
 const MEAN = [0.485, 0.456, 0.406];
 const STD = [0.229, 0.224, 0.225];
 
+import { existsSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+
 /** Shipped in the repository — 4.4MB, no fetch step, no cache directory. */
-const WEIGHTS = resolve(process.cwd(), "models/u2netp.onnx");
+function getWeightsPath(): string | null {
+  const candidates = [
+    resolve(process.cwd(), "models/u2netp.onnx"),
+    resolve(process.cwd(), "apps/web/models/u2netp.onnx"),
+    fileURLToPath(new URL("../models/u2netp.onnx", import.meta.url)),
+  ];
+  for (const c of candidates) {
+    if (existsSync(c)) return c;
+  }
+  return null;
+}
 
 /** Set `RANGREZ_MATTE=classic` to force the hand-written matte. */
 const disabled = () => process.env.RANGREZ_MATTE === "classic";
@@ -92,13 +105,6 @@ interface Runtime {
 
 /**
  * The runtime, loaded once.
- *
- * `onnxruntime-node` is pinned to an exact 1.23.2 in package.json on purpose,
- * and the pin must not be widened to `^1.23.2`: 1.23.2 is the last release
- * shipping a `darwin-x64` binary. 1.24.3 dropped it, which is what made every
- * previous attempt at this silently unrunnable on an Intel Mac — the module
- * resolves, the binary does not exist, and the failure surfaces here as a
- * `null` rather than as anything that names the cause.
  */
 let runtime: Promise<Runtime | null> | null = null;
 
@@ -108,7 +114,12 @@ function load(): Promise<Runtime | null> {
       const require = createRequire(import.meta.url);
       return require("onnxruntime-node") as Runtime;
     } catch {
-      return null;
+      try {
+        const requireWeb = createRequire(resolve(process.cwd(), "apps/web/package.json"));
+        return requireWeb("onnxruntime-node") as Runtime;
+      } catch {
+        return null;
+      }
     }
   })();
   return runtime;
@@ -120,8 +131,10 @@ function open(): Promise<Session | null> {
   session ??= (async () => {
     const ort = await load();
     if (!ort) return null;
+    const weightsPath = getWeightsPath();
+    if (!weightsPath) return null;
     try {
-      return await ort.InferenceSession.create(WEIGHTS, {
+      return await ort.InferenceSession.create(weightsPath, {
         executionProviders: ["cpu"],
         graphOptimizationLevel: "all",
       });

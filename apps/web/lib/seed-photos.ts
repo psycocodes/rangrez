@@ -75,5 +75,49 @@ export const SEED_PHOTOS: Record<string, SeedPhoto> = {
     "file": "/seed/woven-slide.6db4da3b.png",
     "hex": "#dac8c5",
     "source": "pngtree-sport-shoes-white-sneaker-with-red-accents-on-a-white-background-image_15859561.jpeg"
+  },
+  "pink-shirt": {
+    "file": "/seed/Pink Shirt.png",
+    "hex": "#f48fb1",
+    "source": "Pink Shirt.png"
   }
 };
+
+const ALIASES: Record<string, string> = {
+  "poplin-shirt": "oversized-poplin-shirt",
+  "camp-collar": "khadi-camp-collar",
+  "heavy-tee": "boxy-heavyweight-tee",
+  "cable-knit": "cable-knit-crewneck",
+  "bomber": "quilted-bomber",
+  "pleat-pant": "wide-leg-pleated-trouser",
+  "raw-denim": "raw-denim-straight",
+  "cargo-pant": "cargo-utility-pant",
+  "wool-trouser": "tailored-wool-trouser",
+  "derby-shoe": "leather-derby",
+  "low-top": "canvas-low-top",
+  "chelsea-boot": "suede-chelsea-boot",
+  "slide": "woven-slide",
+  "silk-shirt": "pink-shirt",
+  "silk-blouse": "pink-shirt",
+};
+
+/**
+ * Match a garment name or slug to its real photography in public/seed/
+ */
+export function findSeedPhoto(nameOrSlug: string): SeedPhoto | undefined {
+  const s = nameOrSlug
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+
+  if (SEED_PHOTOS[s]) return SEED_PHOTOS[s];
+  const alias = ALIASES[s];
+  if (alias && SEED_PHOTOS[alias]) return SEED_PHOTOS[alias];
+
+  // Try partial word match against keys
+  for (const [key, photo] of Object.entries(SEED_PHOTOS)) {
+    if (s.includes(key) || key.includes(s)) return photo;
+  }
+
+  return undefined;
+}
