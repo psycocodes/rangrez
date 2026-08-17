@@ -58,43 +58,6 @@ const FULL_TILT_VELOCITY = 2200;
 
 const SWING_SPRING = { stiffness: 90, damping: 11, mass: 0.9 } as const;
 
-/* ── the fan ──────────────────────────────────────────────────────────────
-   The rail is a hand of cards, not a row of tiles: they overlap, they lean
-   away from whatever you are looking at, and they bounce into place. Scroll
-   position drives the lean, so pushing the rack fans it — and the pointer
-   drives the push, so reaching for one garment moves its neighbours out of
-   the way the same as it would on a real rod. */
-
-/**
- * How much of its own width each card hides behind the one before it.
- *
- * Small on purpose. At 0.17 the fan looked right and the cards were useless —
- * the title is the bottom third of the card, so each one buried the name of
- * the garment before it and the rail became a row of anonymous colours. Eight
- * per cent is enough to read as a hand of cards rather than a row of tiles,
- * and the hover push opens a proper gap wherever you are actually looking.
- */
-const OVERLAP = 0.08;
-/** Degrees of lean at the edge of the rail. */
-const FAN_TILT = 9;
-/** How far the outermost cards sit below the one in the middle, in px. */
-const FAN_DROP = 20;
-/** How much smaller the outermost cards are. */
-const FAN_SHRINK = 0.11;
-/** How far a card's neighbours step aside when it is picked up, in px. */
-const PUSH = 26;
-/** Neighbours beyond this many places away don't move. */
-const PUSH_REACH = 3;
-/** The hanger drawn above every card. Must match `Hanger`'s own height. */
-const HANGER = "3.6rem";
-/** Wheel delta to rail pixels — see the note on `onWheel`. */
-const WHEEL_GAIN = 0.62;
-
-/** The card's proportion, from the design. Kept in step with GarmentPlate. */
-const CARD_RATIO = 1063 / 1752;
-
-const FAN_SPRING = { stiffness: 210, damping: 17, mass: 0.8 } as const;
-
 export interface Rack {
   id: string;
   label: string;
@@ -179,9 +142,6 @@ function Rail({
    */
   const velocity = useMotionValue(0);
   const swing = useSpring(velocity, SWING_SPRING);
-
-  /** The rail's scroll position, as something the cards can read per frame. */
-  const scrolled = useMotionValue(0);
   const last = useRef({ x: 0, t: 0 });
   const settle = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -196,12 +156,11 @@ function Rail({
       velocity.set(Math.max(-1, Math.min(1, (dx / dt) * 1000 / FULL_TILT_VELOCITY)));
       last.current = { x: node.scrollLeft, t: now };
     }
-    scrolled.set(node.scrollLeft);
     // Scroll events stop firing when the rail stops, and the last one we saw
     // was at full speed — without this the rack would hang tilted forever.
     if (settle.current) clearTimeout(settle.current);
     settle.current = setTimeout(() => velocity.set(0), 90);
-  }, [velocity, scrolled]);
+  }, [velocity]);
 
   useEffect(() => {
     return () => {
@@ -209,74 +168,12 @@ function Rail({
     };
   }, []);
 
-  /**
-   * A plain mouse wheel emits deltaY; without this it does nothing here.
-   *
-   * Two things it has to get right, and the first version got neither. A wheel
-   * notch is around 100px and a trackpad flick is a stream of 2–3px events, so
-   * passing deltaY through untouched makes the mouse lurch a third of the rail
-   * per click while the trackpad crawls; `WHEEL_GAIN` and the deadzone put the
-   * two on the same footing. And once a rail has reached its end the gesture
-   * has to be handed back — a wheel that keeps being swallowed at the last
-   * garment is a rail that feels broken, and it is why this was annoying.
-   */
-  // Bound natively rather than through React's `onWheel`, which is registered
-  // passive at the root — preventDefault there is a no-op and a console
-  // warning, and without it the page fights the rail for the same gesture.
-  useEffect(() => {
+  /** A plain mouse wheel emits deltaY; without this it does nothing here. */
+  const onWheel = useCallback((e: React.WheelEvent) => {
     const node = scroller.current;
     if (!node) return;
-
-    const handler = (e: WheelEvent) => {
-      const amount = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
-      if (Math.abs(amount) < 0.5) return;
-
-      const room = node.scrollWidth - node.clientWidth;
-      const at = node.scrollLeft;
-      if ((amount < 0 && at <= 0) || (amount > 0 && at >= room - 1)) return;
-
-      e.preventDefault();
-      node.scrollLeft = at + amount * WHEEL_GAIN;
-    };
-
-    // The fan's position comes off a native listener rather than React's
-    // `onScroll`. Both fire, but this one is the value every card reads on
-    // every frame of momentum, and routing it through the synthetic system
-    // adds a hop for no benefit — the swing above is welcome to keep it.
-    const track = () => scrolled.set(node.scrollLeft);
-    track();
-
-    node.addEventListener("wheel", handler, { passive: false });
-    node.addEventListener("scroll", track, { passive: true });
-    return () => {
-      node.removeEventListener("wheel", handler);
-      node.removeEventListener("scroll", track);
-    };
-  }, [scrolled]);
-
-  /* ── what the fan is measured against ──────────────────────────────────
-     A card leans by where it sits relative to the middle of the rail, so the
-     rail's width has to be live too: it changes with the viewport, and the
-     scroll position changes with every frame of momentum. */
-  const [viewport, setViewport] = useState(0);
-  const [cardW, setCardW] = useState(0);
-  const [held, setHeld] = useState<number | null>(null);
-
-  useEffect(() => {
-    const node = scroller.current;
-    if (!node) return;
-    const measure = () => {
-      setViewport(node.clientWidth);
-      // The card is sized by the rail's height and its own proportion — the
-      // same derivation the markup makes, done here so the overlap can be a
-      // real number of pixels instead of a percentage of the wrong thing.
-      const hanger = parseFloat(getComputedStyle(node).fontSize) * 3.6;
-      setCardW(Math.max(0, (node.clientHeight - hanger) * CARD_RATIO));
-    };
-    measure();
-    const ro = new ResizeObserver(measure);
-    ro.observe(node);
-    return () => ro.disconnect();
+    if (Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return; // already horizontal
+    node.scrollLeft += e.deltaY;
   }, []);
 
   const nudge = (dir: 1 | -1) => {
@@ -313,11 +210,11 @@ function Rail({
             <div
               ref={scroller}
               onScroll={onScroll}
-              onPointerLeave={() => setHeld(null)}
+              onWheel={onWheel}
               tabIndex={0}
               role="list"
               aria-label={`${rack.label} rail`}
-              className="no-scrollbar -mt-[18px] flex h-[calc(100%+18px)] items-start overflow-x-auto overflow-y-hidden px-4 focus-visible:outline-none lg:px-8"
+              className="no-scrollbar -mt-[18px] flex h-[calc(100%+18px)] items-start gap-4 overflow-x-auto overflow-y-hidden px-4 focus-visible:outline-none lg:gap-6 lg:px-8"
               style={{ scrollbarWidth: "none" }}
             >
               {garments.map((g, i) => (
@@ -325,12 +222,7 @@ function Rail({
                   key={g.id}
                   garment={g}
                   swing={swing}
-                  scrolled={scrolled}
-                  viewport={viewport}
-                  cardW={cardW}
                   index={i}
-                  held={held}
-                  onHold={setHeld}
                   onOpen={onOpen}
                 />
               ))}
@@ -353,93 +245,26 @@ function Rail({
 function Hanging({
   garment,
   swing,
-  scrolled,
-  viewport,
-  cardW,
   index,
-  held,
-  onHold,
   onOpen,
 }: {
   garment: Garment;
   /** Rail velocity, normalised to −1…1. */
   swing: MotionValue<number>;
-  /** The rail's scroll position, in px. */
-  scrolled: MotionValue<number>;
-  /** The rail's visible width, in px. */
-  viewport: number;
-  /** One card's width, in px. */
-  cardW: number;
   index: number;
-  /** Which card the pointer is on, if any. */
-  held: number | null;
-  onHold: (index: number | null) => void;
   onOpen?: (garment: Garment) => void;
 }) {
-  const self = useRef<HTMLDivElement>(null);
   const x = useMotionValue(0);
   const y = useMotionValue(0);
-
-  // Where this card sits along the rail, measured once it has a position.
-  // Read off the element rather than computed from the index, because the
-  // overlap, the padding and the trailing spacer all move it.
-  const [home, setHome] = useState(0);
-  useEffect(() => {
-    const node = self.current;
-    if (!node) return;
-    setHome(node.offsetLeft + node.offsetWidth / 2);
-  }, [cardW, viewport]);
-
-  /**
-   * How far from the middle of the rail this card is, as −1…1.
-   *
-   * Everything about the fan hangs off this one number: cards lean away from
-   * the middle, sit lower and stand smaller the further out they are. Because
-   * it reads the live scroll position, pushing the rack *fans* it — the
-   * hand of cards opens and closes under your hand instead of sliding past
-   * like a strip of tiles.
-   */
-  const place = useTransform(scrolled, (s) =>
-    viewport ? Math.max(-1, Math.min(1, (home - s - viewport / 2) / (viewport / 2))) : 0,
-  );
-
-  const fanTilt = useTransform(place, (p) => p * FAN_TILT);
-  const drop = useSpring(
-    useTransform(place, (p) => Math.abs(p) * FAN_DROP),
-    FAN_SPRING,
-  );
-  const shrink = useSpring(
-    useTransform(place, (p) => 1 - Math.abs(p) * FAN_SHRINK),
-    FAN_SPRING,
-  );
 
   // Pulling the hem to the right swings the garment clockwise about its hook.
   const pull = useTransform(x, [-PULL, PULL], [-16, 16]);
   const drift = useTransform(swing, (v) => -v * MAX_SWING);
 
-  // Three forces, all real, so they add: the hand on the hem, the rack's
-  // momentum, and where on the fan the card is standing.
-  const rotate = useTransform(
-    [pull, drift, fanTilt],
-    ([a, b, c]) => (a as number) + (b as number) + (c as number),
-  );
+  // The two forces are independent and both real, so they add. A garment you
+  // are holding while the rack is moving should feel both.
+  const rotate = useTransform([pull, drift], ([a, b]) => (a as number) + (b as number));
   const settled = useSpring(rotate, SWING_SPRING);
-
-  /**
-   * Reaching for one garment moves its neighbours out of the way.
-   *
-   * Cards to the left step left and cards to the right step right, falling off
-   * with distance, so a gap opens around whatever you are pointing at. On a
-   * real rod you do this with the back of your hand without noticing.
-   */
-  const gap =
-    held === null || held === index
-      ? 0
-      : Math.sign(index - held) *
-        PUSH *
-        Math.max(0, 1 - (Math.abs(index - held) - 1) / PUSH_REACH);
-
-  const lifted = held === index;
 
   return (
     // Two layers, and they must be two.
@@ -450,92 +275,40 @@ function Hanging({
     // two owners of the same property: motion hands control to the motion value
     // and the entrance animation never finishes — every card past the second
     // one sat permanently half-faded, which is exactly what it did.
-    // No width. The card carries the design's 1063 × 1752 and the rail gives
-    // it a height, so its width falls out of the two — hard-coding one as well
-    // would either crop the card or leave a gap beside it at most rail
-    // heights, and the rail's height moves with the viewport.
     <motion.div
-      ref={self}
       role="listitem"
       className="relative h-full shrink-0"
-      style={{
-        // Each card tucks behind the one before it, the way garments actually
-        // sit on a rod. The first keeps its full margin so the rail still
-        // starts where the padding says it does.
-        marginLeft: index ? -cardW * OVERLAP : 0,
-        // Later cards in front, and whatever is under the pointer in front of
-        // everything — otherwise reaching for a card lifts it *behind* its
-        // neighbour, which reads as a glitch rather than as a gesture.
-        zIndex: lifted ? 60 : index,
-      }}
-      // Dealt in: from below, small, and slightly over-rotated, on a spring
-      // loose enough to overshoot. Cloth settles; a card thrown onto a table
-      // bounces, and this is the moment the rail is a hand of cards.
-      initial={{ opacity: 0, y: 46, scale: 0.82 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      transition={{
-        delay: Math.min(index * 0.055, 0.6),
-        type: "spring",
-        stiffness: 240,
-        damping: 13,
-        mass: 0.7,
-      }}
+      style={{ width: "clamp(9rem, 17vw, 15rem)" }}
+      initial={{ opacity: 0, y: -18 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: Math.min(index * 0.035, 0.5), duration: 0.5 }}
+      whileHover={{ y: -7 }}
     >
-      {/* Layer two: the pointer. Steps aside for its neighbour, or rises when
-          it is the one being reached for. Plain numbers on `animate`. */}
       <motion.div
-        className="relative h-full w-full"
-        onPointerEnter={() => onHold(index)}
-        animate={{ x: gap, y: lifted ? -20 : 0 }}
-        transition={FAN_SPRING}
+        className="relative h-full w-full cursor-grab active:cursor-grabbing"
+        style={{
+          x,
+          y,
+          rotate: settled,
+          // The hook, not the card's middle. This one line is the difference
+          // between a garment swinging and a card wobbling.
+          transformOrigin: "50% 10px",
+        }}
+        drag
+        dragConstraints={{ left: -PULL, right: PULL, top: 0, bottom: PULL * 0.5 }}
+        dragElastic={0.14}
+        dragSnapToOrigin
+        dragTransition={{ bounceStiffness: 220, bounceDamping: 14 }}
+        whileTap={{ scale: 0.985 }}
+        onClick={() => onOpen?.(garment)}
       >
-        {/* Layer three: the fan. Driven by scroll position alone. */}
-        <motion.div
-          className="relative h-full w-full"
-          style={{ y: drop, scale: shrink }}
+        <Hanger tone={INK.brass} />
+        <div
+          className="relative h-[calc(100%-3.6rem)] w-full overflow-hidden rounded-[4px] shadow-[0_16px_30px_-16px_rgba(14,44,57,0.42)]"
+          style={{ border: `1px solid ${INK.abyss}22` }}
         >
-          {/* Layer four: the pendulum, whose x and y the drag writes to
-              directly. Each property has exactly one owner across these four
-              elements, which is the whole reason there are four: `animate`
-              and a motion value on the same property means motion hands
-              control to the value and the animation never completes. Every
-              card past the second one once sat permanently half-faded that
-              way. */}
-          <motion.div
-            className="relative h-full w-full cursor-grab active:cursor-grabbing"
-            style={{
-              x,
-              y,
-              rotate: settled,
-              // The hook, not the card's middle. This one line is the
-              // difference between a garment swinging and a card wobbling.
-              transformOrigin: "50% 10px",
-            }}
-            drag
-            dragConstraints={{ left: -PULL, right: PULL, top: 0, bottom: PULL * 0.5 }}
-            dragElastic={0.14}
-            dragSnapToOrigin
-            dragTransition={{ bounceStiffness: 220, bounceDamping: 14 }}
-            onClick={() => onOpen?.(garment)}
-          >
-            <Hanger tone={INK.brass} />
-            {/* inline-block so `width: auto` shrinks to the aspect ratio
-                instead of filling the parent — a block box ignores the
-                ratio here. */}
-            <div
-              className="relative inline-block aspect-[1063/1752] overflow-hidden rounded-[4px] transition-shadow duration-500"
-              style={{
-                height: `calc(100% - ${HANGER})`,
-                border: `1px solid ${INK.abyss}22`,
-                boxShadow: lifted
-                  ? "0 30px 46px -18px rgba(14,44,57,0.55)"
-                  : "0 16px 30px -16px rgba(14,44,57,0.42)",
-              }}
-            >
-              <GarmentPlate garment={garment} priority={index < 4} />
-            </div>
-          </motion.div>
-        </motion.div>
+          <GarmentPlate garment={garment} priority={index < 4} />
+        </div>
       </motion.div>
     </motion.div>
   );
@@ -647,9 +420,8 @@ function Shelf({
                 key={g.id}
                 type="button"
                 onClick={() => onOpen?.(g)}
-                // Height-driven for the same reason the rail is — the card
-                // owns its proportion, the shelf only says how tall.
-                className="relative aspect-[1063/1752] h-[80%] shrink-0 overflow-hidden text-left"
+                className="relative h-[80%] shrink-0 overflow-hidden text-left"
+                style={{ width: "clamp(8rem, 14vw, 12rem)" }}
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: i * 0.04, duration: 0.4 }}
