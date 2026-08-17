@@ -105,34 +105,51 @@ export function ClosetRoom({
             >
               {/* Cupboard Contents */}
               {shown.length === 0 ? (
-                <div className="flex min-h-0 flex-1 items-center justify-center px-6 text-center">
-                  <div>
-                    <p className="display text-[clamp(1.8rem,4vw,3rem)] text-abyss">
+                <div className="flex min-h-0 flex-1 flex-col items-center justify-center px-6 text-center select-none">
+                  <div className="max-w-xl mx-auto space-y-4">
+                    {/* Badge */}
+                    <div className="inline-flex items-center gap-2 border-2 border-[#12100d] bg-[#12100d] px-3.5 py-1 text-white shadow-[2px_2px_0px_#FFDE59]">
+                      <span className="font-mono text-xs font-black uppercase tracking-wider">
+                        {query ? "NO MATCHES FOUND" : tab === "wishlist" ? "WISHLIST EMPTY" : "WARDROBE IS BARE"}
+                      </span>
+                    </div>
+
+                    {/* Headline */}
+                    <h2 className="font-friday text-4xl sm:text-6xl text-[#12100d] uppercase tracking-wide leading-tight">
                       {query ? (
                         <>
-                          Nothing matches <span className="aside">“{query}”.</span>
+                          NOTHING MATCHES{" "}
+                          <span className="bg-[#FFDE59] px-2 text-[#12100d]">“{query}”</span>
                         </>
                       ) : tab === "wishlist" ? (
                         <>
-                          Nothing on the <span className="aside">wishlist.</span>
+                          NOTHING ON THE{" "}
+                          <span className="bg-[#FFDE59] px-2 text-[#12100d]">WISHLIST.</span>
                         </>
                       ) : (
                         <>
-                          The rail is <span className="aside">bare.</span>
+                          THE CLOSET RAIL IS{" "}
+                          <span className="bg-[#FFDE59] px-2 text-[#12100d]">EMPTY.</span>
                         </>
                       )}
-                    </p>
-                    <p className="mt-4 text-[0.9rem] text-abyss/60">
+                    </h2>
+
+                    {/* Description */}
+                    <p className="font-mono text-xs sm:text-sm font-bold uppercase text-[#12100d]/70 max-w-md mx-auto leading-relaxed">
                       {tab === "wishlist"
-                        ? "Pieces you try on from a shop page land here."
-                        : "Upload a few things and they will be hanging in seconds."}
+                        ? "Save garments while browsing Zara, H&M or Myntra using the extension."
+                        : "Import from product URLs or drop images to hang your clothes on the rail in seconds."}
                     </p>
-                    <Link
-                      href="/add-garment"
-                      className="mt-6 inline-flex items-center gap-2 rounded-2xl border-[3px] border-[#12100d] bg-[#FFDE59] px-6 py-3 font-friday text-xs uppercase tracking-wider text-[#12100d] shadow-[4px_4px_0px_#12100d] hover:bg-[#FFE57F] active:translate-x-[2px] active:translate-y-[2px] transition-all"
-                    >
-                      <span>Add Garment Now →</span>
-                    </Link>
+
+                    {/* CTA Button */}
+                    <div className="pt-2">
+                      <Link
+                        href="/add-garment"
+                        className="inline-flex items-center gap-2.5 rounded-2xl border-[3px] border-[#12100d] bg-[#FFDE59] px-7 py-3.5 font-friday text-sm uppercase tracking-wider text-[#12100d] shadow-[5px_5px_0px_#12100d] hover:bg-[#FFE57F] hover:shadow-[7px_7px_0px_#12100d] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none transition-all cursor-pointer"
+                      >
+                        <span>ADD FIRST GARMENT →</span>
+                      </Link>
+                    </div>
                   </div>
                 </div>
               ) : (

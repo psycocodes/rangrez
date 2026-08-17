@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useState, useTransition } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { ArrowLeft, Pencil, Check, User as UserIcon } from "lucide-react";
 
 import { signOut } from "@/app/actions/auth";
 import { saveMeasurements, updateProfilePhoto } from "@/app/actions/profile";
@@ -88,15 +89,16 @@ export function ProfileView({
         leftElement={
           <Link
             href="/trialroom"
-            className="flex items-center gap-2 rounded-xl border-2 border-[#12100d] bg-[#12100d] px-3.5 py-1 font-friday text-xs uppercase tracking-wider text-white shadow-[2px_2px_0px_#FFDE59] hover:bg-[#FFDE59] hover:text-[#12100d] active:translate-x-[1px] active:translate-y-[1px] transition-all cursor-pointer"
+            className="flex items-center gap-1.5 rounded-xl border-2 border-[#12100d] bg-[#12100d] px-3.5 py-1.5 font-friday text-xs uppercase tracking-wider text-white shadow-[2px_2px_0px_#FFDE59] hover:bg-[#FFDE59] hover:text-[#12100d] active:translate-x-[1px] active:translate-y-[1px] transition-all cursor-pointer"
           >
-            <span>← Back to Trial Room</span>
+            <ArrowLeft className="w-3.5 h-3.5" />
+            <span>Back to Trial Room</span>
           </Link>
         }
       />
 
-      {/* ── Main Profile Grid (Fits neatly on screen without large negative space) ── */}
-      <main className="flex-1 overflow-y-auto px-4 sm:px-6 py-2 min-h-0 flex items-center justify-center">
+      {/* ── Main Profile Grid (Proper breathing room below floating navbar) ── */}
+      <main className="flex-1 overflow-y-auto px-4 sm:px-6 py-4 sm:py-6 mt-1 min-h-0 flex items-center justify-center">
         <div className="w-full max-w-5xl mx-auto my-auto grid grid-cols-1 lg:grid-cols-12 gap-5 sm:gap-6 items-stretch">
           {/* Left Column (5 cols): Profile Avatar & Identity Card */}
           <div className="lg:col-span-5 rounded-3xl border-[3.5px] border-[#12100d] bg-white p-5 sm:p-6 shadow-[6px_6px_0px_#12100d] flex flex-col items-center justify-between text-center">
@@ -232,9 +234,10 @@ export function ProfileView({
                 <button
                   type="button"
                   onClick={() => setEditingMeasurements(!editingMeasurements)}
-                  className="rounded-xl border-2 border-[#12100d] bg-[#FAF6EF] px-3 py-1 font-mono text-xs font-black uppercase text-[#12100d] shadow-[2px_2px_0px_#12100d] hover:bg-[#FFDE59] active:translate-x-[1px] active:translate-y-[1px] transition-all cursor-pointer"
+                  className="flex items-center gap-1.5 rounded-xl border-2 border-[#12100d] bg-[#FAF6EF] px-3 py-1 font-mono text-xs font-black uppercase text-[#12100d] shadow-[2px_2px_0px_#12100d] hover:bg-[#FFDE59] active:translate-x-[1px] active:translate-y-[1px] transition-all cursor-pointer"
                 >
-                  {editingMeasurements ? "Close Specs ▲" : "Edit Global Specs ✎"}
+                  <Pencil className="w-3.5 h-3.5" />
+                  <span>{editingMeasurements ? "Close Specs" : "Edit Global Specs"}</span>
                 </button>
               </div>
 
@@ -298,7 +301,7 @@ export function ProfileView({
                       disabled={isPending}
                       className="flex-1 rounded-xl border-2 border-[#12100d] bg-[#FFDE59] py-2 font-friday text-xs uppercase tracking-wider text-[#12100d] shadow-[2px_2px_0px_#12100d] hover:bg-[#FFE57F] active:translate-x-[1px] active:translate-y-[1px] transition-all cursor-pointer"
                     >
-                      Save Global Measurements ✓
+                      Save Global Measurements
                     </button>
                     <button
                       type="button"

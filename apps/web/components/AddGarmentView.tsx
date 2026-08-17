@@ -3,8 +3,19 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, useRef, useTransition, useCallback } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { useState, useRef, useTransition } from "react";
+import {
+  ArrowLeft,
+  ArrowRight,
+  Link as LinkIcon,
+  UploadCloud,
+  Sparkles,
+  Check,
+  Tag,
+  Layers,
+  Ruler,
+  Maximize2,
+} from "lucide-react";
 
 import { extractGarment } from "@/lib/extract";
 import { CUTS, type Cut } from "@/lib/fit";
@@ -27,7 +38,9 @@ export function AddGarmentView({
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [mode, setMode] = useState<ImportMode>("link");
-  const [targetAvatarId, setTargetAvatarId] = useState(user.activeAvatarId ?? user.avatars[0]?.id);
+  const [targetAvatarId, setTargetAvatarId] = useState(
+    user.activeAvatarId ?? user.avatars[0]?.id,
+  );
 
   // Link import state
   const [productUrl, setProductUrl] = useState("");
@@ -55,7 +68,8 @@ export function AddGarmentView({
   const [success, setSuccess] = useState(false);
   const [isPending, startTransition] = useTransition();
 
-  const activePlate = user.avatars.find((a) => a.id === targetAvatarId) ?? user.avatars[0];
+  const activePlate =
+    user.avatars.find((a) => a.id === targetAvatarId) ?? user.avatars[0];
 
   // Process raw image file or URL into white-background cutout
   const processImage = async (fileOrBlob: File | Blob, nameHint = "") => {
@@ -63,7 +77,9 @@ export function AddGarmentView({
       const file =
         fileOrBlob instanceof File
           ? fileOrBlob
-          : new File([fileOrBlob], nameHint || "product-item.jpg", { type: "image/jpeg" });
+          : new File([fileOrBlob], nameHint || "product-item.jpg", {
+              type: "image/jpeg",
+            });
       const out = await extractGarment(file);
       setProcessedBlob(out.blob);
       setProcessedPreview(out.previewUrl);
@@ -97,7 +113,8 @@ export function AddGarmentView({
       });
 
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to fetch product information.");
+      if (!res.ok)
+        throw new Error(data.error || "Failed to fetch product information.");
 
       const { product } = data;
       setGarmentName(product.title || "Garment Piece");
@@ -107,7 +124,9 @@ export function AddGarmentView({
       setSelectedImageUrl(product.imageUrl);
 
       // Fetch proxied image for background cutout
-      const proxyRes = await fetch(`/api/wardrobe/proxy-image?url=${encodeURIComponent(product.imageUrl)}`);
+      const proxyRes = await fetch(
+        `/api/wardrobe/proxy-image?url=${encodeURIComponent(product.imageUrl)}`,
+      );
       if (proxyRes.ok) {
         const blob = await proxyRes.blob();
         await processImage(blob, `${product.title || "item"}.jpg`);
@@ -115,7 +134,9 @@ export function AddGarmentView({
         setProcessedPreview(product.imageUrl);
       }
     } catch (err) {
-      setLinkError(err instanceof Error ? err.message : "Failed to extract product link.");
+      setLinkError(
+        err instanceof Error ? err.message : "Failed to extract product link.",
+      );
     } finally {
       setFetchingLink(false);
     }
@@ -125,7 +146,9 @@ export function AddGarmentView({
   const handleSelectGalleryImage = async (imgUrl: string) => {
     setSelectedImageUrl(imgUrl);
     try {
-      const proxyRes = await fetch(`/api/wardrobe/proxy-image?url=${encodeURIComponent(imgUrl)}`);
+      const proxyRes = await fetch(
+        `/api/wardrobe/proxy-image?url=${encodeURIComponent(imgUrl)}`,
+      );
       if (proxyRes.ok) {
         const blob = await proxyRes.blob();
         await processImage(blob, "gallery-item.jpg");
@@ -179,10 +202,8 @@ export function AddGarmentView({
     formData.append("dominantColor", dominantColor);
     formData.append("sizeLabel", sizeLabel.trim());
     formData.append("cut", cut);
-    if (sourceUrl) {
-      formData.append("sourceUrl", sourceUrl);
-      formData.append("origin", "shop");
-    }
+    if (sourceUrl) formData.append("sourceUrl", sourceUrl);
+    if (targetAvatarId) formData.append("targetAvatarId", targetAvatarId);
 
     try {
       const res = await fetch("/api/wardrobe/upload", {
@@ -223,15 +244,16 @@ export function AddGarmentView({
         leftElement={
           <Link
             href="/wardrobe"
-            className="flex items-center gap-2 rounded-xl border-2 border-[#12100d] bg-[#12100d] px-3.5 py-1 font-friday text-xs uppercase tracking-wider text-white shadow-[2px_2px_0px_#FFDE59] hover:bg-[#FFDE59] hover:text-[#12100d] active:translate-x-[1px] active:translate-y-[1px] transition-all cursor-pointer"
+            className="flex items-center gap-1.5 rounded-xl border-2 border-[#12100d] bg-[#12100d] px-3.5 py-1.5 font-friday text-xs uppercase tracking-wider text-white shadow-[2px_2px_0px_#FFDE59] hover:bg-[#FFDE59] hover:text-[#12100d] active:translate-x-[1px] active:translate-y-[1px] transition-all cursor-pointer"
           >
-            <span>← Back to Wardrobe</span>
+            <ArrowLeft className="w-3.5 h-3.5" />
+            <span>Back to Wardrobe</span>
           </Link>
         }
       />
 
-      {/* ── Main Container ── */}
-      <main className="flex-1 overflow-y-auto px-4 py-4 sm:py-6">
+      {/* ── Main Container (Proper breathing margins below floating navbar) ── */}
+      <main className="flex-1 overflow-y-auto px-4 py-4 sm:py-6 mt-1">
         <div className="w-full max-w-5xl mx-auto space-y-5">
           {/* Avatar Target Switcher Bar */}
           {user.avatars.length > 0 && (
@@ -270,24 +292,26 @@ export function AddGarmentView({
             <button
               type="button"
               onClick={() => setMode("link")}
-              className={`flex-1 rounded-2xl border-[3px] border-[#12100d] py-3 px-4 font-friday text-sm uppercase tracking-wider transition-all shadow-[4px_4px_0px_#12100d] cursor-pointer ${
+              className={`flex-1 flex items-center justify-center gap-2 rounded-2xl border-[3px] border-[#12100d] py-3 px-4 font-friday text-sm uppercase tracking-wider transition-all shadow-[4px_4px_0px_#12100d] cursor-pointer ${
                 mode === "link"
                   ? "bg-[#FFDE59] text-[#12100d]"
                   : "bg-white text-[#12100d]/60 hover:bg-[#FAF6EF]"
               }`}
             >
-              🔗 Paste Online Shopping Link
+              <LinkIcon className="w-4 h-4" />
+              <span>Paste Online Shopping Link</span>
             </button>
             <button
               type="button"
               onClick={() => setMode("upload")}
-              className={`flex-1 rounded-2xl border-[3px] border-[#12100d] py-3 px-4 font-friday text-sm uppercase tracking-wider transition-all shadow-[4px_4px_0px_#12100d] cursor-pointer ${
+              className={`flex-1 flex items-center justify-center gap-2 rounded-2xl border-[3px] border-[#12100d] py-3 px-4 font-friday text-sm uppercase tracking-wider transition-all shadow-[4px_4px_0px_#12100d] cursor-pointer ${
                 mode === "upload"
                   ? "bg-[#FFDE59] text-[#12100d]"
                   : "bg-white text-[#12100d]/60 hover:bg-[#FAF6EF]"
               }`}
             >
-              📸 Upload / Drop Photos
+              <UploadCloud className="w-4 h-4" />
+              <span>Upload / Drop Photos</span>
             </button>
           </div>
 
@@ -317,9 +341,10 @@ export function AddGarmentView({
                     <button
                       type="submit"
                       disabled={fetchingLink || !productUrl.trim()}
-                      className="w-full rounded-xl border-2 border-[#12100d] bg-[#12100d] py-2.5 px-4 font-friday text-xs uppercase tracking-wider text-white shadow-[3px_3px_0px_#FFDE59] hover:bg-[#FFDE59] hover:text-[#12100d] active:translate-x-[1px] active:translate-y-[1px] transition-all cursor-pointer disabled:opacity-50"
+                      className="w-full flex items-center justify-center gap-2 rounded-xl border-2 border-[#12100d] bg-[#12100d] py-2.5 px-4 font-friday text-xs uppercase tracking-wider text-white shadow-[3px_3px_0px_#FFDE59] hover:bg-[#FFDE59] hover:text-[#12100d] active:translate-x-[1px] active:translate-y-[1px] transition-all cursor-pointer disabled:opacity-50"
                     >
-                      {fetchingLink ? "EXTRACTING GARMENT IMAGE..." : "FETCH PRODUCT ⚡"}
+                      <Sparkles className="w-3.5 h-3.5" />
+                      <span>{fetchingLink ? "EXTRACTING GARMENT IMAGE..." : "FETCH PRODUCT"}</span>
                     </button>
                   </form>
 
@@ -365,7 +390,7 @@ export function AddGarmentView({
                     className="flex flex-col items-center justify-center p-8 rounded-2xl border-[3px] border-dashed border-[#12100d] bg-[#FAF6EF] hover:bg-[#F4EFE6] transition-all cursor-pointer text-center group shadow-[2px_2px_0px_#12100d]"
                   >
                     <div className="flex h-12 w-12 items-center justify-center rounded-2xl border-2 border-[#12100d] bg-[#FFDE59] text-xl font-black shadow-[2px_2px_0px_#12100d] group-hover:scale-110 transition-transform">
-                      ↑
+                      <UploadCloud className="w-6 h-6 text-[#12100d]" />
                     </div>
                     <span className="font-friday text-sm uppercase text-[#12100d] mt-3">
                       Drop Photo Here
@@ -407,8 +432,9 @@ export function AddGarmentView({
                 </div>
 
                 {isMatted && (
-                  <span className="mt-3 border border-[#12100d] bg-[#FAF6EF] px-2 py-0.5 font-mono text-[0.62rem] font-bold text-emerald-700">
-                    ✓ Cleanly Cutout & Matted
+                  <span className="mt-3 flex items-center gap-1 border border-[#12100d] bg-[#FAF6EF] px-2 py-0.5 font-mono text-[0.62rem] font-bold text-emerald-700">
+                    <Check className="w-3 h-3 text-emerald-700" />
+                    <span>Cleanly Cutout & Matted</span>
                   </span>
                 )}
               </div>
@@ -508,11 +534,14 @@ export function AddGarmentView({
                   type="button"
                   onClick={handleSaveGarment}
                   disabled={saving || isPending || (!processedBlob && !selectedImageUrl)}
-                  className="w-full rounded-2xl border-[3px] border-[#12100d] bg-[#FFDE59] py-3.5 font-friday text-sm uppercase tracking-wider text-[#12100d] shadow-[4px_4px_0px_#12100d] hover:bg-[#FFE57F] hover:shadow-[6px_6px_0px_#12100d] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none transition-all cursor-pointer disabled:opacity-50 disabled:pointer-events-none"
+                  className="w-full flex items-center justify-center gap-2 rounded-2xl border-[3px] border-[#12100d] bg-[#FFDE59] py-3.5 font-friday text-sm uppercase tracking-wider text-[#12100d] shadow-[4px_4px_0px_#12100d] hover:bg-[#FFE57F] hover:shadow-[6px_6px_0px_#12100d] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none transition-all cursor-pointer disabled:opacity-50 disabled:pointer-events-none"
                 >
-                  {saving
-                    ? "DIGITISING & RENDERING ON YOUR BODY..."
-                    : "HANG IN WARDROBE →"}
+                  <span>
+                    {saving
+                      ? "DIGITISING & RENDERING ON YOUR BODY..."
+                      : "HANG IN WARDROBE"}
+                  </span>
+                  {!saving && <ArrowRight className="w-4 h-4" />}
                 </button>
               </div>
             </div>

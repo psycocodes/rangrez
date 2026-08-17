@@ -84,6 +84,22 @@ export function Navbar({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  // Extension button status color: Green (connected), Yellow (connecting), Gray (not connected)
+  const extStatus = isExtPaired ? "connected" : extPopupOpen ? "connecting" : "disconnected";
+  const extBtnBg =
+    extStatus === "connected"
+      ? "bg-[#7FE06E] text-[#12100d]"
+      : extStatus === "connecting"
+        ? "bg-[#FFDE59] text-[#12100d]"
+        : "bg-[#D6D0C5] text-[#12100d]/80 hover:bg-[#C9C2B6]";
+
+  const extBtnText =
+    extStatus === "connected"
+      ? "PAIRED ✓"
+      : extStatus === "connecting"
+        ? "CONNECTING..."
+        : "EXTENSION";
+
   return (
     <>
       {/* Hidden Handshake Node for Chrome/Firefox Extension */}
@@ -103,15 +119,52 @@ export function Navbar({
           aria-label="Main Navigation"
           className="relative flex items-center justify-between gap-3 rounded-2xl border-[3px] border-[#12100d] bg-[#F4EFE6]/95 p-2 sm:px-4 sm:py-2.5 shadow-[4px_4px_0px_#12100d] backdrop-blur-md transition-all"
         >
-          {/* ── Left Side: Optional Back Button (No RANGREZ button) ── */}
-          <div className="flex items-center gap-2 shrink-0">
-            {leftElement || null}
+          {/* ── Left Side: Back button if present, otherwise Rangrez Logo ── */}
+          <div className="flex items-center gap-3 shrink-0">
+            {leftElement ? (
+              leftElement
+            ) : (
+              <Link href="/trialroom" className="flex items-center gap-2 text-[#12100d] hover:opacity-80 transition-opacity">
+                <Image
+                  src="/assets/logos/rangrez-logo.png"
+                  alt="Rangrez Logo"
+                  width={34}
+                  height={34}
+                  className="object-contain"
+                  style={{
+                    filter:
+                      "drop-shadow(1.5px 1.5px 0px #12100d) drop-shadow(-1.5px -1.5px 0px #12100d) drop-shadow(1.5px -1.5px 0px #12100d) drop-shadow(-1.5px 1.5px 0px #12100d)",
+                  }}
+                />
+                <span className="font-display font-bold text-lg tracking-[0.12em] uppercase">
+                  Rangrez
+                </span>
+              </Link>
+            )}
           </div>
 
-          {/* ── Center: Search Bar + Bought/Wishlist Segmented Toggle (No Title Texts) ── */}
+          {/* ── Center: If back button is on left, Logo is in the middle. Otherwise search/toggle. ── */}
           <div className="flex flex-1 items-center justify-center min-w-0 px-2">
             {centerElement ? (
               centerElement
+            ) : leftElement ? (
+              /* When there's a back button on the left, Rangrez logo sits in the middle */
+              <Link href="/trialroom" className="flex items-center gap-2 text-[#12100d] hover:opacity-80 transition-opacity">
+                <Image
+                  src="/assets/logos/rangrez-logo.png"
+                  alt="Rangrez Logo"
+                  width={34}
+                  height={34}
+                  className="object-contain"
+                  style={{
+                    filter:
+                      "drop-shadow(1.5px 1.5px 0px #12100d) drop-shadow(-1.5px -1.5px 0px #12100d) drop-shadow(1.5px -1.5px 0px #12100d) drop-shadow(-1.5px 1.5px 0px #12100d)",
+                  }}
+                />
+                <span className="font-display font-bold text-lg tracking-[0.12em] uppercase">
+                  Rangrez
+                </span>
+              </Link>
             ) : showSearch ? (
               <div className="flex w-full max-w-lg items-center gap-2.5">
                 <button
@@ -156,26 +209,17 @@ export function Navbar({
             ) : null}
           </div>
 
-          {/* ── Right Side: Extension Button + Avatar/Profile Badges ── */}
+          {/* ── Right Side: Extension Status Button + Avatar/Profile Badges ── */}
           <div className="flex items-center gap-2.5 shrink-0">
-            {/* Extension Pairing Button (Vertically increased size, NO lightning emoji) */}
+            {/* Extension Pairing Button (Color represents status: Gray=Disconnected, Green=Connected, Yellow=Connecting) */}
             <div ref={extRef} className="relative">
               <button
                 type="button"
                 onClick={() => setExtPopupOpen((o) => !o)}
-                title="Browser Extension Pairing"
-                className={`flex h-10 items-center gap-2 rounded-xl border-[2.5px] border-[#12100d] px-3.5 py-2 font-mono text-[0.72rem] font-black uppercase shadow-[2px_2px_0px_#12100d] transition-all active:translate-x-[1px] active:translate-y-[1px] cursor-pointer ${
-                  isExtPaired
-                    ? "bg-[#7FE06E] text-[#12100d]"
-                    : "bg-white text-[#12100d] hover:bg-[#FFDE59]"
-                }`}
+                title={`Browser Extension (${extStatus})`}
+                className={`flex h-10 items-center justify-center rounded-xl border-[2.5px] border-[#12100d] px-3.5 py-2 font-mono text-[0.72rem] font-black uppercase shadow-[2px_2px_0px_#12100d] transition-all active:translate-x-[1px] active:translate-y-[1px] cursor-pointer ${extBtnBg}`}
               >
-                <span
-                  className={`h-2.5 w-2.5 rounded-full ${
-                    isExtPaired ? "bg-[#12100d]" : "bg-[#FF5A5F] animate-pulse"
-                  }`}
-                />
-                <span>{isExtPaired ? "PAIRED ✓" : "EXTENSION"}</span>
+                <span>{extBtnText}</span>
               </button>
 
               {/* ── Extension Popup (Anchored directly under the button, NO full screen blur) ── */}

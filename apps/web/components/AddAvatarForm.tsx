@@ -4,6 +4,14 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useRef, useTransition } from "react";
+import {
+  ArrowLeft,
+  ArrowRight,
+  UploadCloud,
+  Sparkles,
+  RotateCcw,
+  Check,
+} from "lucide-react";
 
 import { cutout } from "@/lib/cutout";
 import type { Avatar, AvatarFraming, Measurements, User } from "@/lib/types";
@@ -159,15 +167,16 @@ export function AddAvatarForm({
         leftElement={
           <Link
             href="/avatar"
-            className="flex items-center gap-2 rounded-xl border-2 border-[#12100d] bg-[#12100d] px-3.5 py-1 font-friday text-xs uppercase tracking-wider text-white shadow-[2px_2px_0px_#FFDE59] hover:bg-[#FFDE59] hover:text-[#12100d] active:translate-x-[1px] active:translate-y-[1px] transition-all cursor-pointer"
+            className="flex items-center gap-1.5 rounded-xl border-2 border-[#12100d] bg-[#12100d] px-3.5 py-1.5 font-friday text-xs uppercase tracking-wider text-white shadow-[2px_2px_0px_#FFDE59] hover:bg-[#FFDE59] hover:text-[#12100d] active:translate-x-[1px] active:translate-y-[1px] transition-all cursor-pointer"
           >
-            <span>← Back to Avatars</span>
+            <ArrowLeft className="w-3.5 h-3.5" />
+            <span>Back to Avatars</span>
           </Link>
         }
       />
 
-      {/* ── Main Container (Fits cleanly on screen) ── */}
-      <main className="flex-1 overflow-y-auto px-4 sm:px-6 py-2 min-h-0 flex items-center justify-center">
+      {/* ── Main Container (Fits cleanly on screen with proper margins) ── */}
+      <main className="flex-1 overflow-y-auto px-4 sm:px-6 py-4 sm:py-6 mt-1 min-h-0 flex items-center justify-center">
         <form onSubmit={handleSubmit} className="w-full max-w-5xl mx-auto my-auto space-y-4">
           {/* Bento Grid: 3 Components */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-5 items-stretch">
@@ -193,7 +202,7 @@ export function AddAvatarForm({
                   ) : (
                     <div className="flex flex-col items-center p-3">
                       <div className="flex h-10 w-10 items-center justify-center rounded-full border-2 border-[#12100d] bg-[#FFDE59] text-lg font-black shadow-[2px_2px_0px_#12100d] group-hover:scale-110 transition-transform">
-                        ↑
+                        <UploadCloud className="w-5 h-5 text-[#12100d]" />
                       </div>
                       <span className="font-friday text-xs uppercase text-[#12100d] mt-2">
                         Upload Photo
@@ -229,22 +238,24 @@ export function AddAvatarForm({
                         type="button"
                         onClick={handleRemoveBackground}
                         disabled={removingBg || isBgRemoved}
-                        className={`flex-1 rounded-xl border-2 border-[#12100d] px-2.5 py-1 font-mono text-[0.65rem] font-bold uppercase shadow-[2px_2px_0px_#12100d] transition-all cursor-pointer ${
+                        className={`flex-1 flex items-center justify-center gap-1 rounded-xl border-2 border-[#12100d] px-2.5 py-1 font-mono text-[0.65rem] font-bold uppercase shadow-[2px_2px_0px_#12100d] transition-all cursor-pointer ${
                           isBgRemoved
                             ? "bg-[#7FE06E] text-[#12100d]"
                             : "bg-[#FFDE59] text-[#12100d] hover:bg-[#FFE57F]"
                         }`}
                       >
-                        {removingBg ? "Matting..." : isBgRemoved ? "Cutout Done ✓" : "Remove BG ✨"}
+                        <Sparkles className="w-3 h-3" />
+                        <span>{removingBg ? "Matting..." : isBgRemoved ? "Cutout Done" : "Remove BG"}</span>
                       </button>
 
                       <button
                         type="button"
                         onClick={handleClearPhoto}
-                        className="rounded-xl border-2 border-[#12100d] bg-[#FF5A5F] px-2 py-1 font-mono text-[0.65rem] font-bold uppercase text-white shadow-[2px_2px_0px_#12100d] hover:bg-[#FF3B42] cursor-pointer"
+                        className="flex items-center justify-center gap-1 rounded-xl border-2 border-[#12100d] bg-[#FF5A5F] px-2.5 py-1 font-mono text-[0.65rem] font-bold uppercase text-white shadow-[2px_2px_0px_#12100d] hover:bg-[#FF3B42] cursor-pointer"
                         title="Re-Submit / Clear"
                       >
-                        Re-Submit ↺
+                        <RotateCcw className="w-3 h-3" />
+                        <span>Re-Submit</span>
                       </button>
                     </>
                   )}
@@ -258,13 +269,16 @@ export function AddAvatarForm({
                 </p>
                 <ul className="space-y-1 font-mono text-[0.65rem] text-[#12100d]/80">
                   <li className="flex items-center gap-1.5">
-                    <span className="text-emerald-600 font-bold">✓</span> 1. Adequate, even indoor or daylight lighting
+                    <Check className="w-3 h-3 text-emerald-600 shrink-0" />
+                    <span>1. Adequate, even indoor or daylight lighting</span>
                   </li>
                   <li className="flex items-center gap-1.5">
-                    <span className="text-emerald-600 font-bold">✓</span> 2. Plain background (or use our cutout tool)
+                    <Check className="w-3 h-3 text-emerald-600 shrink-0" />
+                    <span>2. Plain background (or use our cutout tool)</span>
                   </li>
                   <li className="flex items-center gap-1.5">
-                    <span className="text-emerald-600 font-bold">✓</span> 3. Form-fitting clothes for accurate body contouring
+                    <Check className="w-3 h-3 text-emerald-600 shrink-0" />
+                    <span>3. Form-fitting clothes for accurate body contouring</span>
                   </li>
                 </ul>
                 <p className="border-t border-[#12100d]/15 pt-1.5 font-mono text-[0.6rem] font-bold text-[#FF5A5F] uppercase">
@@ -427,9 +441,10 @@ export function AddAvatarForm({
                 <button
                   type="submit"
                   disabled={loading || isPending || (!photo && !replacing)}
-                  className="w-full border-[3px] border-[#12100d] bg-[#FFDE59] py-3 rounded-2xl font-friday text-sm uppercase tracking-wider text-[#12100d] shadow-[4px_4px_0px_#12100d] hover:bg-[#FFE57F] hover:shadow-[6px_6px_0px_#12100d] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none transition-all cursor-pointer disabled:opacity-50"
+                  className="w-full flex items-center justify-center gap-2 border-[3px] border-[#12100d] bg-[#FFDE59] py-3 rounded-2xl font-friday text-sm uppercase tracking-wider text-[#12100d] shadow-[4px_4px_0px_#12100d] hover:bg-[#FFE57F] hover:shadow-[6px_6px_0px_#12100d] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none transition-all cursor-pointer disabled:opacity-50"
                 >
-                  {loading ? "DIGITISING BODY & CALIBRATING..." : "ADD AVATAR BODY →"}
+                  <span>{loading ? "DIGITISING BODY & CALIBRATING..." : "ADD AVATAR BODY"}</span>
+                  {!loading && <ArrowRight className="w-4 h-4" />}
                 </button>
               </div>
             </div>

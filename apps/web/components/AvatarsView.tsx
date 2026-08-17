@@ -4,9 +4,19 @@ import Image from "next/image";
 import Link from "next/link";
 import { useState, useTransition } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import {
+  ArrowLeft,
+  Zap,
+  Pencil,
+  Trash2,
+  Plus,
+  X,
+  Maximize2,
+  Minimize2,
+} from "lucide-react";
 
 import { deleteAvatar, setActiveAvatar, updateAvatarMeasurements } from "@/app/actions/avatars";
-import { FRAMING, MAX_AVATARS, type Avatar, type User } from "@/lib/types";
+import { FRAMING, type Avatar, type User } from "@/lib/types";
 import { Navbar } from "./Navbar";
 
 export function AvatarsView({
@@ -70,15 +80,16 @@ export function AvatarsView({
         leftElement={
           <Link
             href="/trialroom"
-            className="flex items-center gap-2 rounded-xl border-2 border-[#12100d] bg-[#12100d] px-3.5 py-1 font-friday text-xs uppercase tracking-wider text-white shadow-[2px_2px_0px_#FFDE59] hover:bg-[#FFDE59] hover:text-[#12100d] active:translate-x-[1px] active:translate-y-[1px] transition-all cursor-pointer"
+            className="flex items-center gap-1.5 rounded-xl border-2 border-[#12100d] bg-[#12100d] px-3.5 py-1.5 font-friday text-xs uppercase tracking-wider text-white shadow-[2px_2px_0px_#FFDE59] hover:bg-[#FFDE59] hover:text-[#12100d] active:translate-x-[1px] active:translate-y-[1px] transition-all cursor-pointer"
           >
-            <span>← Back to Trial Room</span>
+            <ArrowLeft className="w-3.5 h-3.5" />
+            <span>Back to Trial Room</span>
           </Link>
         }
       />
 
       {/* ── Center: Interactive Neobrutalist 3-Column Accordion Gallery ── */}
-      <main className="flex-1 flex flex-col justify-center px-4 sm:px-8 py-2 min-h-0 overflow-hidden">
+      <main className="flex-1 flex flex-col justify-center px-4 sm:px-8 py-4 sm:py-6 mt-1 min-h-0 overflow-hidden">
         <div className="w-full max-w-6xl mx-auto h-[calc(100vh-140px)] max-h-[580px] min-h-[420px] flex flex-col lg:flex-row gap-4 sm:gap-6 items-stretch">
           {slots.map(({ index, avatar }) => {
             if (!avatar) {
@@ -90,7 +101,7 @@ export function AvatarsView({
                   className="flex-1 flex flex-col items-center justify-center p-6 rounded-[32px] border-[3.5px] border-dashed border-[#12100d] bg-white/60 hover:bg-white text-center shadow-[6px_6px_0px_#12100d] hover:translate-y-1.5 hover:shadow-[3px_3px_0px_#12100d] active:translate-y-2 active:shadow-[1px_1px_0px_#12100d] transition-all duration-200 group cursor-pointer"
                 >
                   <div className="flex h-16 w-16 items-center justify-center rounded-2xl border-[2.5px] border-[#12100d] bg-[#FFDE59] text-3xl font-black text-[#12100d] shadow-[3px_3px_0px_#12100d] group-hover:scale-110 transition-transform">
-                    +
+                    <Plus className="w-8 h-8 text-[#12100d]" />
                   </div>
                   <h4 className="font-friday text-lg sm:text-xl uppercase tracking-wide text-[#12100d] mt-4">
                     Add Avatar Plate
@@ -165,9 +176,10 @@ export function AvatarsView({
                               e.stopPropagation();
                               setExpandedId(null);
                             }}
-                            className="rounded-lg border-2 border-[#12100d] bg-white px-2 py-0.5 font-mono text-[0.65rem] font-black uppercase hover:bg-[#FAF6EF] shadow-[1px_1px_0px_#12100d]"
+                            className="flex items-center gap-1 rounded-lg border-2 border-[#12100d] bg-white px-2 py-0.5 font-mono text-[0.65rem] font-black uppercase hover:bg-[#FAF6EF] shadow-[1px_1px_0px_#12100d]"
                           >
-                            Collapse ✕
+                            <span>Collapse</span>
+                            <X className="w-3 h-3" />
                           </button>
                         </div>
 
@@ -198,9 +210,10 @@ export function AvatarsView({
                                 e.stopPropagation();
                                 setEditingAvatar(avatar);
                               }}
-                              className="font-mono text-[0.65rem] font-black uppercase text-[#12100d] underline hover:text-emerald-700 cursor-pointer"
+                              className="flex items-center gap-1 font-mono text-[0.65rem] font-black uppercase text-[#12100d] underline hover:text-emerald-700 cursor-pointer"
                             >
-                              Edit Specs ✎
+                              <Pencil className="w-3 h-3" />
+                              <span>Edit Specs</span>
                             </button>
                           </div>
                           <div className="grid grid-cols-4 gap-2 font-mono text-xs text-[#12100d]">
@@ -234,9 +247,10 @@ export function AvatarsView({
                               e.stopPropagation();
                               handleSetActive(avatar.id);
                             }}
-                            className="flex-1 rounded-xl border-[2.5px] border-[#12100d] bg-[#12100d] text-white py-2 px-3 font-friday text-xs uppercase tracking-wider shadow-[3px_3px_0px_#FFDE59] hover:bg-[#FFDE59] hover:text-[#12100d] active:translate-x-[1px] active:translate-y-[1px] transition-all cursor-pointer"
+                            className="flex-1 flex items-center justify-center gap-1.5 rounded-xl border-[2.5px] border-[#12100d] bg-[#12100d] text-white py-2 px-3 font-friday text-xs uppercase tracking-wider shadow-[3px_3px_0px_#FFDE59] hover:bg-[#FFDE59] hover:text-[#12100d] active:translate-x-[1px] active:translate-y-[1px] transition-all cursor-pointer"
                           >
-                            USE THIS BODY ⚡
+                            <Zap className="w-3.5 h-3.5 text-[#FFDE59]" />
+                            <span>USE THIS BODY</span>
                           </button>
                         )}
 
@@ -246,9 +260,10 @@ export function AvatarsView({
                             e.stopPropagation();
                             setEditingAvatar(avatar);
                           }}
-                          className="rounded-xl border-[2.5px] border-[#12100d] bg-white py-2 px-3.5 font-friday text-xs uppercase tracking-wider text-[#12100d] shadow-[2px_2px_0px_#12100d] hover:bg-[#FAF6EF] active:translate-x-[1px] active:translate-y-[1px] cursor-pointer"
+                          className="flex items-center gap-1.5 rounded-xl border-[2.5px] border-[#12100d] bg-white py-2 px-3.5 font-friday text-xs uppercase tracking-wider text-[#12100d] shadow-[2px_2px_0px_#12100d] hover:bg-[#FAF6EF] active:translate-x-[1px] active:translate-y-[1px] cursor-pointer"
                         >
-                          EDIT MEASUREMENTS ✎
+                          <Pencil className="w-3.5 h-3.5" />
+                          <span>EDIT MEASUREMENTS</span>
                         </button>
 
                         {user.avatars.length > 1 && (
@@ -259,23 +274,24 @@ export function AvatarsView({
                               e.stopPropagation();
                               setDeleteTarget(avatar);
                             }}
-                            className="rounded-xl border-[2.5px] border-[#12100d] bg-[#FF5A5F] py-2 px-3 font-friday text-xs uppercase tracking-wider text-white shadow-[2px_2px_0px_#12100d] hover:bg-[#FF3B42] active:translate-x-[1px] active:translate-y-[1px] cursor-pointer"
+                            className="flex items-center gap-1 rounded-xl border-[2.5px] border-[#12100d] bg-[#FF5A5F] py-2 px-3 font-friday text-xs uppercase tracking-wider text-white shadow-[2px_2px_0px_#12100d] hover:bg-[#FF3B42] active:translate-x-[1px] active:translate-y-[1px] cursor-pointer"
                           >
-                            RETIRE ✕
+                            <Trash2 className="w-3.5 h-3.5" />
+                            <span>RETIRE</span>
                           </button>
                         )}
                       </div>
                     </div>
                   </div>
                 ) : (
-                  /* ── IDLE / COLLAPSED ACCORDION CARD ── */
-                  <div className="flex flex-col items-center justify-between h-full py-2 text-center">
+                  /* ── PERSISTENT IDLE / COLLAPSED ACCORDION CARD ── */
+                  <div className="flex flex-col items-center justify-between h-full py-2 text-center select-none">
                     <div className="w-full flex items-center justify-between mb-2">
-                      <span className="border-2 border-[#12100d] bg-white px-2 py-0.2 font-mono text-[0.62rem] font-black uppercase text-[#12100d] shadow-[1px_1px_0px_#12100d]">
+                      <span className="border-2 border-[#12100d] bg-white px-2 py-0.5 font-mono text-[0.62rem] font-black uppercase text-[#12100d] shadow-[1px_1px_0px_#12100d]">
                         PLATE 0{index + 1}
                       </span>
                       {isActive && (
-                        <span className="rounded-full bg-[#12100d] px-2 py-0.2 font-mono text-[0.55rem] font-black text-[#FFDE59]">
+                        <span className="rounded-full bg-[#12100d] px-2 py-0.5 font-mono text-[0.55rem] font-black text-[#FFDE59]">
                           ACTIVE
                         </span>
                       )}
@@ -299,8 +315,9 @@ export function AvatarsView({
                       </p>
                     </div>
 
-                    <span className="mt-3 border-2 border-[#12100d] bg-white px-3 py-1 font-mono text-[0.65rem] font-black uppercase text-[#12100d] shadow-[2px_2px_0px_#12100d] rounded-xl">
-                      EXPAND ➔
+                    <span className="mt-3 flex items-center gap-1 border-2 border-[#12100d] bg-white px-3 py-1 font-mono text-[0.65rem] font-black uppercase text-[#12100d] shadow-[2px_2px_0px_#12100d] rounded-xl">
+                      <span>EXPAND</span>
+                      <Maximize2 className="w-3 h-3" />
                     </span>
                   </div>
                 )}
@@ -338,9 +355,9 @@ export function AvatarsView({
                 <button
                   type="button"
                   onClick={() => setEditingAvatar(null)}
-                  className="rounded-lg border-2 border-[#12100d] bg-white px-2 py-0.5 font-mono text-xs font-black text-[#12100d] shadow-[2px_2px_0px_#12100d] hover:bg-[#FF5A5F] hover:text-white transition-all cursor-pointer"
+                  className="rounded-lg border-2 border-[#12100d] bg-white p-1 font-mono text-xs font-black text-[#12100d] shadow-[2px_2px_0px_#12100d] hover:bg-[#FF5A5F] hover:text-white transition-all cursor-pointer"
                 >
-                  ✕
+                  <X className="w-4 h-4" />
                 </button>
               </div>
 
@@ -410,7 +427,7 @@ export function AvatarsView({
                     disabled={isPending}
                     className="flex-1 rounded-xl border-2 border-[#12100d] bg-[#FFDE59] py-2.5 font-friday text-xs uppercase tracking-wider text-[#12100d] shadow-[3px_3px_0px_#12100d] hover:bg-[#FFE57F] active:translate-x-[1px] active:translate-y-[1px] transition-all cursor-pointer"
                   >
-                    Save Measurements ✓
+                    Save Measurements
                   </button>
                   <button
                     type="button"
@@ -443,7 +460,7 @@ export function AvatarsView({
               className="w-full max-w-sm rounded-3xl border-[3.5px] border-[#12100d] bg-[#F4EFE6] p-6 shadow-[8px_8px_0px_#12100d] text-center"
             >
               <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl border-[2.5px] border-[#12100d] bg-[#FF5A5F] text-xl font-black text-white shadow-[3px_3px_0px_#12100d]">
-                ✕
+                <Trash2 className="w-6 h-6 text-white" />
               </div>
 
               <h3 className="font-friday text-xl uppercase tracking-wide text-[#12100d]">
@@ -468,7 +485,7 @@ export function AvatarsView({
                   onClick={handleConfirmDelete}
                   className="flex-1 rounded-2xl border-2 border-[#12100d] bg-[#FF5A5F] py-2 font-friday text-xs uppercase tracking-wider text-white shadow-[2px_2px_0px_#12100d] hover:bg-[#FF3B42] active:translate-x-[1px] active:translate-y-[1px] transition-all cursor-pointer"
                 >
-                  Retire ✕
+                  Retire
                 </button>
               </div>
             </motion.div>
