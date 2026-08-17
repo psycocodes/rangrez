@@ -51,12 +51,34 @@ const OUT_DIR = resolve(web, "public/seed");
  * A retailer's CDN calls a photograph `p2994477.jpg`, and there is no reading
  * that back. Anything named after its piece skips this entirely; this is only
  * for what is already sitting in the folder.
+ *
+ * Keys must be specific enough to identify one file. `istockphoto` used to be
+ * a key here, back when there was one such file; there are now three, and it
+ * would have quietly given all three to the same piece and dropped two
+ * photographs on the floor. Matching takes the longest key that fits, so a
+ * fuller prefix always beats a shorter one — but the real defence is writing
+ * the whole distinguishing stem.
+ *
+ * Some of these are the nearest piece rather than the right one: the starter
+ * list is twenty-six specific garments and a folder of stock photography will
+ * never land on them exactly. A photograph named after its slug — say
+ * `cropped-trench.jpg` — bypasses this table entirely, which is the way to fix
+ * any of them.
  */
 const ALIASES = {
   "1_6b8140c5": "raw-denim-straight",
+  "360_f_262609650": "wide-leg-pleated-trouser",
+  "360_f_77529477": "canvas-low-top",
   chriscross: "boxy-heavyweight-tee",
-  istockphoto: "quilted-bomber",
-  p2994477: "canvas-low-top",
+  ac0575ad: "tailored-wool-trouser",
+  bfacb0ef: "leather-derby",
+  "images-2": "oversized-poplin-shirt",
+  "istockphoto-1209887384": "khadi-camp-collar",
+  "istockphoto-172688640": "cable-knit-crewneck",
+  "istockphoto-885931726": "quilted-bomber",
+  "mens-pants-isolated": "cargo-utility-pant",
+  p2994477: "suede-chelsea-boot",
+  "pngtree-sport-shoes": "woven-slide",
 };
 
 const slug = (s) =>
@@ -80,11 +102,16 @@ function items() {
   return found;
 }
 
+/** Longest key first, so a fuller prefix always wins over a shorter one. */
+const ALIAS_ORDER = Object.entries(ALIASES).sort(
+  ([a], [b]) => b.length - a.length,
+);
+
 /** Which seed piece is this file a photograph of? */
 function match(file, known) {
   const stem = slug(file.split(".")[0]);
   if (known.has(stem)) return stem;
-  for (const [fragment, target] of Object.entries(ALIASES)) {
+  for (const [fragment, target] of ALIAS_ORDER) {
     if (stem.includes(slug(fragment))) return target;
   }
   return null;
@@ -107,6 +134,15 @@ async function main() {
     const seed = match(file, known);
     if (!seed) {
       console.log(`  ${file} — can't tell what this is; rename it after a piece`);
+      continue;
+    }
+
+    // Two files claiming one piece means one of them is never seen again, and
+    // silently: the folder looks full and the wardrobe is still short a photo.
+    if (manifest[seed]) {
+      console.log(
+        `  ${file} — also matches ${seed}, already taken by ${manifest[seed].source}`,
+      );
       continue;
     }
 

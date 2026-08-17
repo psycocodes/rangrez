@@ -27,13 +27,20 @@ export const DYES = {
 } as const satisfies Record<string, Dye>;
 
 /**
- * Names an arbitrary colour as one of the house dyes.
+ * Names an arbitrary colour as one of the house dyes — and keeps the colour.
  *
  * A garment digitised off a shop page arrives with a measured average colour,
  * not a dye name. Rather than storing `#7B3F2A` and printing a hex on the
  * card — which would break the language of the catalog — we snap it to the
  * nearest dye on the card. Distance is weighted toward hue: an off-black and a
  * navy differ far more meaningfully than two navies of different lightness.
+ *
+ * The *name* snaps; the hex does not. Returning the house dye's hex as well
+ * threw away the only measurement we had: a royal blue tee at #1950BC came
+ * back as Indigo #26356E, and since the card takes its whole palette from this
+ * hex, every vivid piece in the wardrobe arrived on a card two steps duller
+ * than the garment on it. The catalogue gets its thirteen dye names, the card
+ * gets the actual cloth.
  */
 export function nearestDye(hex: string): Dye {
   const target = hexToHsl(hex);
@@ -57,5 +64,5 @@ export function nearestDye(hex: string): Dye {
     }
   }
 
-  return best;
+  return { name: best.name, hex };
 }

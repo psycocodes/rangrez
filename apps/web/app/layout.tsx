@@ -1,5 +1,10 @@
 import type { Metadata, Viewport } from "next";
-import { Instrument_Serif, Inter_Tight, JetBrains_Mono } from "next/font/google";
+import {
+  Instrument_Serif,
+  Inter_Tight,
+  JetBrains_Mono,
+  Smokum,
+} from "next/font/google";
 import localFont from "next/font/local";
 
 import "./globals.css";
@@ -44,21 +49,39 @@ const jetbrains = JetBrains_Mono({
   display: "swap",
 });
 
-const friday = localFont({
-  src: "../public/assets/fonts/FridayNightLights-l5pe.ttf",
-  variable: "--font-friday",
-  display: "swap",
-});
+/* ── the garment card's three voices ──────────────────────────────────────
+   These three exist only for the card (components/GarmentPlate.tsx) and are
+   loaded globally because that card appears on every route.
+
+   Both local faces are drawn far outside their em box, which is the whole
+   reason they look the way they do — and the reason a font-size on either
+   cannot be read as a cap height:
+
+     Identity      caps 0.98em, but the ink spans 1.65em top to bottom. Its
+                   letterforms are filled with fingerprint whorls, so the
+                   texture behind the garment is *typeset*, not an image.
+     Scholar Block caps 2.13em. At the 67px the design specifies, the letters
+                   stand 143px tall and overflow their own line box on
+                   purpose. Setting it by eye to "look 143px" would give a
+                   672px font-size and break every proportion around it. */
 
 const identity = localFont({
-  src: "../public/assets/fonts/IdentityRegular.ttf",
+  src: "./fonts/IdentityRegular.ttf",
   variable: "--font-identity",
   display: "swap",
 });
 
-const iosevka = localFont({
-  src: "../public/assets/fonts/Iosevka-Nerd-Font-Complete.ttf",
-  variable: "--font-iosevka",
+const scholar = localFont({
+  src: "./fonts/ScholarBlock-Regular.ttf",
+  variable: "--font-scholar",
+  display: "swap",
+});
+
+/** The category line. A wood-type western, per the design. */
+const smokum = Smokum({
+  variable: "--font-smokum",
+  subsets: ["latin"],
+  weight: "400",
   display: "swap",
 });
 
@@ -80,7 +103,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${instrument.variable} ${inter.variable} ${jetbrains.variable} ${kartik.variable} ${friday.variable} ${identity.variable} ${iosevka.variable} h-full`}
+      className={`${instrument.variable} ${inter.variable} ${jetbrains.variable} ${kartik.variable} ${identity.variable} ${scholar.variable} ${smokum.variable} ${friday.variable} ${identity.variable} ${iosevka.variable} h-full`}
     >
       <body className="weave grain min-h-full text-ink">{children}</body>
     </html>

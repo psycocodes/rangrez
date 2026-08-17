@@ -27,6 +27,46 @@
  */
 
 /**
+ * How sharply a pixel differs from the pixels either side of it.
+ *
+ * A central difference per channel, summed — cheap, and enough to answer the
+ * only question asked of it: is there an outline here. Absolute values are
+ * meaningless on their own and are always compared against the backdrop's own,
+ * measured in the same units at the same time.
+ */
+function gradientMap(data: Uint8ClampedArray, w: number, h: number): Float32Array {
+  const grad = new Float32Array(w * h);
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const at = y * w + x;
+      const l = x > 0 ? (at - 1) * 4 : at * 4;
+      const r = x < w - 1 ? (at + 1) * 4 : at * 4;
+      const u = y > 0 ? (at - w) * 4 : at * 4;
+      const d = y < h - 1 ? (at + w) * 4 : at * 4;
+      let sum = 0;
+      for (let c = 0; c < 3; c++) {
+        sum += Math.abs(data[r + c] - data[l + c]) + Math.abs(data[d + c] - data[u + c]);
+      }
+      grad[at] = sum;
+    }
+  }
+  return grad;
+}
+
+/**
+ * The faintest outline we will ever treat as an outline.
+ *
+ * Below this is JPEG ringing on a flat sweep, which sits around 15–20 at an
+ * 8×8 block boundary. A white shirt against a white backdrop still throws two
+ * or three times that at its hem, because a garment casts a shadow and a
+ * backdrop does not.
+ */
+const MIN_EDGE = 26;
+
+/** How far above the backdrop's own worst noise an edge has to stand. */
+const EDGE_HEADROOM = 1.7;
+
+/**
  * Marks every pixel reachable from the frame's edge without crossing something
  * that stops looking like the background.
  *
@@ -36,6 +76,23 @@
  * patterned wall deviates a lot, and a tight tolerance there would find
  * nothing at all — so it widens, up to a ceiling past which we are no longer
  * removing a background, we are removing whatever we feel like.
+ *
+ * ── why colour alone is not enough ───────────────────────────────────────
+ *
+ * Connectivity is supposed to save the white shirt on the white sweep: the
+ * shirt's outline stands between its interior and the border, so the fill
+ * never reaches inside. That argument holds only if the outline is unbroken
+ * *in colour*, and on a white-on-white photograph it very often isn't — a few
+ * pixels somewhere along the hem read as backdrop, the fill threads through
+ * the gap, and from the inside the whole garment is within tolerance. It does
+ * not nibble an edge; it takes the shirt. That is the failure this pass exists
+ * for, and it was the single worst thing the cutout did.
+ *
+ * So the fill has to clear two bars, not one: look like the backdrop, *and*
+ * not sit on an edge. The edge bar is set from the backdrop's own gradient —
+ * whatever noise the sweep already carries cannot stop the fill, by
+ * construction — so a busy background degrades to the old behaviour rather
+ * than to a fill that refuses to start.
  */
 export function floodBackground(
   data: Uint8ClampedArray,
@@ -66,48 +123,334 @@ export function floodBackground(
     }, 0) / border.length,
   );
 
-  const tolerance = Math.min(132, Math.max(46, 42 + spread * 1.15));
+  const loosest = Math.min(132, Math.max(46, 42 + spread * 1.15));
 
-  const looksLikeBackground = (i: number) =>
+  const delta = (i: number) =>
     Math.abs(data[i] - mean[0]) +
-      Math.abs(data[i + 1] - mean[1]) +
-      Math.abs(data[i + 2] - mean[2]) <
-    tolerance;
+    Math.abs(data[i + 1] - mean[1]) +
+    Math.abs(data[i + 2] - mean[2]);
 
-  const mask = new Uint8Array(w * h);
-  // A plain array used as a stack beats a shift()-based queue by a wide margin
-  // here; the order pixels come out in makes no difference to a flood fill.
-  const stack: number[] = [];
+  // The edge bar, in the backdrop's own units: the ninetieth percentile of the
+  // border's gradient with headroom on top. Taken from the border rather than
+  // the whole frame because the whole frame contains the garment, and a
+  // garment's outline is exactly the population we are trying to exclude.
+  const grad = gradientMap(data, w, h);
+  // The ninety-ninth percentile, not the ninetieth. At the ninetieth, one
+  // border pixel in ten is above the bar by definition, and on a backdrop with
+  // any texture at all those blocked pixels percolate into a wall the fill
+  // cannot get through — a noisy background stopped being removed at all. The
+  // bar has to sit above essentially every gradient the backdrop itself
+  // produces, so that only a genuine outline is ever an outline.
+  const borderGrad = border.map((i) => grad[i / 4]).sort((a, b) => a - b);
+  const p99 = borderGrad[Math.floor(borderGrad.length * 0.99)] ?? 0;
+  const edgeLimit = Math.max(MIN_EDGE, p99 * EDGE_HEADROOM);
 
-  const push = (x: number, y: number) => {
-    const at = y * w + x;
-    if (mask[at]) return;
-    if (!looksLikeBackground(at * 4)) return;
-    mask[at] = 1;
-    stack.push(at);
+  const fill = (tolerance: number): Uint8Array => {
+    const mask = new Uint8Array(w * h);
+    // A plain array used as a stack beats a shift()-based queue by a wide
+    // margin here; the order pixels come out in makes no difference.
+    const stack: number[] = [];
+
+    const push = (x: number, y: number) => {
+      const at = y * w + x;
+      if (mask[at]) return;
+      if (delta(at * 4) >= tolerance) return;
+      if (grad[at] > edgeLimit) return;
+      mask[at] = 1;
+      stack.push(at);
+    };
+
+    for (let x = 0; x < w; x++) {
+      push(x, 0);
+      push(x, h - 1);
+    }
+    for (let y = 0; y < h; y++) {
+      push(0, y);
+      push(w - 1, y);
+    }
+
+    while (stack.length) {
+      const at = stack.pop() as number;
+      const x = at % w;
+      const y = (at - x) / w;
+      if (x > 0) push(x - 1, y);
+      if (x < w - 1) push(x + 1, y);
+      if (y > 0) push(x, y - 1);
+      if (y < h - 1) push(x, y + 1);
+    }
+
+    return mask;
   };
 
-  for (let x = 0; x < w; x++) {
-    push(x, 0);
-    push(x, h - 1);
-  }
-  for (let y = 0; y < h; y++) {
-    push(0, y);
-    push(w - 1, y);
+  const tolerance = chooseTolerance(fill, loosest, w, h);
+  const mask = fill(tolerance);
+
+  sealLeaks(mask, w, h);
+  trimEdgeFringe(data, mask, w, h, mean, tolerance);
+  fillEnclosedPockets(data, mask, w, h, mean, tolerance);
+  return mask;
+}
+
+/** Tolerances tried, tightest first. Anything above the adaptive cap is cut. */
+const LEVELS = [14, 20, 27, 36, 48, 64, 84, 110, 132];
+
+/**
+ * How much of the two outer rings has to go before we call the backdrop gone.
+ *
+ * Relative to the best any tolerance manages, not to 1, because a garment that
+ * runs off the edge of the frame occupies part of the border permanently and
+ * no tolerance will ever clear it.
+ */
+const CLEARED = 0.985;
+
+/**
+ * The tightest tolerance that actually gets rid of the background.
+ *
+ * One adaptive number cannot serve both a navy coat on white — where anything
+ * up to 130 is safe and a wide tolerance gives the cleanest edge — and a white
+ * shirt on white, where 46 removes the shirt. Measured on the real
+ * photographs: a white tee on a near-white sweep goes from 41% of the frame
+ * removed at 16, to 52% at 22, to 87% at 40. Somewhere in there it stopped
+ * removing backdrop and started removing shirt, and no property of the number
+ * itself says where.
+ *
+ * What does say is the backdrop. Sweep from tight to loose and stop the moment
+ * the outer rings of the frame are clear: at that point every pixel we came
+ * for is gone, and every further widening can only reach *inward*, into the
+ * garment. It is the one stopping rule that needs no guess about how much of
+ * the picture the garment ought to occupy.
+ *
+ * Two rings rather than one — the outermost, and one inset a tenth of the way
+ * in — because a sweep is often lit brightest at the edges, and clearing the
+ * outermost pixels alone can leave a band of shadow standing just behind them.
+ */
+function chooseTolerance(
+  fill: (tolerance: number) => Uint8Array,
+  loosest: number,
+  w: number,
+  h: number,
+): number {
+  const ring: number[] = [];
+  const inset = Math.max(1, Math.round(Math.min(w, h) * 0.1));
+  for (const d of [0, inset]) {
+    for (let x = d; x < w - d; x++) {
+      ring.push(d * w + x, (h - 1 - d) * w + x);
+    }
+    for (let y = d + 1; y < h - 1 - d; y++) {
+      ring.push(y * w + d, y * w + (w - 1 - d));
+    }
   }
 
+  const levels = LEVELS.filter((t) => t <= loosest);
+  if (!levels.length) levels.push(loosest);
+
+  const cleared = levels.map((t) => {
+    const mask = fill(t);
+    let hit = 0;
+    for (const at of ring) hit += mask[at];
+    return hit / ring.length;
+  });
+
+  const target = Math.max(...cleared) * CLEARED;
+  const i = cleared.findIndex((c) => c >= target);
+  return levels[i < 0 ? levels.length - 1 : i];
+}
+
+/** Half-width of the widest gap a leak is allowed to have squeezed through. */
+const LEAK_RADIUS = 2;
+
+/**
+ * Undoes anything the fill reached through a gap narrower than it is wide.
+ *
+ * The edge bar catches a *faint* outline. It cannot catch a **broken** one:
+ * where three pixels of a hem genuinely read as backdrop there is no gradient
+ * to find, the fill threads through, and on the far side of the hole every
+ * pixel of a white garment is within tolerance. That single case — a hole a
+ * few pixels wide — is what a white shirt on a white sweep actually fails on,
+ * and it takes the whole shirt.
+ *
+ * The tell is not colour, it is shape: real background is *broadly* connected
+ * to the frame edge, and a leak hangs off a thread. So erode the background by
+ * a couple of pixels, which severs any neck that thin, keep only what still
+ * reaches the border, and grow it back inside its original bounds. Background
+ * that came in through the front door survives untouched; anything that came
+ * through a pinhole is put back.
+ *
+ * The cost is that a genuinely narrow channel of backdrop — a gap under an arm
+ * pressed to a side — is put back as garment. It is bounded at four pixels of
+ * width on a 320px matte, which is narrower than any real gap between two
+ * limbs, and fillEnclosedPockets gets a second look at it afterwards anyway.
+ */
+function sealLeaks(mask: Uint8Array, w: number, h: number): void {
+  // ── close the speckle first.
+  //
+  // A grainy backdrop leaves pinholes all through the background mask — single
+  // pixels that missed the colour bar. Eroding that directly is fatal: every
+  // pinhole eats its own neighbourhood, and on a backdrop a fifth of which is
+  // grain there is nothing left to reconstruct from, so the whole background
+  // survives as "garment". A 3×3 majority closes a pinhole (eight of nine
+  // neighbours outvote it) and leaves a three-pixel neck standing, which is
+  // the width this pass exists to sever.
+  const solid = new Uint8Array(w * h);
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      let bg = 0;
+      let n = 0;
+      for (let dy = -1; dy <= 1; dy++) {
+        const yy = y + dy;
+        if (yy < 0 || yy >= h) continue;
+        for (let dx = -1; dx <= 1; dx++) {
+          const xx = x + dx;
+          if (xx < 0 || xx >= w) continue;
+          n++;
+          bg += mask[yy * w + xx];
+        }
+      }
+      solid[y * w + x] = bg * 2 > n ? 1 : 0;
+    }
+  }
+
+  // ── erode: background only where the neighbourhood is all background.
+  // Outside the frame counts as background, so the border itself never wears
+  // away — it is the one place we are certain about.
+  const eroded = solid;
+  for (let pass = 0; pass < LEAK_RADIUS; pass++) {
+    const was = eroded.slice();
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const at = y * w + x;
+        if (!was[at]) continue;
+        const solid =
+          (x === 0 || was[at - 1]) &&
+          (x === w - 1 || was[at + 1]) &&
+          (y === 0 || was[at - w]) &&
+          (y === h - 1 || was[at + w]);
+        if (!solid) eroded[at] = 0;
+      }
+    }
+  }
+
+  // ── keep only what the frame edge can still reach.
+  const rooted = new Uint8Array(w * h);
+  const stack: number[] = [];
+  const seed = (at: number) => {
+    if (!eroded[at] || rooted[at]) return;
+    rooted[at] = 1;
+    stack.push(at);
+  };
+  for (let x = 0; x < w; x++) {
+    seed(x);
+    seed((h - 1) * w + x);
+  }
+  for (let y = 0; y < h; y++) {
+    seed(y * w);
+    seed(y * w + w - 1);
+  }
   while (stack.length) {
     const at = stack.pop() as number;
     const x = at % w;
     const y = (at - x) / w;
-    if (x > 0) push(x - 1, y);
-    if (x < w - 1) push(x + 1, y);
-    if (y > 0) push(x, y - 1);
-    if (y < h - 1) push(x, y + 1);
+    if (x > 0) seed(at - 1);
+    if (x < w - 1) seed(at + 1);
+    if (y > 0) seed(at - w);
+    if (y < h - 1) seed(at + w);
   }
 
-  fillEnclosedPockets(data, mask, w, h, mean, tolerance);
-  return mask;
+  // ── grow back, but only over pixels the fill had already claimed.
+  for (let pass = 0; pass < LEAK_RADIUS; pass++) {
+    const was = rooted.slice();
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const at = y * w + x;
+        if (rooted[at] || !mask[at]) continue;
+        if (
+          (x > 0 && was[at - 1]) ||
+          (x < w - 1 && was[at + 1]) ||
+          (y > 0 && was[at - w]) ||
+          (y < h - 1 && was[at + w])
+        ) {
+          rooted[at] = 1;
+        }
+      }
+    }
+  }
+
+  mask.set(rooted);
+}
+
+/**
+ * The two pixels of backdrop the edge barrier leaves behind.
+ *
+ * The fill halts at the *first* pixel of the outline, and an outline has a
+ * ramp — so it halts a pixel or two before the garment actually starts, and
+ * those pixels are still backdrop. Left alone they survive the matte as a pale
+ * halo, which after the blur in softenMask is three to six pixels wide in the
+ * finished cutout and is the first thing you notice about a dark garment.
+ *
+ * So: two passes, each stepping exactly one pixel inward from what was
+ * background at the start of that pass, and only over pixels that are a much
+ * closer match to the backdrop than the fill itself demanded. Two, and
+ * snapshotted, because the whole danger is a rule like this cascading — an
+ * unbounded version is just the leak we built the barrier to stop. On a
+ * garment that genuinely is the colour of its backdrop this shaves a pixel or
+ * two off the outline, which the soft edge absorbs and nobody can see; on a
+ * garment that isn't, it removes a halo everybody can.
+ */
+function trimEdgeFringe(
+  data: Uint8ClampedArray,
+  mask: Uint8Array,
+  w: number,
+  h: number,
+  mean: number[],
+  tolerance: number,
+): void {
+  // How far the subject sits from the backdrop decides how hard we may trim.
+  //
+  // Against a navy coat on white there is no risk at all: nothing two pixels
+  // inside the outline can be mistaken for the sweep, and two passes take the
+  // halo off cleanly. Against a white shirt on white every pixel of the
+  // garment is a candidate, and two passes is enough to sever a shoelace. So
+  // the reach is set by the one measurement that separates those cases.
+  let sum = 0;
+  let subject = 0;
+  for (let at = 0; at < mask.length; at++) {
+    if (mask[at]) continue;
+    const i = at * 4;
+    sum +=
+      Math.abs(data[i] - mean[0]) +
+      Math.abs(data[i + 1] - mean[1]) +
+      Math.abs(data[i + 2] - mean[2]);
+    subject++;
+  }
+  const distinct = subject ? sum / subject : 0;
+  const bold = distinct > 90;
+
+  const strict = tolerance * (bold ? 0.6 : 0.45);
+  const near = (at: number) => {
+    const i = at * 4;
+    return (
+      Math.abs(data[i] - mean[0]) +
+        Math.abs(data[i + 1] - mean[1]) +
+        Math.abs(data[i + 2] - mean[2]) <
+      strict
+    );
+  };
+
+  for (let pass = 0; pass < (bold ? 2 : 1); pass++) {
+    const was = mask.slice();
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const at = y * w + x;
+        if (was[at] || !near(at)) continue;
+        const touching =
+          (x > 0 && was[at - 1]) ||
+          (x < w - 1 && was[at + 1]) ||
+          (y > 0 && was[at - w]) ||
+          (y < h - 1 && was[at + w]);
+        if (touching) mask[at] = 1;
+      }
+    }
+  }
 }
 
 /**
@@ -136,9 +479,19 @@ function fillEnclosedPockets(
   mean: number[],
   tolerance: number,
 ): void {
-  const MAX_POCKET = 0.03;
+  // 3% of the frame was far too generous. The white midsole of a trainer, the
+  // white panel of a graphic tee, the inside of a buckle — all enclosed, all
+  // the colour of a white sweep, all comfortably under 3%, and all deleted,
+  // which is what put magenta through the sole of every white shoe in the
+  // wardrobe. A gap between an arm and a torso is a fraction of that.
+  // The window is narrower than it looks. The gap between a bent arm and a
+  // hip — the case this whole pass exists for — measures 1.3% of its frame in
+  // test/cutout.test.mjs, so the ceiling cannot go below about 1.4%; and a
+  // white midsole starts around 6%. 1.5% sits in the gap between them with
+  // room on both sides.
+  const MAX_POCKET = 0.015;
   const limit = Math.floor(w * h * MAX_POCKET);
-  const strict = tolerance * 0.55;
+  const strict = tolerance * 0.4;
 
   const seen = new Uint8Array(w * h);
   const near = (i: number, within: number) =>
@@ -157,12 +510,21 @@ function fillEnclosedPockets(
 
     while (stack.length) {
       const at = stack.pop() as number;
-      region.push(at);
-      // Past the size limit it is not a pocket, it is the subject. Stop
-      // walking rather than tracing out a whole garment to then discard it.
-      if (region.length > limit) {
-        escaped = true;
-        break;
+
+      // Past the size limit it is not a pocket, it is the subject — but the
+      // walk has to run to the end regardless. Breaking out here left most of
+      // the region unvisited, so the outer loop started again inside it and
+      // traced whatever thin fragments `seen` had left behind; each of those
+      // came in under the limit and was duly deleted. On a garment whose own
+      // colour is near the backdrop's that is the entire interior, and it came
+      // out ruled with one-pixel stripes of nothing. Costs one more pass over
+      // a region we were walking anyway.
+      if (!escaped) {
+        region.push(at);
+        if (region.length > limit) {
+          escaped = true;
+          region.length = 0;
+        }
       }
 
       const x = at % w;

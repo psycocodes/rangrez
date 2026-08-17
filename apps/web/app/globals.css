@@ -49,6 +49,14 @@
   --font-identity-family: var(--font-identity), monospace;
   --font-iosevka-family: var(--font-iosevka), monospace;
 
+  /* The garment card's own three, and nothing else's — see the note in
+     app/layout.tsx. No fallback stack on the two local faces: half the design
+     is that the letters are drawn oversized, and any substitute would size
+     itself sanely and silently ruin the layout rather than fail visibly. */
+  --font-fingerprint: var(--font-identity);
+  --font-block: var(--font-scholar);
+  --font-label: var(--font-smokum), var(--font-jetbrains), monospace;
+
   /* ── motion: fabric settles, it does not bounce ────────────────────────── */
   --ease-cloth: cubic-bezier(0.22, 1, 0.36, 1);
   --ease-drape: cubic-bezier(0.65, 0, 0.35, 1);
@@ -58,6 +66,19 @@
      this, so the two can never disagree — they did, by 8px, and the page
      showed through the seam on every scroll. One number, two consumers. */
   --spacing-shell-top: 3rem;
+}
+
+/* The bounce rail deals its cards in. Declared here rather than in the
+   component because a @keyframes has to be global; the easing that drives it
+   is generated in components/BounceRail.tsx from GSAP's own elastic formula
+   and handed over as a custom property. */
+@keyframes deal-in {
+  from {
+    scale: 0;
+  }
+  to {
+    scale: 1;
+  }
 }
 
 /* ── base ─────────────────────────────────────────────────────────────────── */
