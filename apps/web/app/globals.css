@@ -48,6 +48,8 @@
   --font-friday-family: var(--font-friday), sans-serif;
   --font-identity-family: var(--font-identity), monospace;
   --font-iosevka-family: var(--font-iosevka), monospace;
+  --font-clash-family: var(--font-clash), sans-serif;
+  --font-instrument-sans-family: var(--font-instrument-sans), sans-serif;
 
   /* The garment card's own three, and nothing else's — see the note in
      app/layout.tsx. No fallback stack on the two local faces: half the design
@@ -455,10 +457,22 @@ body {
     transform: translateX(-50%);
   }
 }
-.marquee-track {
-  animation: drift 46s linear infinite;
+@keyframes drift-reverse {
+  from {
+    transform: translateX(-50%);
+  }
+  to {
+    transform: translateX(0%);
+  }
 }
-.marquee-track:hover {
+.marquee-track {
+  animation: drift 24s linear infinite;
+}
+.marquee-track-reverse {
+  animation: drift-reverse 26s linear infinite;
+}
+.marquee-track:hover,
+.marquee-track-reverse:hover {
   animation-play-state: paused;
 }
 

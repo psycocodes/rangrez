@@ -69,9 +69,8 @@ export async function signUp(
     throw err;
   }
 
-  // New users go straight to the avatar studio — nothing in the product works
-  // until there is a body to render onto (PRD Flow A).
-  redirect("/atelier");
+  // New users go straight to the avatar studio (PRD Flow A).
+  redirect("/avatar-new");
 }
 
 export async function signIn(
@@ -110,7 +109,7 @@ export async function signIn(
     throw err;
   }
 
-  redirect(profile.avatar ? "/wardrobe" : "/atelier");
+  redirect(profile.avatar ? "/wardrobe" : "/avatar-new");
 }
 
 /**
@@ -135,7 +134,7 @@ export async function signInWithGoogle(): Promise<void> {
 
   if (error || !data.url) {
     redirect(
-      `/enter?error=${encodeURIComponent(
+      `/auth?error=${encodeURIComponent(
         error?.message ?? "Couldn't reach Google.",
       )}`,
     );
@@ -155,5 +154,5 @@ async function origin(): Promise<string> {
 
 export async function signOut(): Promise<void> {
   await endSession();
-  redirect("/enter");
+  redirect("/auth");
 }

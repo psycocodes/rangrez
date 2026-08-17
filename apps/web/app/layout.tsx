@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import {
+  Instrument_Sans,
   Instrument_Serif,
   Inter_Tight,
   JetBrains_Mono,
@@ -19,6 +20,12 @@ const instrument = Instrument_Serif({
   subsets: ["latin"],
   weight: "400",
   style: ["normal", "italic"],
+  display: "swap",
+});
+
+const instrumentSans = Instrument_Sans({
+  variable: "--font-instrument-sans",
+  subsets: ["latin"],
   display: "swap",
 });
 
@@ -97,6 +104,12 @@ const iosevka = localFont({
   display: "swap",
 });
 
+const clash = localFont({
+  src: "../public/assets/fonts/ClashDisplay-Variable.ttf",
+  variable: "--font-clash",
+  display: "swap",
+});
+
 export const metadata: Metadata = {
   title: "Rangrez — the dyer of cloth",
   description:
@@ -115,7 +128,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${instrument.variable} ${inter.variable} ${jetbrains.variable} ${kartik.variable} ${identity.variable} ${scholar.variable} ${smokum.variable} ${friday.variable} ${iosevka.variable} h-full`}
+      className={`${instrument.variable} ${instrumentSans.variable} ${inter.variable} ${jetbrains.variable} ${kartik.variable} ${identity.variable} ${scholar.variable} ${smokum.variable} ${friday.variable} ${iosevka.variable} ${clash.variable} h-full`}
     >
       <body className="weave grain min-h-full text-ink">{children}</body>
     </html>

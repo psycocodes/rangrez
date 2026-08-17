@@ -4,8 +4,8 @@ export default async function ShellLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex h-dvh min-h-dvh flex-col overflow-hidden bg-[#F4EFE6]">
-      <main className="min-h-0 flex-1 overflow-hidden flex flex-col">{children}</main>
+    <div className="flex min-h-screen min-h-dvh w-full flex-col bg-[#F4EFE6]">
+      <main className="flex min-h-0 flex-1 flex-col">{children}</main>
     </div>
   );
 }

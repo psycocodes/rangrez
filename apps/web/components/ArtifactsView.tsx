@@ -129,7 +129,7 @@ export function ArtifactsView({
   };
 
   return (
-    <div className="relative min-h-screen flex flex-col bg-[#F4EFE6] text-[#12100d]">
+    <div className="relative min-h-screen w-full flex-1 flex flex-col overflow-y-auto bg-[#F4EFE6] text-[#12100d] pb-28">
       {/* Background Texture */}
       <div
         aria-hidden
@@ -149,7 +149,8 @@ export function ArtifactsView({
         leftElement={
           <Link
             href="/trialroom"
-            className="flex items-center gap-1.5 rounded-xl border-2 border-[#12100d] bg-white px-3 py-1.5 font-friday text-xs uppercase tracking-wider text-[#12100d] shadow-[2px_2px_0px_#12100d] hover:bg-[#FFDE59] transition-colors"
+            className="flex items-center gap-1.5 rounded-xl border-2 border-[#12100d] bg-white px-3 py-1.5 text-xs font-bold uppercase tracking-wider text-[#12100d] shadow-[2px_2px_0px_#12100d] hover:bg-[#FFDE59] transition-colors"
+            style={{ fontFamily: "var(--font-clash), sans-serif" }}
           >
             <ArrowLeft className="h-3.5 w-3.5" />
             <span>TRIAL ROOM</span>
@@ -167,14 +168,23 @@ export function ArtifactsView({
                 <span className="flex h-8 w-8 items-center justify-center rounded-xl border-2 border-[#12100d] bg-[#7FE06E] shadow-[2px_2px_0px_#12100d]">
                   <Layers className="h-5 w-5 text-[#12100d]" />
                 </span>
-                <span className="font-mono text-xs font-black uppercase tracking-widest text-[#12100d]/75">
+                <span
+                  className="text-xs font-bold uppercase tracking-widest text-[#12100d]/80"
+                  style={{ fontFamily: "var(--font-clash), sans-serif" }}
+                >
                   MINTED LOOKS COLLECTION
                 </span>
               </div>
-              <h1 className="font-friday text-3xl sm:text-5xl uppercase tracking-wide text-[#12100d]">
+              <h1
+                className="text-3xl sm:text-5xl font-black uppercase tracking-wide text-[#12100d]"
+                style={{ fontFamily: "var(--font-clash), sans-serif" }}
+              >
                 ARTIFACTS GALLERY
               </h1>
-              <p className="font-mono text-xs max-w-xl text-[#12100d]/80 leading-relaxed">
+              <p
+                className="text-xs max-w-xl text-[#12100d]/80 leading-relaxed font-medium"
+                style={{ fontFamily: "var(--font-instrument-sans), sans-serif" }}
+              >
                 Every outfit generation is minted into an archival artifact. Review compositions, inspect shop pricing, and launch wishlisted store carts with 1 click.
               </p>
             </div>
@@ -335,10 +345,16 @@ export function ArtifactsView({
                   {/* Card Footer */}
                   <div className="mt-3 flex items-center justify-between pt-2 border-t-2 border-[#12100d]/10">
                     <div>
-                      <h4 className="font-friday text-base uppercase text-[#12100d] truncate max-w-[10rem]">
+                      <h4
+                        className="text-base font-bold uppercase text-[#12100d] truncate max-w-[10rem]"
+                        style={{ fontFamily: "var(--font-clash), sans-serif" }}
+                      >
                         {artifact.name}
                       </h4>
-                      <span className="font-mono text-[0.65rem] font-bold text-[#12100d]/70">
+                      <span
+                        className="text-[0.65rem] font-bold text-[#12100d]/70"
+                        style={{ fontFamily: "var(--font-instrument-sans), sans-serif" }}
+                      >
                         {formattedPrice}
                       </span>
                     </div>
@@ -349,7 +365,8 @@ export function ArtifactsView({
                         e.stopPropagation();
                         setSelectedArtifact(artifact);
                       }}
-                      className="rounded-xl border-2 border-[#12100d] bg-[#FFDE59] px-2.5 py-1 font-friday text-[0.7rem] uppercase tracking-wider text-[#12100d] shadow-[2px_2px_0px_#12100d] hover:bg-[#FFE57F]"
+                      className="rounded-xl border-2 border-[#12100d] bg-[#FFDE59] px-2.5 py-1 text-[0.7rem] font-bold uppercase tracking-wider text-[#12100d] shadow-[2px_2px_0px_#12100d] hover:bg-[#FFE57F]"
+                      style={{ fontFamily: "var(--font-clash), sans-serif" }}
                     >
                       INSPECT →
                     </button>
@@ -450,10 +467,16 @@ export function ArtifactsView({
                 <div className="flex flex-col justify-between space-y-4">
                   <div className="space-y-3">
                     <div>
-                      <h3 className="font-friday text-2xl uppercase tracking-wide text-[#12100d]">
+                      <h3
+                        className="text-2xl font-black uppercase tracking-wide text-[#12100d]"
+                        style={{ fontFamily: "var(--font-clash), sans-serif" }}
+                      >
                         {selectedArtifact.name}
                       </h3>
-                      <p className="font-mono text-xs text-[#12100d]/70">
+                      <p
+                        className="text-xs text-[#12100d]/70"
+                        style={{ fontFamily: "var(--font-instrument-sans), sans-serif" }}
+                      >
                         Minted on {new Date(selectedArtifact.createdAt).toLocaleString()}
                       </p>
                     </div>
@@ -461,10 +484,16 @@ export function ArtifactsView({
                     {/* Total Price Card */}
                     <div className="flex items-center justify-between rounded-2xl border-2 border-[#12100d] bg-white p-3.5 shadow-[3px_3px_0px_#12100d]">
                       <div>
-                        <span className="font-mono text-[0.65rem] font-black uppercase text-[#12100d]/60">
+                        <span
+                          className="text-[0.65rem] font-bold uppercase text-[#12100d]/60"
+                          style={{ fontFamily: "var(--font-clash), sans-serif" }}
+                        >
                           Total Fit Valuation
                         </span>
-                        <p className="font-friday text-2xl text-[#12100d]">
+                        <p
+                          className="text-2xl font-black text-[#12100d]"
+                          style={{ fontFamily: "var(--font-clash), sans-serif" }}
+                        >
                           {new Intl.NumberFormat("en-IN", {
                             style: "currency",
                             currency: "INR",
@@ -474,10 +503,16 @@ export function ArtifactsView({
                       </div>
 
                       <div className="text-right">
-                        <span className="font-mono text-[0.65rem] font-black uppercase text-[#12100d]/60">
+                        <span
+                          className="text-[0.65rem] font-bold uppercase text-[#12100d]/60"
+                          style={{ fontFamily: "var(--font-clash), sans-serif" }}
+                        >
                           Layers Worn
                         </span>
-                        <p className="font-friday text-lg text-[#12100d]">
+                        <p
+                          className="text-lg font-bold text-[#12100d]"
+                          style={{ fontFamily: "var(--font-clash), sans-serif" }}
+                        >
                           {selectedArtifact.garments.length} Pieces
                         </p>
                       </div>
@@ -485,7 +520,10 @@ export function ArtifactsView({
 
                     {/* Equiped Items List */}
                     <div className="space-y-2">
-                      <span className="font-mono text-[0.65rem] font-black uppercase text-[#12100d]/60">
+                      <span
+                        className="text-[0.65rem] font-bold uppercase text-[#12100d]/60"
+                        style={{ fontFamily: "var(--font-clash), sans-serif" }}
+                      >
                         Itemized Garments & Shop Links:
                       </span>
                       <div className="space-y-1.5 max-h-56 overflow-y-auto pr-1">
@@ -510,11 +548,17 @@ export function ArtifactsView({
                                   />
                                 </div>
                                 <div className="min-w-0">
-                                  <p className="truncate font-mono text-[0.75rem] font-bold text-[#12100d]">
+                                  <p
+                                    className="truncate text-[0.75rem] font-bold text-[#12100d]"
+                                    style={{ fontFamily: "var(--font-clash), sans-serif" }}
+                                  >
                                     {g.name}
                                   </p>
-                                  <div className="flex items-center gap-1.5 font-mono text-[0.62rem] text-[#12100d]/70 uppercase">
-                                    <span className="font-black text-[#12100d]">{g.zone}</span>
+                                  <div
+                                    className="flex items-center gap-1.5 text-[0.62rem] text-[#12100d]/70 uppercase"
+                                    style={{ fontFamily: "var(--font-instrument-sans), sans-serif" }}
+                                  >
+                                    <span className="font-bold text-[#12100d]">{g.zone}</span>
                                     <span>·</span>
                                     <span>{g.dye.name}</span>
                                     <span>·</span>
@@ -524,9 +568,12 @@ export function ArtifactsView({
                               </div>
 
                               <div className="flex items-center gap-2 shrink-0">
-                                <span className={`rounded border border-[#12100d] px-2 py-0.5 font-mono text-[0.68rem] font-black ${
-                                  isShop ? "bg-[#FFDE59] text-[#12100d]" : "bg-[#7FE06E] text-[#12100d]"
-                                }`}>
+                                <span
+                                  className={`rounded border border-[#12100d] px-2 py-0.5 text-[0.68rem] font-black ${
+                                    isShop ? "bg-[#FFDE59] text-[#12100d]" : "bg-[#7FE06E] text-[#12100d]"
+                                  }`}
+                                  style={{ fontFamily: "var(--font-clash), sans-serif" }}
+                                >
                                   {formattedItemPrice}
                                 </span>
 
@@ -555,7 +602,8 @@ export function ArtifactsView({
                       <button
                         type="button"
                         onClick={() => handleOpenAllTabs(selectedArtifact)}
-                        className="w-full flex items-center justify-center gap-2 rounded-2xl border-[3px] border-[#12100d] bg-[#7FE06E] py-3 font-friday text-sm uppercase tracking-wider text-[#12100d] shadow-[4px_4px_0px_#12100d] hover:bg-[#92E883] active:translate-x-[2px] active:translate-y-[2px] transition-all cursor-pointer"
+                        className="w-full flex items-center justify-center gap-2 rounded-2xl border-[3px] border-[#12100d] bg-[#7FE06E] py-3 text-sm font-black uppercase tracking-wider text-[#12100d] shadow-[4px_4px_0px_#12100d] hover:bg-[#92E883] active:translate-x-[2px] active:translate-y-[2px] transition-all cursor-pointer"
+                        style={{ fontFamily: "var(--font-clash), sans-serif" }}
                       >
                         <ShoppingBag className="h-4 w-4" />
                         <span>
@@ -569,7 +617,8 @@ export function ArtifactsView({
                     <div className="flex gap-2">
                       <Link
                         href="/trialroom"
-                        className="flex-1 flex items-center justify-center gap-2 rounded-2xl border-2 border-[#12100d] bg-[#FFDE59] py-2.5 font-friday text-xs uppercase tracking-wider text-[#12100d] shadow-[2px_2px_0px_#12100d] hover:bg-[#FFE57F]"
+                        className="flex-1 flex items-center justify-center gap-2 rounded-2xl border-2 border-[#12100d] bg-[#FFDE59] py-2.5 text-xs font-bold uppercase tracking-wider text-[#12100d] shadow-[2px_2px_0px_#12100d] hover:bg-[#FFE57F]"
+                        style={{ fontFamily: "var(--font-clash), sans-serif" }}
                       >
                         <RotateCcw className="h-3.5 w-3.5" />
                         <span>DRESS IN TRIAL ROOM</span>
@@ -578,7 +627,8 @@ export function ArtifactsView({
                       <button
                         type="button"
                         onClick={() => setSelectedArtifact(null)}
-                        className="rounded-2xl border-2 border-[#12100d] bg-white px-5 py-2.5 font-friday text-xs uppercase tracking-wider text-[#12100d] shadow-[2px_2px_0px_#12100d] hover:bg-[#FAF6EF] cursor-pointer"
+                        className="rounded-2xl border-2 border-[#12100d] bg-white px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-[#12100d] shadow-[2px_2px_0px_#12100d] hover:bg-[#FAF6EF] cursor-pointer"
+                        style={{ fontFamily: "var(--font-clash), sans-serif" }}
                       >
                         CLOSE
                       </button>

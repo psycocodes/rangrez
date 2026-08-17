@@ -65,10 +65,10 @@ export async function getCurrentUser(): Promise<User | null> {
   }
 }
 
-/** For pages that cannot render without a user. Redirects to the door. */
+/** For pages that cannot render without a user. Redirects to the auth page. */
 export async function requireUser(): Promise<User> {
   const user = await getCurrentUser();
-  if (!user) redirect("/enter");
+  if (!user) redirect("/auth");
   return user;
 }
 

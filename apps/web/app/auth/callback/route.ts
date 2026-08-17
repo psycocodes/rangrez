@@ -19,12 +19,12 @@ export async function GET(req: Request) {
   const denied = url.searchParams.get("error_description") ?? url.searchParams.get("error");
   if (denied) {
     return NextResponse.redirect(
-      new URL(`/enter?error=${encodeURIComponent(denied)}`, url.origin),
+      new URL(`/auth?error=${encodeURIComponent(denied)}`, url.origin),
     );
   }
 
   if (!code) {
-    return NextResponse.redirect(new URL("/enter", url.origin));
+    return NextResponse.redirect(new URL("/auth", url.origin));
   }
 
   const supabase = await authClient();
@@ -33,7 +33,7 @@ export async function GET(req: Request) {
   if (error || !data.user) {
     return NextResponse.redirect(
       new URL(
-        `/enter?error=${encodeURIComponent(error?.message ?? "That sign-in didn't complete.")}`,
+        `/auth?error=${encodeURIComponent(error?.message ?? "That sign-in didn't complete.")}`,
         url.origin,
       ),
     );
@@ -57,6 +57,6 @@ export async function GET(req: Request) {
   }
 
   return NextResponse.redirect(
-    new URL(profile.avatar ? "/wardrobe" : "/atelier", url.origin),
+    new URL(profile.avatar ? "/wardrobe" : "/avatar-new", url.origin),
   );
 }
