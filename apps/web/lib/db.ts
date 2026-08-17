@@ -249,15 +249,26 @@ export async function ensureProfile(input: {
   id: string;
   email: string;
   name: string;
+  profilePhotoUrl?: string;
 }): Promise<User> {
   const existing = await findUserById(input.id);
-  if (existing) return existing;
+  if (existing) {
+    if (input.profilePhotoUrl && !existing.profilePhotoUrl) {
+      await updateUser(existing.id, (u) => {
+        u.profilePhotoUrl = input.profilePhotoUrl;
+      }).catch(() => {});
+      existing.profilePhotoUrl = input.profilePhotoUrl;
+    }
+    return existing;
+  }
 
   const user: User = {
     id: input.id,
     email: input.email,
     name: input.name,
     createdAt: new Date().toISOString(),
+    profilePhotoUrl: input.profilePhotoUrl,
+    useGooglePhoto: true,
     avatars: [],
     measurements: { unit: "cm" },
     preferences: { fitPreference: "regular", paletteFirst: true },
@@ -274,6 +285,8 @@ export async function insertUser(user: User): Promise<User> {
       id: user.id,
       email: user.email,
       name: user.name,
+      profile_photo_url: user.profilePhotoUrl ?? null,
+      use_google_photo: user.useGooglePhoto ?? true,
       avatars: user.avatars,
       active_avatar_id: user.activeAvatarId ?? null,
       avatar: user.avatar ?? null,

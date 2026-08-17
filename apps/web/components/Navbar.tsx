@@ -392,7 +392,8 @@ export function Navbar({
                       src={displayProfilePhoto}
                       alt={user.name || "Profile"}
                       fill
-                      className="object-cover p-0.5"
+                      className="object-cover"
+                      unoptimized={displayProfilePhoto.startsWith("https://unavatar.io") || displayProfilePhoto.includes("googleusercontent")}
                     />
                   </div>
                 </button>

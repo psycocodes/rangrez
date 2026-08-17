@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useState, useTransition } from "react";
 import { signOut } from "@/app/actions/auth";
 import { updateProfilePhoto } from "@/app/actions/profile";
+import { hasGooglePhoto, profilePhoto } from "@/lib/profile-photo";
 import type { Avatar, User } from "@/lib/types";
 
 export function ProfileHeaderCard({
@@ -21,18 +22,11 @@ export function ProfileHeaderCard({
   renderedCount: number;
 }) {
   const [isGooglePhoto, setIsGooglePhoto] = useState(user.useGooglePhoto ?? true);
-  const [photoPickerOpen, setPhotoPickerOpen] = useState(false);
   const [customPhotoUrl, setCustomPhotoUrl] = useState(user.profilePhotoUrl ?? "");
   const [isPending, startTransition] = useTransition();
 
-  // Generated Google-style default avatar or custom
-  const googleAvatarUrl = `https://api.dicebear.com/7.x/notionists/svg?seed=${encodeURIComponent(
-    user.name || "User",
-  )}&backgroundColor=b6e3f4,c0aede,d1d4f9,ffd5dc,ffdfbf`;
-
-  const displayProfilePhoto = isGooglePhoto
-    ? googleAvatarUrl
-    : customPhotoUrl || googleAvatarUrl;
+  const displayProfilePhoto = profilePhoto({ ...user, useGooglePhoto: isGooglePhoto });
+  const googleAvailable = hasGooglePhoto(user);
 
   const handleToggleGoogle = () => {
     const nextVal = !isGooglePhoto;

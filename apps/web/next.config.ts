@@ -60,6 +60,10 @@ const nextConfig: NextConfig = {
       // 400 on a perfectly good avatar.
       { protocol: "https", hostname: "*.googleusercontent.com" },
       { protocol: "https", hostname: "googleusercontent.com" },
+      { protocol: "https", hostname: "unavatar.io" },
+      { protocol: "https", hostname: "*.unavatar.io" },
+      { protocol: "https", hostname: "*.google.com" },
+      { protocol: "https", hostname: "*.gravatar.com" },
     ],
   },
 };

@@ -3,23 +3,15 @@ import type { User } from "./types";
 /**
  * Which face to show for a person, and in what order to prefer them.
  *
- * There were two copies of this decision — one in ProfileView, one in the
- * Navbar — and both had the same bug: what they called "the Google photo" was
- * a DiceBear illustration generated from the account name. Nobody's actual
- * Google picture had ever been fetched, so the toggle marked "use my Google
- * photo" turned on a cartoon.
- *
- * The order:
- *
- *   1. a photo the user uploaded here, if they have turned the Google one off
- *   2. the picture on the Google account they signed in with
- *   3. a photo they uploaded, even when they asked for Google — because an
- *      email-and-password account has no Google picture to fall back to and a
- *      stored one is still better than a drawing
- *   4. a generated illustration, which is the only branch that was ever taken
+ * 1. A photo the user explicitly uploaded/set if they turned off Google photo
+ * 2. The user's real Google profile photo (from OAuth session, identities, or unavatar fallback)
+ * 3. A stored custom photo
+ * 4. An email-based avatar
+ * 5. A generated illustration fallback
  */
 export function profilePhoto(user: {
   name?: string;
+  email?: string;
   profilePhotoUrl?: string;
   useGooglePhoto?: boolean;
   googlePhotoUrl?: string;
@@ -28,12 +20,25 @@ export function profilePhoto(user: {
 
   if (!wantsGoogle && user.profilePhotoUrl) return user.profilePhotoUrl;
   if (wantsGoogle && user.googlePhotoUrl) return user.googlePhotoUrl;
-  return user.profilePhotoUrl || generatedPhoto(user.name);
+  if (user.profilePhotoUrl) return user.profilePhotoUrl;
+  if (user.googlePhotoUrl) return user.googlePhotoUrl;
+
+  if (user.email && user.email.includes("@")) {
+    const emailClean = user.email.trim().toLowerCase();
+    if (emailClean.endsWith("@gmail.com") || emailClean.endsWith(".google.com")) {
+      return `https://unavatar.io/google/${encodeURIComponent(emailClean)}`;
+    }
+    return `https://unavatar.io/${encodeURIComponent(emailClean)}`;
+  }
+
+  return generatedPhoto(user.name);
 }
 
 /** Whether there is a real Google picture to offer, rather than a drawing. */
-export function hasGooglePhoto(user: Pick<User, "googlePhotoUrl">): boolean {
-  return Boolean(user.googlePhotoUrl);
+export function hasGooglePhoto(user: { googlePhotoUrl?: string; email?: string }): boolean {
+  if (Boolean(user.googlePhotoUrl)) return true;
+  if (user.email && (user.email.endsWith("@gmail.com") || user.email.endsWith(".google.com"))) return true;
+  return false;
 }
 
 /**
@@ -47,22 +52,72 @@ export function generatedPhoto(name?: string): string {
 }
 
 /**
- * The picture Google put on the session, if this account came from Google.
- *
- * Supabase copies the provider's claims into `user_metadata` verbatim, and the
- * key is not consistent: the OIDC claim is `picture`, and Supabase's own
- * normalised field is `avatar_url`. Both are checked because which one is
- * present depends on the provider and on how the identity was linked.
+ * Extract the user's real Google / OAuth photo from Supabase auth user object.
+ * Checks user_metadata, identities array, app_metadata, and email fallbacks.
  */
+export function extractGooglePhoto(
+  authUser: {
+    user_metadata?: Record<string, unknown> | null;
+    app_metadata?: Record<string, unknown> | null;
+    identities?: Array<{ identity_data?: Record<string, unknown> | null; provider?: string }> | null;
+    email?: string | null;
+  } | null | undefined,
+  profile?: { profilePhotoUrl?: string } | null,
+): string | undefined {
+  if (!authUser) return profile?.profilePhotoUrl;
+
+  // 1. Check user_metadata keys
+  const meta = authUser.user_metadata;
+  if (meta) {
+    for (const key of ["avatar_url", "picture", "picture_url", "photo_url", "image", "photo", "profile_picture"]) {
+      const value = meta[key];
+      if (typeof value === "string" && (value.startsWith("https://") || value.startsWith("http://"))) {
+        return value;
+      }
+    }
+  }
+
+  // 2. Check identities array (Supabase OAuth stores Google user data here)
+  if (Array.isArray(authUser.identities)) {
+    for (const identity of authUser.identities) {
+      const idData = identity.identity_data;
+      if (idData) {
+        for (const key of ["avatar_url", "picture", "picture_url", "photo_url", "image", "photo", "profile_picture"]) {
+          const value = idData[key];
+          if (typeof value === "string" && (value.startsWith("https://") || value.startsWith("http://"))) {
+            return value;
+          }
+        }
+      }
+    }
+  }
+
+  // 3. Check existing profile photo if it's already an https/http URL
+  if (profile?.profilePhotoUrl && (profile.profilePhotoUrl.startsWith("https://") || profile.profilePhotoUrl.startsWith("http://"))) {
+    return profile.profilePhotoUrl;
+  }
+
+  // 4. Fallback for Google/Gmail accounts: Unavatar Google photo resolver
+  const email = authUser.email;
+  if (email && typeof email === "string" && email.includes("@")) {
+    const emailClean = email.trim().toLowerCase();
+    if (emailClean.endsWith("@gmail.com") || emailClean.endsWith(".google.com")) {
+      return `https://unavatar.io/google/${encodeURIComponent(emailClean)}`;
+    }
+    return `https://unavatar.io/${encodeURIComponent(emailClean)}`;
+  }
+
+  return undefined;
+}
+
 export function googlePhotoFromMetadata(
   metadata: Record<string, unknown> | undefined | null,
 ): string | undefined {
   if (!metadata) return undefined;
-  for (const key of ["avatar_url", "picture"]) {
+  for (const key of ["avatar_url", "picture", "picture_url", "photo_url", "image"]) {
     const value = metadata[key];
-    // Only ever an https URL — this ends up in an <img src>, and the metadata
-    // is provider-controlled rather than ours.
     if (typeof value === "string" && value.startsWith("https://")) return value;
   }
   return undefined;
 }
+

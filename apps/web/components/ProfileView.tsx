@@ -131,7 +131,8 @@ export function ProfileView({
                   alt={user.name || "User"}
                   fill
                   priority
-                  className="object-cover p-2"
+                  className="object-cover"
+                  unoptimized={displayProfilePhoto.startsWith("https://unavatar.io") || displayProfilePhoto.includes("googleusercontent")}
                 />
               </div>
 

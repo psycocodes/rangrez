@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { ensureProfile } from "@/lib/db";
 import { authClient } from "@/lib/supabase-auth";
 import { landingFor } from "@/lib/onboarding";
+import { extractGooglePhoto } from "@/lib/profile-photo";
 
 /**
  * Where Google sends people back to.
@@ -41,6 +42,7 @@ export async function GET(req: Request) {
   }
 
   const meta = data.user.user_metadata ?? {};
+  const googlePhoto = extractGooglePhoto(data.user);
   let profile;
   try {
     profile = await ensureProfile({
@@ -51,6 +53,7 @@ export async function GET(req: Request) {
         (meta.name as string | undefined) ??
         data.user.email?.split("@")[0] ??
         "You",
+      profilePhotoUrl: googlePhoto,
     });
   } catch (err) {
     console.error("[auth/callback] profile failed:", err);
